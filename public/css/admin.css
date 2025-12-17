@@ -1,0 +1,158 @@
+/* Admin Styles */
+.admin-container {
+    min-height: 100vh;
+    padding: 20px;
+    background: #0a0a0a;
+}
+
+.admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #333;
+}
+
+.admin-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.admin-tab {
+    padding: 10px 20px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    color: #888;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.admin-tab.active {
+    background: #8a2be2;
+    color: white;
+    border-color: #8a2be2;
+}
+
+.admin-content {
+    display: none;
+}
+
+.admin-content.active {
+    display: block;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-box {
+    background: #1a1a1a;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #333;
+}
+
+.stat-box h3 {
+    color: #888;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.stat-value {
+    font-size: 32px;
+    font-weight: bold;
+    color: #8a2be2;
+}
+
+.data-table {
+    width: 100%;
+    background: #1a1a1a;
+    border-radius: 12px;
+    border: 1px solid #333;
+    overflow: hidden;
+}
+
+.data-table th,
+.data-table td {
+    padding: 15px;
+    text-align: left;
+    border-bottom: 1px solid #333;
+}
+
+.data-table th {
+    background: #2a2a2a;
+    color: #888;
+    font-weight: 600;
+}
+
+.action-btn {
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    margin-right: 5px;
+}
+
+.btn-edit {
+    background: #4169e1;
+    color: white;
+}
+
+.btn-delete {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-resolve {
+    background: #10b981;
+    color: white;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #888;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    background: #0a0a0a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: white;
+}
+
+.admin-message {
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: none;
+}
+
+.admin-message.success {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid #10b981;
+    color: #10b981;
+    display: block;
+}
+
+.admin-message.error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid #ef4444;
+    color: #ef4444;
+    display: block;
+}

@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register | Magic Eden NFT Marketplace</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* ===== RESET & BASE ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: white;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* ===== REGISTRATION PAGE SPECIFIC STYLES ===== */
+        .register-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a0a2e 100%);
+        }
+
+        .register-card {
+            background: rgba(26, 26, 26, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 50px;
+            width: 100%;
+            max-width: 500px;
+            border: 1px solid rgba(138, 43, 226, 0.3);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        .register-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .register-header .logo {
+            font-size: 36px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            color: #8a2be2;
+        }
+
+        .register-header h1 {
+            font-size: 28px;
+            margin: 0 0 10px 0;
+            background: linear-gradient(135deg, #8a2be2, #4169e1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .register-header p {
+            color: #888;
+            margin: 0;
+        }
+
+        .register-message {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            text-align: center;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .register-message.success {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid #10b981;
+            color: #10b981;
+            display: block;
+        }
+
+        .register-message.error {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 10px;
+            color: #ddd;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 14px;
+            background: rgba(10, 10, 10, 0.8);
+            border: 1px solid #333;
+            border-radius: 10px;
+            color: white;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #8a2be2;
+            box-shadow: 0 0 0 3px rgba(138, 43, 226, 0.2);
+        }
+
+        .form-group input.error {
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+        }
+
+        .form-group input.success {
+            border-color: #10b981 !important;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
+        }
+
+        /* Validation Messages */
+        .validation-message {
+            font-size: 12px;
+            margin-top: 5px;
+            padding: 5px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .validation-message.success {
+            display: block;
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .validation-message.error {
+            display: block;
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .terms-checkbox {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin: 25px 0;
+            padding: 15px;
+            background: rgba(138, 43, 226, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(138, 43, 226, 0.2);
+        }
+
+        .terms-checkbox input {
+            margin-top: 3px;
+        }
+
+        .terms-checkbox label {
+            color: #aaa;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .terms-checkbox a {
+            color: #8a2be2;
+            text-decoration: none;
+        }
+
+        .terms-checkbox a:hover {
+            text-decoration: underline;
+        }
+
+        .register-footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .register-footer a {
+            color: #8a2be2;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .register-footer a:hover {
+            text-decoration: underline;
+        }
+
+        .btn-register {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #8a2be2, #4169e1);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-register:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(138, 43, 226, 0.3);
+        }
+
+        .btn-register:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .social-register {
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .social-register p {
+            color: #666;
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .social-register p::before,
+        .social-register p::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background: #333;
+        }
+
+        .social-register p::before {
+            left: 0;
+        }
+
+        .social-register p::after {
+            right: 0;
+        }
+
+        .social-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .social-btn {
+            padding: 12px 25px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            background: #1a1a1a;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+
+        .social-btn:hover {
+            background: #2a2a2a;
+            border-color: #444;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .register-card {
+                padding: 30px 20px;
+            }
+            
+            .register-header .logo {
+                font-size: 28px;
+            }
+            
+            .register-header h1 {
+                font-size: 24px;
+            }
+            
+            .social-buttons {
+                flex-direction: column;
+            }
+        }
+
+        /* Back Link */
+        .back-link {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+
+        .back-link a {
+            color: #8a2be2;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Note about balances */
+        .balance-note {
+            background: rgba(138, 43, 226, 0.05);
+            border: 1px solid rgba(138, 43, 226, 0.2);
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #888;
+        }
+        
+        .balance-note i {
+            color: #8a2be2;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Back Link -->
+    <div class="back-link">
+        <a href="/">
+            <i class="fas fa-arrow-left"></i> Back to Marketplace
+        </a>
+    </div>
+
+    <div class="register-page">
+        <div class="register-card">
+            <div class="register-header">
+                <div class="logo">
+                    <i class="fas fa-gem"></i>
+                    <span>Magic Eden</span>
+                </div>
+                <h1>Create Account</h1>
+                <p>Join the world's largest NFT marketplace</p>
+            </div>
+            
+            <!-- Message Display -->
+            <div id="registerMessage" class="register-message"></div>
+            
+            <!-- Registration Form -->
+            <form id="registerForm" onsubmit="return handleRegistration(event)">
+                <div class="form-group">
+                    <label for="fullName">Full Name <span style="color: #888;">(Optional)</span></label>
+                    <input type="text" id="fullName" placeholder="John Doe">
+                </div>
+                
+                <div class="form-group">
+                    <label for="registerEmail">Email Address *</label>
+                    <input type="email" id="registerEmail" placeholder="you@example.com" required>
+                    <div id="emailValidation" class="validation-message"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="registerPassword">Password *</label>
+                    <input type="password" id="registerPassword" placeholder="••••••••" required minlength="6">
+                    <div id="passwordValidation" class="validation-message">
+                        Password must be at least 6 characters
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="registerConfirmPassword">Confirm Password *</label>
+                    <input type="password" id="registerConfirmPassword" placeholder="••••••••" required>
+                    <div id="passwordMatch" class="validation-message"></div>
+                </div>
+                
+                <div class="terms-checkbox">
+                    <input type="checkbox" id="agreeTerms" required>
+                    <label for="agreeTerms">
+                        I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>. 
+                        I understand that I must be at least 18 years old to use this platform.
+                    </label>
+                </div>
+                
+                <!-- Note about starting balance -->
+                <div class="balance-note">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Note:</strong> New accounts start with 0 balance. An admin will add funds to your account for testing purposes.
+                </div>
+                
+                <button type="submit" class="btn-register" id="registerButton">
+                    <i class="fas fa-user-plus"></i>
+                    Create Account
+                </button>
+            </form>
+            
+            <div class="social-register">
+                <p>Or register with</p>
+                <div class="social-buttons">
+                    <button type="button" class="social-btn" onclick="socialRegister('google')">
+                        <i class="fab fa-google"></i>
+                        Google
+                    </button>
+                    <button type="button" class="social-btn" onclick="socialRegister('twitter')">
+                        <i class="fab fa-twitter"></i>
+                        Twitter
+                    </button>
+                    <button type="button" class="social-btn" onclick="socialRegister('github')">
+                        <i class="fab fa-github"></i>
+                        GitHub
+                    </button>
+                </div>
+            </div>
+            
+            <div class="register-footer">
+                <p>Already have an account? <a href="/login">Sign in here</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load app.js first (contains Database class) -->
+    <script src="app.js"></script>
+    
+    <!-- Registration JavaScript -->
+    <script>
+        // ===== REGISTRATION JAVASCRIPT =====
+        
+        // Real-time validation
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Registration page loaded');
+            
+            const emailInput = document.getElementById('registerEmail');
+            const passwordInput = document.getElementById('registerPassword');
+            const confirmPasswordInput = document.getElementById('registerConfirmPassword');
+            
+            // Email validation on input
+            emailInput?.addEventListener('input', function() {
+                validateEmail(this.value);
+            });
+            
+            // Password validation on input
+            passwordInput?.addEventListener('input', function() {
+                validatePassword(this.value);
+                checkPasswordMatch();
+            });
+            
+            // Confirm password validation
+            confirmPasswordInput?.addEventListener('input', checkPasswordMatch);
+            
+            // Auto-focus on email field
+            setTimeout(() => {
+                emailInput?.focus();
+            }, 100);
+            
+            // Check if we have db from app.js
+            console.log('Database available:', typeof db !== 'undefined');
+        });
+
+        // Handle registration form submission
+        function handleRegistration(event) {
+            event.preventDefault();
+            console.log('📝 Registration form submitted');
+            
+            // Get form values
+            const fullName = document.getElementById('fullName').value.trim();
+            const email = document.getElementById('registerEmail').value.trim();
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerConfirmPassword').value;
+            const agreeTerms = document.getElementById('agreeTerms')?.checked;
+            
+            const messageEl = document.getElementById('registerMessage');
+            const registerButton = document.getElementById('registerButton');
+            
+            // Reset message
+            if (messageEl) {
+                messageEl.className = 'register-message';
+                messageEl.textContent = '';
+                messageEl.style.display = 'none';
+            }
+            
+            // Validate form
+            if (!email || !password || !confirmPassword) {
+                showError('❌ Please fill all required fields');
+                return false;
+            }
+            
+            if (!agreeTerms) {
+                showError('❌ You must agree to the Terms of Service');
+                return false;
+            }
+            
+            if (password !== confirmPassword) {
+                showError('❌ Passwords do not match');
+                return false;
+            }
+            
+            if (password.length < 6) {
+                showError('❌ Password must be at least 6 characters');
+                return false;
+            }
+            
+            // Final email validation
+            if (!validateEmail(email, true)) {
+                return false;
+            }
+            
+            // Disable button during registration
+            if (registerButton) {
+                registerButton.disabled = true;
+                registerButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
+            }
+            
+            try {
+                // Register user using Database class from app.js
+                if (typeof db === 'undefined') {
+                    showError('❌ Error: Database not loaded. Please refresh the page.');
+                    if (registerButton) {
+                        registerButton.disabled = false;
+                        registerButton.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
+                    }
+                    return false;
+                }
+                
+                console.log('👤 Attempting to register user:', email);
+                const result = db.registerUser(email, password);
+                
+                if (result.success) {
+                    // Store full name if provided
+                    if (fullName) {
+                        const users = db.getUsers();
+                        const user = users.find(u => u.email === email.toLowerCase());
+                        if (user) {
+                            user.fullName = fullName;
+                            localStorage.setItem('magicEdenUsers', JSON.stringify(users));
+                            console.log('✅ Added full name to user:', fullName);
+                        }
+                    }
+                    
+                    // AUTO-LOGIN after successful registration
+                    console.log('✅ Registration successful, auto-logging in...');
+                    
+                    // Store user session
+                    localStorage.setItem('magicEdenCurrentUser', email);
+                    
+                    // Show success message
+                    showSuccess('✅ Account created successfully! Redirecting to dashboard...');
+                    
+                    // Add shake animation to form
+                    const form = document.getElementById('registerForm');
+                    if (form) {
+                        form.classList.add('shake');
+                        setTimeout(() => {
+                            form.classList.remove('shake');
+                        }, 500);
+                    }
+                    
+                    // Verify user was actually created
+                    setTimeout(() => {
+                        const users = db.getUsers();
+                        const createdUser = users.find(u => u.email === email.toLowerCase());
+                        
+                        if (createdUser) {
+                            console.log('✅ User verified in database, redirecting...');
+                            console.log('User data:', createdUser);
+                            window.location.href = '/dashboard';
+                        } else {
+                            console.log('❌ User not found in database after registration');
+                            showError('❌ Registration failed. Please try again.');
+                            if (registerButton) {
+                                registerButton.disabled = false;
+                                registerButton.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
+                            }
+                        }
+                    }, 1500);
+                    
+                } else {
+                    showError(`❌ ${result.message}`);
+                    if (registerButton) {
+                        registerButton.disabled = false;
+                        registerButton.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
+                    }
+                }
+                
+            } catch (error) {
+                console.error('❌ Registration error:', error);
+                showError('❌ An error occurred. Please try again.');
+                if (registerButton) {
+                    registerButton.disabled = false;
+                    registerButton.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
+                }
+            }
+            
+            return false;
+        }
+
+        // Validation functions
+        function validateEmail(email, showMessage = false) {
+            const validationDiv = document.getElementById('emailValidation');
+            const emailInput = document.getElementById('registerEmail');
+            
+            if (!validationDiv || !emailInput) return false;
+            
+            if (!email) {
+                validationDiv.textContent = '';
+                validationDiv.className = 'validation-message';
+                emailInput.classList.remove('error', 'success');
+                return false;
+            }
+            
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            
+            if (!emailRegex.test(email)) {
+                validationDiv.textContent = '❌ Please enter a valid email address';
+                validationDiv.className = 'validation-message error';
+                emailInput.classList.add('error');
+                emailInput.classList.remove('success');
+                return false;
+            }
+            
+            // Check if email already exists
+            if (typeof db !== 'undefined') {
+                const users = db.getUsers();
+                const exists = users.find(u => u.email === email.toLowerCase());
+                
+                if (exists) {
+                    validationDiv.textContent = '❌ Email already registered';
+                    validationDiv.className = 'validation-message error';
+                    emailInput.classList.add('error');
+                    emailInput.classList.remove('success');
+                    return false;
+                }
+            }
+            
+            validationDiv.textContent = '✓ Email is available';
+            validationDiv.className = 'validation-message success';
+            emailInput.classList.add('success');
+            emailInput.classList.remove('error');
+            return true;
+        }
+
+        function validatePassword(password) {
+            const validationDiv = document.getElementById('passwordValidation');
+            const passwordInput = document.getElementById('registerPassword');
+            
+            if (!validationDiv || !passwordInput) return;
+            
+            if (!password) {
+                validationDiv.textContent = 'Password must be at least 6 characters';
+                validationDiv.className = 'validation-message';
+                passwordInput.classList.remove('error', 'success');
+                return;
+            }
+            
+            if (password.length < 6) {
+                validationDiv.textContent = '❌ Password must be at least 6 characters';
+                validationDiv.className = 'validation-message error';
+                passwordInput.classList.add('error');
+                passwordInput.classList.remove('success');
+                return false;
+            }
+            
+            // Check password strength
+            let strength = 'Good';
+            if (password.length >= 12) strength = 'Strong';
+            if (password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password)) strength = 'Strong';
+            
+            validationDiv.textContent = `✓ Password strength: ${strength}`;
+            validationDiv.className = 'validation-message success';
+            passwordInput.classList.add('success');
+            passwordInput.classList.remove('error');
+            return true;
+        }
+
+        function checkPasswordMatch() {
+            const password = document.getElementById('registerPassword')?.value || '';
+            const confirmPassword = document.getElementById('registerConfirmPassword')?.value || '';
+            const matchDiv = document.getElementById('passwordMatch');
+            const confirmInput = document.getElementById('registerConfirmPassword');
+            
+            if (!matchDiv || !confirmInput) return;
+            
+            if (!confirmPassword) {
+                matchDiv.textContent = '';
+                matchDiv.className = 'validation-message';
+                confirmInput.classList.remove('error', 'success');
+                return;
+            }
+            
+            if (password === confirmPassword) {
+                matchDiv.textContent = '✓ Passwords match';
+                matchDiv.className = 'validation-message success';
+                confirmInput.classList.add('success');
+                confirmInput.classList.remove('error');
+                return true;
+            } else {
+                matchDiv.textContent = '❌ Passwords do not match';
+                matchDiv.className = 'validation-message error';
+                confirmInput.classList.add('error');
+                confirmInput.classList.remove('success');
+                return false;
+            }
+        }
+
+        // Show error message
+        function showError(message) {
+            const messageEl = document.getElementById('registerMessage');
+            if (!messageEl) return;
+            
+            messageEl.textContent = message;
+            messageEl.className = 'register-message error';
+            messageEl.style.display = 'block';
+            
+            // Scroll to message
+            messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Shake animation
+            const form = document.getElementById('registerForm');
+            if (form) {
+                form.classList.add('shake');
+                setTimeout(() => {
+                    form.classList.remove('shake');
+                }, 500);
+            }
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            const messageEl = document.getElementById('registerMessage');
+            if (!messageEl) return;
+            
+            messageEl.textContent = message;
+            messageEl.className = 'register-message success';
+            messageEl.style.display = 'block';
+            
+            // Scroll to message
+            messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        // Social registration (demo)
+        function socialRegister(provider) {
+            alert(`In a real application, this would connect to ${provider} OAuth.\n\nFor now, please use the regular registration form.`);
+        }
+
+        // Make functions globally available
+        window.handleRegistration = handleRegistration;
+        window.validateEmail = validateEmail;
+        window.validatePassword = validatePassword;
+        window.checkPasswordMatch = checkPasswordMatch;
+        window.socialRegister = socialRegister;
+
+        // Debug helper
+        console.log('✅ Registration JavaScript loaded');
+    </script>
+</body>
+</html>

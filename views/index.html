@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magic Eden | NFT Marketplace</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="navbar">
+                <div class="logo" onclick="window.location.href='/'" style="cursor: pointer;">
+                    <i class="fas fa-gem"></i>
+                    <span>Magic Eden</span>
+                </div>
+                
+                <div class="nav-center">
+                    <a href="/" class="nav-link active">Explore</a>
+                    <a href="/dashboard" class="nav-link" onclick="navigateToDashboard(); return false;">Dashboard</a>
+                    <a href="/profile" class="nav-link" onclick="navigateToProfile(); return false;">Profile</a>
+                    <a href="create-nft.html" class="nav-link">Create</a>
+                </div>
+                
+                <div class="nav-right">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search NFTs...">
+                    </div>
+                    
+                    <!-- Dynamic Login/User Area -->
+                    <div id="authSection">
+                        <!-- Show Register/Login buttons when NOT logged in -->
+                        <div id="guestButtons" style="display: flex; gap: 10px;">
+                            <button class="btn" onclick="window.location.href='/register'">
+                                <i class="fas fa-user-plus"></i>
+                                Register
+                            </button>
+                            <button class="btn btn-primary" onclick="window.location.href='/login'">
+                                <i class="fas fa-sign-in-alt"></i>
+                                Login
+                            </button>
+                        </div>
+                        
+                        <!-- Show user info when logged in -->
+                        <div id="userInfo" style="display: none;">
+                            <!-- This will be filled by JavaScript -->
+                        </div>
+                    </div>
+                </div> 
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <section class="hero">
+                <h1>Discover & Collect Extraordinary NFTs</h1>
+                <p>Buy, sell, and discover exclusive digital assets</p>
+                <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
+                    <button class="btn btn-large" onclick="window.location.href='/register'">
+                        <i class="fas fa-user-plus"></i>
+                        Get Started Free
+                    </button>
+                    <button class="btn btn-large" onclick="scrollToNFTs()">
+                        <i class="fas fa-rocket"></i>
+                        Explore NFTs
+                    </button>
+                </div>
+            </section>
+
+            <!-- Stats Bar -->
+            <div class="stats-bar">
+                <div class="stat">
+                    <span class="stat-value" id="totalNFTs">0</span>
+                    <span class="stat-label">NFTs Listed</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value" id="totalUsers">0</span>
+                    <span class="stat-label">Active Users</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value" id="totalVolume">0</span>
+                    <span class="stat-label">WETH Volume</span>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filters">
+                <button class="filter-btn active" onclick="filterNFTs('all')">All</button>
+                <button class="filter-btn" onclick="filterNFTs('art')">Art</button>
+                <button class="filter-btn" onclick="filterNFTs('pfp')">PFPs</button>
+                <button class="filter-btn" onclick="filterNFTs('gaming')">Gaming</button>
+                <button class="filter-btn" onclick="filterNFTs('photography')">Photography</button>
+            </div>
+
+            <!-- NFT Grid -->
+            <div class="nft-grid" id="nftGrid">
+                <!-- NFTs will be loaded here -->
+                <div class="loading">Loading NFTs...</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <div class="logo">
+                        <i class="fas fa-gem"></i>
+                        <span>Magic Eden</span>
+                    </div>
+                    <p>© 2024 Magic Eden. All rights reserved.</p>
+                </div>
+                <div class="footer-section">
+                    <a href="#" onclick="showSupportModal()"><i class="fas fa-headset"></i> Support</a>
+                    <a href="admin.html" id="adminLink" style="display:none"><i class="fas fa-cog"></i> Admin</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Support Modal -->
+    <div class="modal" id="supportModal" style="display: none;">
+        <div class="modal-content">
+            <h3>Contact Support</h3>
+            <textarea id="supportMessage" placeholder="Describe your issue..."></textarea>
+            <button class="btn btn-primary" onclick="submitSupportTicket()">Submit Ticket</button>
+            <button class="btn" onclick="closeModal('supportModal')">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Load app.js first -->
+    <script src="app.js"></script>
+    
+    <!-- Navigation and UI Scripts -->
+    <script>
+        // =====================
+        // NAVIGATION FUNCTIONS
+        // =====================
+        
+        // Navigate to dashboard (with auth check)
+        function navigateToDashboard() {
+            console.log('📍 Navigating to dashboard...');
+            
+            const userEmail = localStorage.getItem('magicEdenCurrentUser');
+            if (!userEmail) {
+                // Not logged in, redirect to login with dashboard as redirect
+                window.location.href = '/login?redirect=dashboard';
+                return;
+            }
+            
+            // Check if user exists
+            const user = db.getUser(userEmail);
+            if (!user) {
+                localStorage.removeItem('magicEdenCurrentUser');
+                alert('Session expired. Please login again.');
+                window.location.href = '/login';
+                return;
+            }
+            
+            window.location.href = '/dashboard';
+        }
+        
+        // Navigate to profile (with auth check)
+        function navigateToProfile() {
+            console.log('📍 Navigating to profile...');
+            
+            const userEmail = localStorage.getItem('magicEdenCurrentUser');
+            if (!userEmail) {
+                // Not logged in, redirect to login with profile as redirect
+                window.location.href = '/login?redirect=/profile';
+                return;
+            }
+            
+            // Check if user exists
+            const user = db.getUser(userEmail);
+            if (!user) {
+                localStorage.removeItem('magicEdenCurrentUser');
+                alert('Session expired. Please login again.');
+                window.location.href = '/login';
+                return;
+            }
+            
+            window.location.href = '/profile';
+        }
+        
+        // =====================
+        // AUTHENTICATION UI
+        // =====================
+        
+        // Update authentication UI
+        function updateAuthUI() {
+            console.log('🎨 Updating auth UI...');
+            
+            const userEmail = localStorage.getItem('magicEdenCurrentUser');
+            const guestButtons = document.getElementById('guestButtons');
+            const userInfo = document.getElementById('userInfo');
+            const adminLink = document.getElementById('adminLink');
+            
+            if (!userEmail) {
+                // User is not logged in
+                console.log('👥 User is not logged in');
+                
+                if (guestButtons) {
+                    guestButtons.style.display = 'flex';
+                }
+                if (userInfo) {
+                    userInfo.style.display = 'none';
+                }
+                if (adminLink) {
+                    adminLink.style.display = 'none';
+                }
+                return;
+            }
+            
+            // User is logged in
+            console.log('👤 User is logged in:', userEmail);
+            
+            if (guestButtons) {
+                guestButtons.style.display = 'none';
+            }
+            
+            // Get user data
+            let user = db.getUser(userEmail);
+            if (!user) {
+                // User not found in database
+                localStorage.removeItem('magicEdenCurrentUser');
+                updateAuthUI(); // Refresh
+                return;
+            }
+            
+            // Show user info
+            const displayName = user.fullName || user.email.split('@')[0];
+            const balance = user.balance || 0;
+            
+            const userHTML = `
+                <div class="user-info" style="display: flex; align-items: center; gap: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-user-circle" style="font-size: 24px; color: #8a2be2;"></i>
+                        <div style="display: flex; flex-direction: column;">
+                            <span style="color: #8a2be2; font-weight: 600; font-size: 14px;">${displayName}</span>
+                            <small style="color: #666; font-size: 12px;">Balance: ${balance} WETH</small>
+                        </div>
+                    </div>
+                    <button class="btn" onclick="logout()" style="padding: 8px 15px; font-size: 14px;">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            `;
+            
+            if (userInfo) {
+                userInfo.innerHTML = userHTML;
+                userInfo.style.display = 'flex';
+                userInfo.style.alignItems = 'center';
+            }
+            
+            // Show admin link if user is admin
+            if (adminLink && user.isAdmin) {
+                adminLink.style.display = 'block';
+            }
+            
+            console.log('✅ Auth UI updated for:', userEmail);
+        }
+        
+        // Logout function
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                console.log('🚪 Logging out user');
+                localStorage.removeItem('magicEdenCurrentUser');
+                
+                // Update UI immediately
+                updateAuthUI();
+                
+                // Show success message
+                alert('Logged out successfully!');
+                
+                // Reload to refresh the page state
+                window.location.reload();
+            }
+        }
+        
+        // =====================
+        // MARKETPLACE FUNCTIONS
+        // =====================
+        
+        // Scroll to NFTs section
+        function scrollToNFTs() {
+            const nftSection = document.querySelector('.nft-grid');
+            if (nftSection) {
+                nftSection.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+        
+        // Show support modal
+        function showSupportModal() {
+            const userEmail = localStorage.getItem('magicEdenCurrentUser');
+            
+            if (!userEmail) {
+                alert('Please login to contact support');
+                window.location.href = '/login';
+                return;
+            }
+            
+            document.getElementById('supportModal').style.display = 'flex';
+        }
+        
+        // Close modal
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        // Submit support ticket
+        function submitSupportTicket() {
+            const userEmail = localStorage.getItem('magicEdenCurrentUser');
+            
+            if (!userEmail) {
+                alert('Please login to submit a ticket');
+                return;
+            }
+            
+            const message = document.getElementById('supportMessage').value;
+            
+            if (!message.trim()) {
+                alert('Please enter a message');
+                return;
+            }
+            
+            const ticket = {
+                userEmail: userEmail,
+                message: message
+            };
+            
+            db.addSupportTicket(ticket);
+            alert('Support ticket submitted!');
+            closeModal('supportModal');
+            document.getElementById('supportMessage').value = '';
+        }
+        
+        // =====================
+        // INITIALIZATION
+        // =====================
+        
+        // Initialize page when DOM loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Initializing Magic Eden Marketplace...');
+            
+            // Update authentication UI
+            updateAuthUI();
+            
+            // Load NFTs
+            if (typeof loadNFTs === 'function') {
+                loadNFTs();
+            }
+            
+            // Update stats
+            if (typeof updateStats === 'function') {
+                updateStats();
+            }
+            
+            // Update auth UI every 5 seconds (in case of changes from other tabs)
+            setInterval(updateAuthUI, 5000);
+            
+            console.log('✅ Marketplace initialized successfully');
+        });
+        
+        // Make functions globally available
+        window.navigateToDashboard = navigateToDashboard;
+        window.navigateToProfile = navigateToProfile;
+        window.updateAuthUI = updateAuthUI;
+        window.logout = logout;
+        window.scrollToNFTs = scrollToNFTs;
+        window.showSupportModal = showSupportModal;
+        window.closeModal = closeModal;
+        window.submitSupportTicket = submitSupportTicket;
+        
+        // Test functions for debugging
+        console.log('✅ Index page JavaScript loaded');
+        console.log('Database available:', typeof db !== 'undefined');
+        console.log('Current user:', localStorage.getItem('magicEdenCurrentUser'));
+    </script>
+</body>
+</html>

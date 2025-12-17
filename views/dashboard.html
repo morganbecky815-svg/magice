@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Magic Eden</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header will be loaded by JavaScript -->
+    
+    <main class="dashboard">
+        <div class="container">
+            <!-- Welcome Section -->
+            <div class="welcome-section">
+                <h1 id="welcomeMessage">Welcome back!</h1>
+                <p>Your NFT marketplace dashboard</p>
+            </div>
+
+            <!-- Wallet Balances -->
+            <div class="wallet-section">
+                <h2><i class="fas fa-coins"></i> Your Balances</h2>
+                <div class="balance-cards">
+                    <!-- ETH Balance Card -->
+                    <div class="balance-card eth-card">
+                        <div class="balance-icon">
+                            <i class="fab fa-ethereum"></i>
+                        </div>
+                        <div class="balance-info">
+                            <h3>ETH Balance <button class="balance-refresh" onclick="refreshBalance()" title="Refresh balance">
+                                <i class="fas fa-sync-alt"></i>
+                            </button></h3>
+                            <div class="balance-amount" id="ethBalance">0.0000 ETH</div>
+                            <div class="balance-value" id="ethValue">$0.00</div>
+                        </div>
+                        <a href="add-eth.html" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add ETH
+                        </a>
+                    </div>
+                    
+                    <!-- WETH Balance Card -->
+                    <div class="balance-card weth-card">
+                        <div class="balance-icon">
+                            <i class="fas fa-coins"></i>
+                        </div>
+                        <div class="balance-info">
+                            <h3>WETH Balance</h3>
+                            <div class="balance-amount" id="wethBalance">0.0000 WETH</div>
+                            <div class="balance-value" id="wethValue">$0.00</div>
+                        </div>
+                        <a href="convert-weth.html" class="btn btn-primary">
+                            <i class="fas fa-exchange-alt"></i> Convert
+                        </a>
+                    </div>
+                    
+                    <!-- Portfolio Card -->
+                    <div class="balance-card portfolio-card">
+                        <div class="balance-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="balance-info">
+                            <h3>Total Portfolio</h3>
+                            <div class="balance-amount" id="portfolioValue">$0.00</div>
+                            <div class="balance-change positive" id="portfolioChange">
+                                <i class="fas fa-arrow-up"></i> 0.00%
+                            </div>
+                        </div>
+                        <a href="profile.html" class="btn">
+                            <i class="fas fa-chart-bar"></i> Details
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <h2><i class="fas fa-bolt"></i> Quick Actions</h2>
+                <div class="action-buttons">
+                    <!-- Create NFT -->
+                    <a href="create-nft.html" class="action-btn">
+                        <div class="action-icon">
+                            <i class="fas fa-plus"></i>
+                        </div>
+                        <span>Create NFT</span>
+                    </a>
+                    
+                    <!-- Buy Crypto -->
+                    <a href="add-eth.html" class="action-btn">
+                        <div class="action-icon">
+                            <i class="fas fa-shopping-cart"></i>
+                        </div>
+                        <span>Buy Crypto</span>
+                    </a>
+                    
+                    <!-- Browse NFTs -->
+                    <a href="index.html" class="action-btn">
+                        <div class="action-icon">
+                            <i class="fas fa-store"></i>
+                        </div>
+                        <span>Browse NFTs</span>
+                    </a>
+                    
+                    <!-- My Profile -->
+                    <a href="profile.html" class="action-btn">
+                        <div class="action-icon">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <span>My Profile</span>
+                    </a>
+                    
+                    <!-- Transfer -->
+                    <div class="action-btn" onclick="transferFunds()">
+                        <div class="action-icon">
+                            <i class="fas fa-exchange-alt"></i>
+                        </div>
+                        <span>Transfer</span>
+                    </div>
+                    
+                    <!-- Staking -->
+                    <div class="action-btn" onclick="showStaking()">
+                        <div class="action-icon">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <span>Staking</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Grid -->
+            <div class="dashboard-grid">
+                <!-- Recent Activity -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-history"></i> Recent Activity</h3>
+                        <a href="activity.html" class="view-all">View All</a>
+                    </div>
+                    <div class="activity-list" id="dashboardActivity">
+                        <div class="loading">Loading activity...</div>
+                    </div>
+                </div>
+
+                <!-- Your NFT Portfolio -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-gem"></i> Your NFT Portfolio</h3>
+                        <a href="profile.html" class="view-all">View All</a>
+                    </div>
+                    <div class="nft-portfolio" id="dashboardNFTs">
+                        <div class="loading">Loading your NFTs...</div>
+                    </div>
+                </div>
+
+                <!-- Market Trends -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-chart-line"></i> Market Trends</h3>
+                        <span class="trend-badge positive">+5.2%</span>
+                    </div>
+                    <div class="market-trends">
+                        <div class="trend-item">
+                            <div class="trend-info">
+                                <span class="trend-name">Art Collection</span>
+                                <span class="trend-volume">1.2K ETH volume</span>
+                            </div>
+                            <div class="trend-change positive">
+                                <i class="fas fa-arrow-up"></i> 12.5%
+                            </div>
+                        </div>
+                        <div class="trend-item">
+                            <div class="trend-info">
+                                <span class="trend-name">Gaming NFTs</span>
+                                <span class="trend-volume">850 ETH volume</span>
+                            </div>
+                            <div class="trend-change positive">
+                                <i class="fas fa-arrow-up"></i> 8.3%
+                            </div>
+                        </div>
+                        <div class="trend-item">
+                            <div class="trend-info">
+                                <span class="trend-name">PFPs</span>
+                                <span class="trend-volume">2.1K ETH volume</span>
+                            </div>
+                            <div class="trend-change negative">
+                                <i class="fas fa-arrow-down"></i> 3.2%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recommended NFTs -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-star"></i> Recommended For You</h3>
+                    </div>
+                    <div class="recommended-nfts" id="recommendedNFTs">
+                        <div class="loading">Loading recommendations...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Load Scripts -->
+    <script src="../js/app.js"></script>
+    <script src="../js/load-components.js"></script>
+    <script src="../js/dashboard.js"></script>
+</body>
+</html>

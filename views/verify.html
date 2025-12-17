@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email | Magic Eden</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .verify-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .verify-card {
+            background: #1a1a1a;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 500px;
+            border: 1px solid #333;
+        }
+        
+        .verify-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            color: #8a2be2;
+        }
+        
+        .verify-form {
+            margin-top: 30px;
+        }
+        
+        .verify-form input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: white;
+            text-align: center;
+            font-size: 18px;
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="verify-container">
+        <div class="verify-card">
+            <div class="verify-icon">
+                <i class="fas fa-envelope-open-text"></i>
+            </div>
+            
+            <h2>Verify Your Email</h2>
+            <p>Enter your verification token to complete registration</p>
+            
+            <div id="verificationMessage" class="auth-message" style="margin: 20px 0;"></div>
+            
+            <div class="verify-form">
+                <input type="email" id="verifyEmail" placeholder="Your Email" required>
+                <input type="text" id="verifyToken" placeholder="Verification Token" required>
+                <button class="btn btn-primary" onclick="manualVerify()" style="width: 100%; margin-top: 15px;">
+                    <i class="fas fa-check-circle"></i>
+                    Verify Email
+                </button>
+            </div>
+            
+            <div style="margin-top: 30px; color: #666; font-size: 14px;">
+                <p><a href="/login">← Back to Login</a></p>
+                <p>Token sent to your email. Check console for demo tokens.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Function to manually verify
+        function manualVerify() {
+            const email = document.getElementById('verifyEmail').value.trim();
+            const token = document.getElementById('verifyToken').value.trim();
+            const messageEl = document.getElementById('verificationMessage');
+            
+            if (!email || !token) {
+                messageEl.textContent = 'Please enter both email and token';
+                messageEl.className = 'auth-message error';
+                return;
+            }
+            
+            const result = verifyEmail(email, token);
+            
+            if (result && result.success) {
+                messageEl.textContent = 'Email verified successfully! Redirecting...';
+                messageEl.className = 'auth-message success';
+                
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+            } else {
+                messageEl.textContent = 'Verification failed. Check your email and token.';
+                messageEl.className = 'auth-message error';
+            }
+        }
+        
+        // Auto-fill from URL parameters
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const email = urlParams.get('email');
+            const token = urlParams.get('token');
+            
+            if (email) document.getElementById('verifyEmail').value = email;
+            if (token) document.getElementById('verifyToken').value = token;
+            
+            // Auto-verify if both are present
+            if (email && token) {
+                setTimeout(() => {
+                    manualVerify();
+                }, 500);
+            }
+        };
+    </script>
+</body>
+</html>

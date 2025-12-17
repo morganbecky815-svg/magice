@@ -1,0 +1,592 @@
+/* dashboard.css - Dashboard Styles */
+.dashboard {
+    padding: 30px 0;
+    min-height: calc(100vh - 200px);
+}
+
+.welcome-section {
+    margin-bottom: 40px;
+}
+
+.welcome-section h1 {
+    font-size: 32px;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, #8a2be2, #4169e1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.welcome-section p {
+    color: #888;
+    font-size: 16px;
+}
+
+/* Wallet Display in Header */
+.wallet-display {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.wallet-balance {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 15px;
+    background: rgba(138, 43, 226, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(138, 43, 226, 0.3);
+}
+
+.wallet-balance .currency {
+    color: #8a2be2;
+    font-weight: 600;
+}
+
+.wallet-balance .amount {
+    color: white;
+    font-weight: 600;
+}
+
+/* Wallet Balance Cards */
+.wallet-section {
+    margin-bottom: 40px;
+}
+
+.wallet-section h2 {
+    font-size: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.balance-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.balance-card {
+    background: #1a1a1a;
+    border-radius: 16px;
+    padding: 25px;
+    border: 1px solid #333;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    transition: all 0.3s;
+}
+
+.balance-card:hover {
+    transform: translateY(-5px);
+    border-color: #8a2be2;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.balance-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.eth-card .balance-icon {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border: 2px solid rgba(59, 130, 246, 0.3);
+}
+
+.weth-card .balance-icon {
+    background: rgba(138, 43, 226, 0.1);
+    color: #8a2be2;
+    border: 2px solid rgba(138, 43, 226, 0.3);
+}
+
+.portfolio-card .balance-icon {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 2px solid rgba(16, 185, 129, 0.3);
+}
+
+.balance-info {
+    flex: 1;
+}
+
+.balance-info h3 {
+    font-size: 16px;
+    color: #888;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.balance-refresh {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 5px;
+    font-size: 14px;
+    transition: color 0.3s;
+}
+
+.balance-refresh:hover {
+    color: #8a2be2;
+}
+
+.balance-amount {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+
+.eth-card .balance-amount {
+    color: #3b82f6;
+}
+
+.weth-card .balance-amount {
+    color: #8a2be2;
+}
+
+.portfolio-card .balance-amount {
+    color: white;
+}
+
+.balance-value {
+    color: #888;
+    font-size: 14px;
+}
+
+.balance-change {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.balance-change.positive {
+    color: #10b981;
+}
+
+.balance-change.negative {
+    color: #ef4444;
+}
+
+/* BUTTON STYLES - FIX FOR LINKS */
+.btn {
+    background: #333;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: inherit;
+    font-size: inherit;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+}
+
+.btn:hover {
+    background: #444;
+    transform: translateY(-2px);
+    text-decoration: none;
+}
+
+.btn-primary {
+    background: #6366f1;
+}
+
+.btn-primary:hover {
+    background: #4f46e5;
+}
+
+/* Remove underlines from link buttons */
+a.btn,
+a.btn:hover,
+a.btn:active,
+a.btn:focus {
+    text-decoration: none !important;
+    color: white;
+}
+
+/* Quick Actions */
+.quick-actions {
+    margin-bottom: 40px;
+}
+
+.quick-actions h2 {
+    font-size: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.action-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 15px;
+}
+
+.action-btn {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    cursor: pointer;
+    transition: all 0.3s;
+    color: white;
+    text-decoration: none;
+    border: none;
+    text-align: center;
+}
+
+.action-btn:hover {
+    border-color: #8a2be2;
+    transform: translateY(-3px);
+    background: rgba(138, 43, 226, 0.05);
+    text-decoration: none;
+}
+
+/* Remove underlines from action button links */
+a.action-btn,
+a.action-btn:hover,
+a.action-btn:active,
+a.action-btn:focus {
+    text-decoration: none !important;
+    color: white;
+}
+
+.action-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: #8a2be2;
+}
+
+.action-btn span {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 25px;
+}
+
+.dashboard-card {
+    background: #1a1a1a;
+    border-radius: 16px;
+    padding: 25px;
+    border: 1px solid #333;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #333;
+}
+
+.card-header h3 {
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+}
+
+.view-all {
+    color: #8a2be2;
+    font-size: 14px;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.view-all:hover {
+    text-decoration: underline;
+}
+
+/* Activity List */
+.activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.activity-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    background: rgba(10, 10, 10, 0.5);
+    border-radius: 10px;
+    border: 1px solid #333;
+}
+
+.activity-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: rgba(138, 43, 226, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #8a2be2;
+    font-size: 18px;
+}
+
+.activity-details {
+    flex: 1;
+}
+
+.activity-title {
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.activity-description {
+    color: #888;
+    font-size: 14px;
+}
+
+.activity-time {
+    color: #666;
+    font-size: 12px;
+}
+
+.activity-amount {
+    font-weight: 600;
+    color: #8a2be2;
+}
+
+/* NFT Portfolio */
+.nft-portfolio {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 15px;
+}
+
+.dashboard-nft {
+    background: #0a0a0a;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #333;
+    transition: all 0.3s;
+}
+
+.dashboard-nft:hover {
+    border-color: #8a2be2;
+    transform: translateY(-3px);
+}
+
+.dashboard-nft-image {
+    width: 100%;
+    height: 120px;
+    background: #2a2a2a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+}
+
+.dashboard-nft-info {
+    padding: 10px;
+}
+
+.dashboard-nft-name {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dashboard-nft-price {
+    color: #8a2be2;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Market Trends */
+.market-trends {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.trend-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: rgba(10, 10, 10, 0.5);
+    border-radius: 8px;
+    border: 1px solid #333;
+}
+
+.trend-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.trend-name {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.trend-volume {
+    color: #888;
+    font-size: 12px;
+}
+
+.trend-change {
+    font-weight: 600;
+    font-size: 14px;
+    padding: 5px 10px;
+    border-radius: 20px;
+}
+
+.trend-change.positive {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.trend-change.negative {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.trend-badge {
+    font-weight: 600;
+    font-size: 14px;
+    padding: 5px 10px;
+    border-radius: 20px;
+}
+
+.trend-badge.positive {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+/* Recommended NFTs */
+.recommended-nfts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+}
+
+.recommended-nft {
+    background: #0a0a0a;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #333;
+    transition: all 0.3s;
+}
+
+.recommended-nft:hover {
+    border-color: #8a2be2;
+    transform: translateY(-3px);
+}
+
+.recommended-nft-image {
+    width: 100%;
+    height: 150px;
+    background: #2a2a2a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+}
+
+.recommended-nft-info {
+    padding: 10px;
+}
+
+.recommended-nft-name {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.recommended-nft-price {
+    color: #8a2be2;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Loading */
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: #888;
+    font-style: italic;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #888;
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 20px;
+    color: #8a2be2;
+    opacity: 0.5;
+}
+
+.empty-state p {
+    margin-bottom: 20px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .balance-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .action-buttons {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .wallet-display {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .action-buttons {
+        grid-template-columns: 1fr;
+    }
+    
+    .nft-portfolio,
+    .recommended-nfts {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
