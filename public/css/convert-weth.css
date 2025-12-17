@@ -1,0 +1,431 @@
+/* convert-weth.css - WETH Conversion Page Styles */
+.convert-header {
+    background: #1a1a1a;
+    padding: 20px 0;
+    border-bottom: 1px solid #333;
+}
+
+.convert-header .container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: #8a2be2;
+    text-decoration: none;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: 8px;
+    background: rgba(138, 43, 226, 0.1);
+    transition: all 0.3s;
+}
+
+.back-button:hover {
+    color: #9d4edd;
+    background: rgba(138, 43, 226, 0.2);
+    transform: translateX(-5px);
+}
+
+.header-title {
+    color: #8a2be2;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.convert-weth-page {
+    min-height: 100vh;
+    background: #0a0a0a;
+    padding: 40px 0;
+}
+
+.convert-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.page-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.page-header h1 {
+    font-size: 2.2rem;
+    margin-bottom: 10px;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+}
+
+.page-header p {
+    color: #888;
+    font-size: 1rem;
+}
+
+.current-balances {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+.balance-card {
+    background: #1a1a1a;
+    border-radius: 16px;
+    padding: 25px;
+    border: 1px solid #333;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.balance-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.balance-icon i {
+    color: #8a2be2;
+}
+
+.balance-info {
+    flex: 1;
+}
+
+.balance-label {
+    color: #888;
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+}
+
+.balance-amount {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 5px;
+}
+
+.balance-usd {
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.conversion-card {
+    background: #1a1a1a;
+    border-radius: 20px;
+    padding: 30px;
+    border: 1px solid #333;
+}
+
+.conversion-type {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.conversion-tab {
+    flex: 1;
+    background: #252525;
+    border: 2px solid #333;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #888;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.conversion-tab:hover {
+    border-color: #8a2be2;
+}
+
+.conversion-tab.active {
+    background: rgba(138, 43, 226, 0.1);
+    border-color: #8a2be2;
+    color: white;
+}
+
+.conversion-tab i {
+    font-size: 1.2rem;
+}
+
+.conversion-direction {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 30px;
+    padding: 25px;
+    background: #252525;
+    border-radius: 12px;
+    border: 1px solid #333;
+}
+
+.from-section,
+.to-section {
+    flex: 1;
+    text-align: center;
+}
+
+.currency-label {
+    color: #888;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+}
+
+.currency-display {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.currency-symbol {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+}
+
+.currency-balance {
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.arrow {
+    color: #8a2be2;
+    font-size: 1.5rem;
+    padding: 0 20px;
+}
+
+.balance-warning {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 25px;
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+}
+
+.balance-warning i {
+    color: #ef4444;
+    font-size: 1.2rem;
+    margin-top: 2px;
+}
+
+.balance-warning strong {
+    color: #ef4444;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.balance-warning p {
+    color: rgba(239, 68, 68, 0.8);
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.amount-section {
+    margin-bottom: 30px;
+}
+
+.amount-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.amount-header label {
+    color: white;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.max-btn {
+    background: #8a2be2;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.max-btn:hover {
+    background: #9d4edd;
+    transform: translateY(-2px);
+}
+
+.amount-input-container {
+    position: relative;
+    margin-bottom: 10px;
+}
+
+.amount-input {
+    width: 100%;
+    padding: 20px;
+    background: #252525;
+    border: 2px solid #333;
+    border-radius: 12px;
+    color: white;
+    font-size: 1.8rem;
+    font-weight: 600;
+    text-align: right;
+    padding-right: 100px;
+}
+
+.amount-input:focus {
+    outline: none;
+    border-color: #8a2be2;
+}
+
+.currency-label-input {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #888;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.balance-info {
+    color: #888;
+    font-size: 0.9rem;
+    text-align: right;
+}
+
+.balance-info span {
+    color: white;
+    font-weight: 600;
+}
+
+.conversion-details {
+    background: #252525;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 30px;
+    border: 1px solid #333;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.detail-row:last-child {
+    margin-bottom: 0;
+}
+
+.detail-row span:first-child {
+    color: #888;
+}
+
+.detail-value {
+    color: white;
+    font-weight: 600;
+}
+
+.convert-button {
+    width: 100%;
+    background: #8a2be2;
+    color: white;
+    border: none;
+    padding: 20px;
+    border-radius: 12px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.3s;
+    margin-bottom: 30px;
+}
+
+.convert-button:hover:not(:disabled) {
+    background: #9d4edd;
+    transform: translateY(-3px);
+}
+
+.convert-button:disabled {
+    background: #333;
+    color: #666;
+    cursor: not-allowed;
+}
+
+.info-note {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+}
+
+.info-note i {
+    color: #3b82f6;
+    font-size: 1.2rem;
+    margin-top: 2px;
+}
+
+.info-note p {
+    color: rgba(59, 130, 246, 0.9);
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .current-balances {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .conversion-direction {
+        flex-direction: column;
+        gap: 20px;
+        text-align: center;
+    }
+    
+    .arrow {
+        transform: rotate(90deg);
+        padding: 10px 0;
+    }
+    
+    .amount-input {
+        font-size: 1.5rem;
+        padding: 15px;
+        padding-right: 80px;
+    }
+    
+    .currency-label-input {
+        font-size: 1rem;
+        right: 15px;
+    }
+}

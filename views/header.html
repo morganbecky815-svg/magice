@@ -1,0 +1,223 @@
+<!-- header.html - COMPLETE header with CSS & JS -->
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        /* Header specific styles */
+        .header {
+            background: rgba(10, 10, 10, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #333;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #8a2be2;
+            cursor: pointer;
+        }
+        
+        .nav-center {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .nav-link {
+            color: #888;
+            text-decoration: none;
+            padding: 8px 0;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .nav-link:hover,
+        .nav-link.active {
+            color: white;
+            border-bottom-color: #8a2be2;
+        }
+        
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .search-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 15px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+        }
+        
+        .search-box input {
+            background: none;
+            border: none;
+            color: white;
+            outline: none;
+            min-width: 200px;
+        }
+        
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .nav-center {
+                flex-direction: column;
+                gap: 10px;
+                width: 100%;
+            }
+            
+            .nav-right {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .search-box input {
+                min-width: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="navbar">
+                <!-- Logo -->
+                <div class="logo" onclick="window.location.href='index.html'">
+                    <i class="fas fa-gem"></i>
+                    <span>Magic Eden</span>
+                </div>
+                
+                <!-- Center Navigation -->
+                <div class="nav-center">
+                    <a href="index.html" class="nav-link">Explore</a>
+                    <a href="dashboard.html" class="nav-link" onclick="navigateToDashboard(); return false;">Dashboard</a>
+                    <a href="profile.html" class="nav-link" onclick="navigateToProfile(); return false;">Profile</a>
+                    <a href="create-nft.html" class="nav-link">Create</a>
+                </div>
+                
+                <!-- Right Section -->
+                <div class="nav-right">
+                    <!-- Search Box -->
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search NFTs..." id="globalSearch">
+                    </div>
+                    
+                    <!-- Dynamic Login/User Area -->
+                    <div id="authSection">
+                        <!-- Guest buttons (shown when NOT logged in) -->
+                        <div id="guestButtons" style="display: none; gap: 10px; align-items: center;">
+                            <button class="btn" onclick="window.location.href='register.html'">
+                                <i class="fas fa-user-plus"></i>
+                                Register
+                            </button>
+                            <button class="btn btn-primary" onclick="window.location.href='login.html'">
+                                <i class="fas fa-sign-in-alt"></i>
+                                Login
+                            </button>
+                        </div>
+                        
+                        <!-- User info (shown when logged in) -->
+                        <div id="userInfo" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <script>
+        // Navigation functions that work in the header
+        function navigateToDashboard() {
+            const userEmail = localStorage.getItem('magicEdenCurrentUser');
+            if (!userEmail) {
+                window.location.href = 'login.html?redirect=dashboard.html';
+                return;
+            }
+            window.location.href = 'dashboard.html';
+        }
+        
+        function navigateToProfile() {
+            const userEmail = localStorage.getItem('magicEdenCurrentUser');
+            if (!userEmail) {
+                window.location.href = 'login.html?redirect=profile.html';
+                return;
+            }
+            window.location.href = 'profile.html';
+        }
+        
+        // Update header UI
+        function updateHeaderUI() {
+            const userEmail = localStorage.getItem('magicEdenCurrentUser');
+            const guestButtons = document.getElementById('guestButtons');
+            const userInfo = document.getElementById('userInfo');
+            
+            if (userEmail) {
+                // User is logged in
+                if (guestButtons) guestButtons.style.display = 'none';
+                
+                // Create user info HTML
+                const userHTML = `
+                    <div class="user-info" style="display: flex; align-items: center; gap: 15px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-user-circle" style="font-size: 24px; color: #8a2be2;"></i>
+                            <div style="display: flex; flex-direction: column;">
+                                <span style="color: #8a2be2; font-weight: 600; font-size: 14px;">${userEmail.split('@')[0]}</span>
+                                <small style="color: #666; font-size: 12px;">Logged in</small>
+                            </div>
+                        </div>
+                        <button class="btn" onclick="logout()" style="padding: 8px 15px; font-size: 14px;">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                `;
+                
+                if (userInfo) {
+                    userInfo.innerHTML = userHTML;
+                    userInfo.style.display = 'flex';
+                }
+                
+            } else {
+                // User is not logged in
+                if (guestButtons) guestButtons.style.display = 'flex';
+                if (userInfo) userInfo.style.display = 'none';
+            }
+        }
+        
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                localStorage.removeItem('magicEdenCurrentUser');
+                window.location.href = 'index.html';
+            }
+        }
+        
+        // Initialize header when loaded
+        updateHeaderUI();
+        
+        // Also update every 5 seconds in case of changes
+        setInterval(updateHeaderUI, 5000);
+    </script>
+</body>
+</html>

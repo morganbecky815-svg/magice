@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add ETH | Magic Eden</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="../css/add-eth.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Simple header -->
+    <header class="add-eth-header">
+        <div class="container">
+            <a href="dashboard.html" class="back-button">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+            <div class="header-title">
+                <i class="fas fa-wallet"></i> Magic Eden Wallet
+            </div>
+        </div>
+    </header>
+    
+    <!-- Add ETH Page Content -->
+    <main class="add-eth-page">
+        <div class="container">
+            <div class="marketplace-wallet-container">
+                <!-- Page Header -->
+                <div class="page-header">
+                    <h1><i class="fab fa-ethereum"></i> Add ETH to Your Wallet</h1>
+                    <p>Fund your marketplace wallet to buy and trade NFTs</p>
+                </div>
+                
+                <!-- Wallet Card -->
+                <div class="wallet-card">
+                    <!-- Balance Display -->
+                    <div class="wallet-balance-display">
+                        <div class="balance-label">Your Marketplace Balance</div>
+                        <div class="balance-amount" id="balanceAmount">0.0000 ETH</div>
+                        <div class="balance-usd" id="balanceUSD">$0.00 USD</div>
+                    </div>
+                    
+                    <!-- Wallet Address -->
+                    <div class="wallet-address-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-address-card"></i> Your Wallet Address
+                        </h3>
+                        
+                        <div class="address-display">
+                            <div class="address-text" id="walletAddress">
+                                0x742d35Cc6634C0532925a3b844Bc9e90E4343A9B
+                            </div>
+                            <button class="copy-btn" onclick="copyWalletAddress()">
+                                <i class="fas fa-copy"></i> Copy Address
+                            </button>
+                        </div>
+                        
+                        <!-- QR Code -->
+                        <div class="qr-container">
+                            <div id="qrCode"></div>
+                            <p>Scan QR code to send ETH</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Cards -->
+                    <div class="action-cards">
+                        <!-- Buy with MetaMask -->
+                        <div class="action-card" onclick="buyWithMetaMask()">
+                            <div class="action-icon">
+                                <i class="fab fa-ethereum"></i>
+                            </div>
+                            <h3>Buy with MetaMask</h3>
+                            <p>Purchase ETH directly in your MetaMask wallet and send to this address</p>
+                            <button class="copy-btn metamask-btn">
+                                <i class="fab fa-metamask"></i> Open MetaMask
+                            </button>
+                        </div>
+                        
+                        <!-- Transfer from Exchange -->
+                        <div class="action-card" onclick="showInstructions()">
+                            <div class="action-icon">
+                                <i class="fas fa-exchange-alt"></i>
+                            </div>
+                            <h3>Transfer from Exchange</h3>
+                            <p>Send ETH from Coinbase, Binance, or any other exchange</p>
+                            <button class="copy-btn exchange-btn">
+                                <i class="fas fa-university"></i> Show Instructions
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Instructions (Initially Hidden) -->
+                    <div class="instructions" id="transferInstructions" style="display: none;">
+                        <h3><i class="fas fa-info-circle"></i> How to Transfer ETH</h3>
+                        <ol>
+                            <li>Copy the wallet address above</li>
+                            <li>Open your exchange account (Coinbase, Binance, etc.)</li>
+                            <li>Go to "Withdraw" or "Send" section</li>
+                            <li>Select ETH (Ethereum) as the cryptocurrency</li>
+                            <li>Paste the wallet address</li>
+                            <li>Enter the amount and confirm the transaction</li>
+                            <li>Wait for network confirmation (2-5 minutes)</li>
+                            <li>Return to dashboard to see updated balance</li>
+                        </ol>
+                        
+                        <div class="note">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <div>
+                                <strong>Important:</strong> Only send ETH (Ethereum) to this address. 
+                                Sending other tokens may result in permanent loss.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Load Scripts -->
+    <script src="../js/app.js"></script>
+    <script src="../js/add-eth.js"></script>
+    <!-- QR Code Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    
+    <script>
+        // Add click handlers for buttons inside action cards
+        document.addEventListener('DOMContentLoaded', function() {
+            // MetaMask button
+            const metamaskBtn = document.querySelector('.metamask-btn');
+            if (metamaskBtn) {
+                metamaskBtn.addEventListener('click', function(e) {
+                    e.stopPropagation(); // Prevent card click event
+                    buyWithMetaMask();
+                });
+            }
+            
+            // Exchange button
+            const exchangeBtn = document.querySelector('.exchange-btn');
+            if (exchangeBtn) {
+                exchangeBtn.addEventListener('click', function(e) {
+                    e.stopPropagation(); // Prevent card click event
+                    showInstructions();
+                });
+            }
+        });
+    </script>
+</body>
+</html>

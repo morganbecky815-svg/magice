@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create NFT | Magic Eden</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/create-nft.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="create-header">
+        <div class="container">
+            <a href="dashboard.html" class="back-button">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+            <div class="header-title">
+                <i class="fas fa-plus-circle"></i> Create New NFT
+            </div>
+        </div>
+    </header>
+    
+    <!-- Create NFT Page Content -->
+    <main class="create-nft-page">
+        <div class="container">
+            <div class="create-container">
+                <!-- Page Header -->
+                <div class="page-header">
+                    <h1><i class="fas fa-plus-circle"></i> Create Your NFT</h1>
+                    <p>Turn your digital art into a unique collectible on the blockchain</p>
+                </div>
+                
+                <!-- Creation Form -->
+                <form class="nft-creation-form" id="nftCreationForm">
+                    <div class="form-grid">
+                        <!-- Left Column: Image Upload & Preview -->
+                        <div class="form-column">
+                            <!-- Image Upload Section -->
+                            <div class="upload-section">
+                                <div class="upload-area" id="uploadArea">
+                                    <div class="upload-icon">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                    </div>
+                                    <h3>Upload Your Artwork</h3>
+                                    <p>Drag & drop your image here, or click to browse</p>
+                                    <p class="upload-note">Supported formats: JPG, PNG, GIF, SVG, MP4, WebM (Max: 50MB)</p>
+                                    <input type="file" id="imageUpload" accept="image/,video/" hidden>
+                                    <button type="button" class="upload-btn" onclick="document.getElementById('imageUpload').click()">
+                                        Choose File
+                                    </button>
+                                </div>
+                                
+                                <!-- Image Preview -->
+                                <div class="image-preview" id="imagePreview" style="display: none;">
+                                    <div class="preview-container">
+                                        <img id="previewImage" src="" alt="Preview">
+                                        <video id="previewVideo" controls style="display: none;"></video>
+                                        <button type="button" class="remove-preview" onclick="removePreview()">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                    <div class="preview-info">
+                                        <div class="file-info">
+                                            <span id="fileName"></span>
+                                            <span id="fileSize"></span>
+                                        </div>
+                                        <div class="preview-actions">
+                                            <button type="button" class="btn-small" onclick="document.getElementById('imageUpload').click()">
+                                                <i class="fas fa-sync"></i> Change
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Collection Selection -->
+                            <div class="form-section">
+                                <h3><i class="fas fa-layer-group"></i> Collection</h3>
+                                <div class="form-group">
+                                    <label for="collectionSelect">Select Collection</label>
+                                    <select id="collectionSelect" class="form-select" onchange="toggleCollectionFields()">
+                                        <option value="">Create New Collection</option>
+                                        <option value="art-collection">My Art Collection</option>
+                                        <option value="photography">Photography Series</option>
+                                        <option value="3d-art">3D Art Works</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- New Collection Fields (Hidden by default) -->
+                                <div class="new-collection-fields" id="newCollectionFields" style="display: none;">
+                                    <div class="form-group">
+                                        <label for="collectionName">Collection Name *</label>
+                                        <input type="text" id="collectionName" placeholder="Enter collection name" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="collectionDescription">Collection Description</label>
+                                        <textarea id="collectionDescription" rows="3" placeholder="Describe your collection"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Column: NFT Details -->
+                        <div class="form-column">
+                            <!-- Basic Information -->
+                            <div class="form-section">
+                                <h3><i class="fas fa-info-circle"></i> NFT Details</h3>
+                                
+                                <div class="form-group">
+                                    <label for="nftName">NFT Name *</label>
+                                    <input type="text" id="nftName" placeholder="e.g., Digital Dream #1" required>
+                                    <div class="form-hint">Give your NFT a unique and memorable name</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="nftDescription">Description</label>
+                                    <textarea id="nftDescription" rows="4" placeholder="Describe your NFT artwork, story, or concept..."></textarea>
+                                    <div class="form-hint">This helps collectors understand your creation</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="nftExternalUrl">External Link (Optional)</label>
+                                    <input type="url" id="nftExternalUrl" placeholder="https://yourwebsite.com/artwork">
+                                    <div class="form-hint">Link to your website, portfolio, or social media</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Properties & Attributes -->
+                            <div class="form-section">
+                                <h3><i class="fas fa-tags"></i> Properties</h3>
+                                <p class="section-description">Add attributes to make your NFT discoverable (e.g., Background: Blue, Hat: Red)</p>
+                                
+                                <div class="attributes-container" id="attributesContainer">
+                                    <!-- Attributes will be added here dynamically -->
+                                </div>
+                                
+                                <button type="button" class="btn-outline" onclick="addAttribute()">
+                                    <i class="fas fa-plus"></i> Add Property
+                                </button>
+                            </div>
+                            
+                            <!-- Royalties -->
+                            <div class="form-section">
+                                <h3><i class="fas fa-crown"></i> Royalties</h3>
+                                <div class="royalty-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    <p>Earn a percentage every time your NFT is sold on the secondary market. Standard rate is 5-10%.</p>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="royaltyPercentage">Royalty Percentage</label>
+                                    <div class="slider-container">
+                                        <input type="range" id="royaltySlider" min="0" max="20" value="5" step="0.5" oninput="updateRoyaltyDisplay()">
+                                        <div class="slider-labels">
+                                            <span>0%</span>
+                                            <span id="royaltyDisplay">5%</span>
+                                            <span>20%</span>
+                                        </div>
+                                    </div>
+                                    <div class="royalty-input-group">
+                                        <input type="number" id="royaltyPercentage" min="0" max="20" step="0.5" value="5" oninput="updateRoyaltySlider()">
+                                        <span class="percentage-symbol">%</span>
+                                    </div>
+                                    <div class="form-hint">You'll earn this percentage on all future secondary sales</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Minting Options -->
+                            <div class="form-section">
+                                <h3><i class="fas fa-bolt"></i> Minting Configuration</h3>
+                                
+                                <div class="minting-config">
+                                    <div class="config-item">
+                                        <div class="config-icon">
+                                            <i class="fas fa-gem"></i>
+                                        </div>
+                                        <div class="config-details">
+                                            <h4>Single Edition</h4>
+                                            <p>Your NFT will be a unique 1 of 1 item. Only one copy will ever exist.</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="config-item">
+                                        <div class="config-icon">
+                                            <i class="fas fa-rocket"></i>
+                                        </div>
+                                        <div class="config-details">
+                                            <h4>Traditional Minting</h4>
+                                            <p>NFT is created immediately on Ethereum blockchain upon payment.</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="fee-note">
+                                        <i class="fas fa-handshake"></i>
+                                        <div>
+                                            <p><strong>Platform Fee Structure:</strong></p>
+                                            <ul>
+                                                <li><strong>Minting Fee:</strong> 0.1 ETH per NFT (paid now)</li>
+                                                <li><strong>Platform Commission:</strong> 15% of sale price (deducted during WETH → ETH conversion)</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Cost Summary -->
+                            <div class="form-section cost-summary">
+                                <h3><i class="fas fa-calculator"></i> Cost Summary</h3>
+                                
+                                <div class="cost-card">
+                                    <div class="cost-header">
+                                        <h4>Minting Fee</h4>
+                                        <div class="cost-amount">0.1 ETH</div>
+                                    </div>
+                                    
+                                    <div class="cost-breakdown">
+                                        <div class="breakdown-item">
+                                            <span>NFT Creation</span>
+                                            <span>0.095 ETH</span>
+                                        </div>
+                                        <div class="breakdown-item">
+                                            <span>Gas Fee</span>
+                                            <span>0.005 ETH</span>
+                                        </div>
+                                        <div class="breakdown-item total">
+                                            <span>Total to Pay</span>
+                                            <span>0.1 ETH</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="platform-fee-info">
+                                        <i class="fas fa-info-circle"></i>
+                                        <p><strong>Note:</strong> Additional 15% platform fee will be deducted from your sales revenue when converting WETH to ETH.</p>
+                                    </div>
+                                    
+                                    <!-- Balance Check -->
+                                    <div class="balance-check-section">
+                                        <div class="current-balance">
+                                            <span>Your ETH Balance:</span>
+                                            <span id="userEthBalance">0.0000 ETH</span>
+                                        </div>
+                                        
+                                        <div class="balance-status" id="balanceStatus">
+                                            <!-- Will show success/error message -->
+                                        </div>
+                                        
+                                        <div class="insufficient-balance" id="insufficientBalance" style="display: none;">
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                            <div>
+                                                <p>Insufficient ETH balance to mint NFT.</p>
+                                                <p>Required: <strong>0.1 ETH</strong> | You have: <strong id="currentBalance">0.0000 ETH</strong></p>
+                                                <a href="add-eth.html" class="btn-small">Add ETH Now</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Terms Agreement -->
+                            <div class="form-section terms-section">
+                                <div class="terms-agreement">
+                                    <input type="checkbox" id="agreeTerms" required>
+                                    <label for="agreeTerms">
+                                        I agree to the <a href="#" onclick="return false;">Terms of Service</a> and understand that:
+                                        <ul>
+                                            <li>Minting fee of 0.1 ETH is non-refundable</li>
+                                            <li>15% platform fee will be deducted from sales</li>
+                                            <li>I need sufficient ETH balance for WETH conversions</li>
+                                            <li>NFT will be permanently recorded on Ethereum blockchain</li>
+                                        </ul>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- Submit Button -->
+                            <div class="form-actions">
+                                <button type="button" class="btn-preview" onclick="previewNFT()">
+                                    <i class="fas fa-eye"></i> Preview NFT
+                                </button>
+                                <button type="submit" class="btn-create" id="createBtn" disabled>
+                                    <i class="fas fa-plus-circle"></i> Create NFT for 0.1 ETH
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Preview Modal -->
+    <div id="previewModal" class="modal">
+        <div class="modal-content preview-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-eye"></i> NFT Preview</h3>
+                <button class="close-modal" onclick="closeModal('previewModal')">&times;</button>
+            </div>
+            <div class="modal-body" id="previewContent">
+                <!-- Preview content will be loaded here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Load Scripts -->
+    <script src="../js/app.js"></script>
+    <script src="../js/create-nft.js"></script>
+</body>
+</html>

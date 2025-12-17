@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convert ETH ↔ WETH | Magic Eden</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/convert-weth.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="convert-header">
+        <div class="container">
+            <a href="dashboard.html" class="back-button">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+            <div class="header-title">
+                <i class="fas fa-exchange-alt"></i> Convert ETH ↔ WETH
+            </div>
+        </div>
+    </header>
+    
+    <!-- Convert WETH Page Content -->
+    <main class="convert-weth-page">
+        <div class="container">
+            <div class="convert-container">
+                <!-- Page Header -->
+                <div class="page-header">
+                    <h1><i class="fas fa-exchange-alt"></i> Convert ETH ↔ WETH</h1>
+                    <p>Convert between Ethereum and Wrapped Ethereum for trading</p>
+                </div>
+                
+                <!-- Current Balances -->
+                <div class="current-balances">
+                    <div class="balance-card">
+                        <div class="balance-icon">
+                            <i class="fab fa-ethereum"></i>
+                        </div>
+                        <div class="balance-info">
+                            <div class="balance-label">ETH Balance</div>
+                            <div class="balance-amount" id="ethBalanceDisplay">0.0000 ETH</div>
+                            <div class="balance-usd" id="ethValueDisplay">$0.00</div>
+                        </div>
+                    </div>
+                    
+                    <div class="balance-card">
+                        <div class="balance-icon">
+                            <i class="fas fa-coins"></i>
+                        </div>
+                        <div class="balance-info">
+                            <div class="balance-label">WETH Balance</div>
+                            <div class="balance-amount" id="wethBalanceDisplay">0.0000 WETH</div>
+                            <div class="balance-usd" id="wethValueDisplay">$0.00</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Conversion Card -->
+                <div class="conversion-card">
+                    <!-- Conversion Type Selector -->
+                    <div class="conversion-type">
+                        <button class="conversion-tab active" onclick="selectConversionType('ethToWeth')">
+                            <i class="fab fa-ethereum"></i>
+                            <span>ETH → WETH</span>
+                        </button>
+                        <button class="conversion-tab" onclick="selectConversionType('wethToEth')">
+                            <i class="fas fa-coins"></i>
+                            <span>WETH → ETH</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Conversion Direction -->
+                    <div class="conversion-direction">
+                        <div class="from-section">
+                            <div class="currency-label">From</div>
+                            <div class="currency-display">
+                                <span class="currency-symbol" id="fromSymbol">ETH</span>
+                                <span class="currency-balance" id="fromBalance">0.0000</span>
+                            </div>
+                        </div>
+                        <div class="arrow">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                        <div class="to-section">
+                            <div class="currency-label">To</div>
+                            <div class="currency-display">
+                                <span class="currency-symbol" id="toSymbol">WETH</span>
+                                <span class="currency-balance" id="toBalance">0.0000</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 15% ETH Balance Warning (Only for WETH → ETH) -->
+                    <div class="balance-warning" id="ethBalanceWarning" style="display: none;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <div>
+                            <strong>ETH Balance Requirement</strong>
+                            <p>You must have at least <span id="requiredEthAmount">0.0000</span> ETH (15% of WETH balance) to convert WETH back to ETH.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Amount Input -->
+                    <div class="amount-section">
+                        <div class="amount-header">
+                            <label>Amount to Convert</label>
+                            <div class="max-btn" onclick="setMaxAmount()">MAX</div>
+                        </div>
+                        <div class="amount-input-container">
+                            <input type="number" 
+                                   id="convertAmount" 
+                                   class="amount-input" 
+                                   placeholder="0.00"
+                                   min="0.0001"
+                                   step="0.0001">
+                            <span class="currency-label-input" id="inputCurrency">ETH</span>
+                        </div>
+                        <div class="balance-info">
+                            Available: <span id="availableBalance">0.0000</span> <span id="availableCurrency">ETH</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Conversion Details -->
+                    <div class="conversion-details">
+                        <div class="detail-row">
+                            <span>You Receive:</span>
+                            <span class="detail-value" id="receiveAmount">0.0000 WETH</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Exchange Rate:</span>
+                            <span class="detail-value">1 ETH = 1 WETH</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Estimated Fee:</span>
+                            <span class="detail-value" id="estimatedFee">~$0.00</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Convert Button -->
+                    <button class="convert-button" id="convertBtn" onclick="executeConversion()" disabled>
+                        <i class="fas fa-exchange-alt"></i> Convert Now
+                    </button>
+                    
+                    <!-- Info Note -->
+                    <div class="info-note">
+                        <i class="fas fa-info-circle"></i>
+                        <p><strong>Important:</strong> When converting WETH back to ETH, you must have at least 15% of the conversion amount available in ETH balance for gas and network fees.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Load Scripts -->
+    <script src="../js/app.js"></script>
+    <script src="../js/convert-weth.js"></script>
+</body>
+</html>

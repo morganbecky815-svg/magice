@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile | Magic Eden</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/profile.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header (same as index.html) -->
+    <header class="header">
+        <div class="container">
+            <div class="navbar">
+                <div class="logo">
+                    <i class="fas fa-gem"></i>
+                    <span>Magic Eden</span>
+                </div>
+                
+                <div class="nav-center">
+                    <a href="/" class="nav-link">Marketplace</a>
+                    <a href="/profile" class="nav-link active">My Profile</a>
+                    <a href="#" class="nav-link">My NFTs</a>
+                    <a href="#" class="nav-link">Activity</a>
+                </div>
+                
+                <div class="nav-right">
+                    <div class="user-info" id="profileHeader">
+                        <!-- Filled by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Profile Content -->
+    <main class="profile-main">
+        <div class="container">
+            <!-- Profile Header -->
+            <div class="profile-header">
+                <div class="profile-avatar">
+                    <div class="avatar-icon">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <div class="profile-info">
+                        <h1 id="profileName">Loading...</h1>
+                        <p id="profileEmail">Loading...</p>
+                        <div class="profile-stats">
+                            <span class="stat"><i class="fas fa-gem"></i> <span id="nftsOwned">0</span> NFTs</span>
+                            <span class="stat"><i class="fas fa-wallet"></i> <span id="walletBalance">0</span> WETH</span>
+                            <span class="stat"><i class="fas fa-calendar"></i> Member since <span id="joinDate">...</span></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="profile-actions">
+                    <button class="btn btn-primary" onclick="window.location.href='create-nft.html'">
+                        <i class="fas fa-plus"></i> Create NFT
+                    </button>
+                    <button class="btn" onclick="addFunds()">
+                        <i class="fas fa-coins"></i> Add Funds
+                    </button>
+                    <button class="btn" onclick="editProfile()">
+                        <i class="fas fa-edit"></i> Edit Profile
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="profile-tabs">
+                <button class="profile-tab active" onclick="showProfileTab('nfts')">
+                    <i class="fas fa-gem"></i> My NFTs
+                </button>
+                <button class="profile-tab" onclick="showProfileTab('activity')">
+                    <i class="fas fa-history"></i> Activity
+                </button>
+                <button class="profile-tab" onclick="showProfileTab('collections')">
+                    <i class="fas fa-layer-group"></i> Collections
+                </button>
+                <button class="profile-tab" onclick="showProfileTab('settings')">
+                    <i class="fas fa-cog"></i> Settings
+                </button>
+            </div>
+
+            <!-- My NFTs Tab -->
+            <div id="nftsTab" class="profile-content active">
+                <h2>My NFTs</h2>
+                <div class="nfts-grid" id="userNFTsGrid">
+                    <!-- User's NFTs will load here -->
+                    <div class="loading">Loading your NFTs...</div>
+                </div>
+            </div>
+
+            <!-- Activity Tab -->
+            <div id="activityTab" class="profile-content">
+                <h2>Recent Activity</h2>
+                <div class="activity-list" id="activityList">
+                    <!-- Activity will load here -->
+                    <div class="loading">Loading activity...</div>
+                </div>
+            </div>
+
+            <!-- Collections Tab -->
+            <div id="collectionsTab" class="profile-content">
+                <h2>My Collections</h2>
+                <div class="collections-grid" id="collectionsGrid">
+                    <!-- Collections will load here -->
+                    <div class="empty-state">
+                        <i class="fas fa-layer-group"></i>
+                        <p>You haven't created any collections yet</p>
+                        <button class="btn btn-primary" onclick="createCollection()">Create Collection</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settingsTab" class="profile-content">
+                <h2>Account Settings</h2>
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <input type="email" id="settingsEmail" readonly>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Display Name</label>
+                        <input type="text" id="settingsName" placeholder="Enter your display name">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Bio</label>
+                        <textarea id="settingsBio" placeholder="Tell us about yourself" rows="4"></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button class="btn btn-primary" onclick="saveProfile()">Save Changes</button>
+                        <button class="btn" onclick="resetPassword()">Change Password</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <div class="logo">
+                        <i class="fas fa-gem"></i>
+                        <span>Magic Eden</span>
+                    </div>
+                    <p>© 2024 Magic Eden. All rights reserved.</p>
+                </div>
+                <div class="footer-section">
+                    <a href="/"><i class="fas fa-store"></i> Marketplace</a>
+                    <a href="/admin" id="adminLink" style="display:none"><i class="fas fa-cog"></i> Admin</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Add Funds Modal -->
+    <div id="addFundsModal" class="modal">
+        <div class="modal-content">
+            <h3><i class="fas fa-coins"></i> Add Funds to Wallet</h3>
+            <p>Add WETH to your wallet to purchase NFTs</p>
+            <div class="form-group">
+                <label>Amount (WETH)</label>
+                <input type="number" id="fundAmount" min="0.01" step="0.01" value="1.0" placeholder="0.00">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="confirmAddFunds()">Add Funds</button>
+                <button class="btn" onclick="closeModal('addFundsModal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script src="profile.js"></script>
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Magic Eden</title>
+    <!-- Use your existing CSS files -->
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/login.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Back Link -->
+    <div class="back-link">
+        <a href="/">
+            <i class="fas fa-arrow-left"></i> Back to Marketplace
+        </a>
+    </div>
+
+    <div class="login-page">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="logo">
+                    <i class="fas fa-gem"></i>
+                    <span>Magic Eden</span>
+                </div>
+                <h1>Welcome Back</h1>
+                <p>Sign in to your account</p>
+            </div>
+            
+            <!-- Messages -->
+            <div id="errorMessage" class="login-message error" style="display: none;"></div>
+            <div id="successMessage" class="login-message success" style="display: none;"></div>
+            
+            <!-- Login Form -->
+            <form id="loginForm" onsubmit="return handleLogin(event)">
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="loginEmail" placeholder="you@example.com" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" placeholder="••••••••" required>
+                </div>
+                
+                <div class="forgot-password">
+                    <a href="#" onclick="showForgotPassword()">Forgot password?</a>
+                </div>
+                
+                <button type="submit" class="btn-login">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Sign In
+                </button>
+            </form>
+            
+            <div class="login-footer">
+                <p>Don't have an account? <a href="/register">Register here</a></p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Forgot Password Modal -->
+    <div id="forgotPasswordModal" class="modal">
+        <div class="modal-content">
+            <h3><i class="fas fa-key"></i> Reset Password</h3>
+            <p>Enter your email to receive a password reset link</p>
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="resetEmail" placeholder="you@example.com">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="sendPasswordReset()">Send Reset Link</button>
+                <button class="btn" onclick="closeModal('forgotPasswordModal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Load Scripts -->
+    <script src="app.js"></script>
+    <script>
+        // Check if already logged in
+        document.addEventListener('DOMContentLoaded', function() {
+            const userEmail = localStorage.getItem('magicEdenCurrentUser');
+            if (userEmail) {
+                // Already logged in, redirect to dashboard
+                window.location.href = '/dashboard';
+            }
+            
+            // Auto-focus on email field
+            setTimeout(() => {
+                const emailField = document.getElementById('loginEmail');
+                if (emailField) {
+                    emailField.focus();
+                }
+            }, 100);
+        });
+        
+        // Handle login
+        function handleLogin(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const errorMessage = document.getElementById('errorMessage');
+            const successMessage = document.getElementById('successMessage');
+            const loginButton = document.querySelector('.btn-login');
+            
+            // Reset messages
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+            
+            // Validate
+            if (!email || !password) {
+                showLoginError('Please enter both email and password');
+                return false;
+            }
+            
+            // Show loading
+            const originalText = loginButton.innerHTML;
+            loginButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
+            loginButton.disabled = true;
+            
+            try {
+                // Use the database from app.js
+                const result = db.loginUser(email, password);
+                
+                if (result.success) {
+                    // Store session
+                    localStorage.setItem('magicEdenCurrentUser', email);
+                    
+                    // Show success
+                    showLoginSuccess('Login successful! Redirecting to dashboard...');
+                    
+                    // Disable form
+                    document.getElementById('loginForm').querySelectorAll('input, button').forEach(el => {
+                        el.disabled = true;
+                    });
+                    
+                    // Redirect to dashboard after 1 second
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1000);
+                    
+                } else {
+                    showLoginError(result.message);
+                    loginButton.innerHTML = originalText;
+                    loginButton.disabled = false;
+                }
+                
+            } catch (error) {
+                console.error('Login error:', error);
+                showLoginError('An error occurred. Please try again.');
+                loginButton.innerHTML = originalText;
+                loginButton.disabled = false;
+            }
+            
+            return false;
+        }
+        
+        // Show login error
+        function showLoginError(message) {
+            const errorMessage = document.getElementById('errorMessage');
+            if (!errorMessage) return;
+            
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            
+            // Scroll to error
+            errorMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Shake animation
+            const form = document.getElementById('loginForm');
+            if (form) {
+                form.classList.add('shake');
+                setTimeout(() => {
+                    form.classList.remove('shake');
+                }, 500);
+            }
+        }
+        
+        // Show login success
+        function showLoginSuccess(message) {
+            const successMessage = document.getElementById('successMessage');
+            if (!successMessage) return;
+            
+            successMessage.textContent = message;
+            successMessage.style.display = 'block';
+            
+            // Scroll to success message
+            successMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        
+        // Forgot password functions
+        function showForgotPassword() {
+            document.getElementById('forgotPasswordModal').style.display = 'flex';
+            return false;
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        function sendPasswordReset() {
+            const email = document.getElementById('resetEmail').value.trim();
+            
+            if (!email || !email.includes('@')) {
+                alert('Please enter a valid email address');
+                return;
+            }
+            
+            const result = db.requestPasswordReset(email);
+            
+            if (result.success) {
+                alert(`Password reset link sent to ${email} (demo mode)`);
+                closeModal('forgotPasswordModal');
+            } else {
+                alert(result.message);
+            }
+        }
+        
+        // Make functions global
+        window.handleLogin = handleLogin;
+        window.showForgotPassword = showForgotPassword;
+        window.closeModal = closeModal;
+        window.sendPasswordReset = sendPasswordReset;
+    </script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!-- footer.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .footer {
+            background: #1a1a1a;
+            border-top: 1px solid #333;
+            padding: 40px 0;
+            margin-top: 60px;
+        }
+        
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 30px;
+        }
+        
+        .footer-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .footer-section .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 20px;
+            color: #8a2be2;
+        }
+        
+        .footer-section p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .footer-section a {
+            color: #888;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: color 0.3s;
+        }
+        
+        .footer-section a:hover {
+            color: #8a2be2;
+        }
+        
+        @media (max-width: 768px) {
+            .footer-content {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <div class="logo">
+                        <i class="fas fa-gem"></i>
+                        <span>Magic Eden</span>
+                    </div>
+                    <p>© 2024 Magic Eden. All rights reserved.</p>
+                </div>
+                <div class="footer-section">
+                    <a href="index.html"><i class="fas fa-store"></i> Marketplace</a>
+                    <a href="dashboard.html" onclick="navigateToDashboard(); return false;"><i class="fas fa-dashboard"></i> Dashboard</a>
+                    <a href="profile.html" onclick="navigateToProfile(); return false;"><i class="fas fa-user"></i> Profile</a>
+                    <a href="#" onclick="showSupportModal()"><i class="fas fa-headset"></i> Support</a>
+                    <a href="admin.html" id="adminLink" style="display:none"><i class="fas fa-cog"></i> Admin</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
