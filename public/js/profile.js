@@ -8,7 +8,7 @@ function loadProfile() {
     
     if (!userEmail) {
         // Redirect to login if not authenticated
-        window.location.href = 'login.html';
+        window.location.href = '/login';
         return;
     }
     
@@ -17,7 +17,7 @@ function loadProfile() {
     if (!user) {
         // User not found, redirect to login
         localStorage.removeItem('magicEdenCurrentUser');
-        window.location.href = 'login.html';
+        window.location.href = '/login';
         return;
     }
     
@@ -68,7 +68,7 @@ function loadUserNFTs(userEmail) {
             <div class="empty-state">
                 <i class="fas fa-gem"></i>
                 <p>You don't own any NFTs yet</p>
-                <button class="btn btn-primary" onclick="window.location.href='index.html'">
+                <button class="btn btn-primary" onclick="window.location.href='/'">
                     Browse Marketplace
                 </button>
             </div>
@@ -226,7 +226,7 @@ function confirmAddFunds() {
         document.getElementById('walletBalance').textContent = currentProfileUser.balance;
         updateProfileHeader();
         
-        alert(Successfully added ${amount} WETH to your wallet!);
+        alert(`Successfully added ${amount} WETH to your wallet!`);
         closeModal('addFundsModal');
     }
 }
@@ -325,7 +325,7 @@ function transferNFT(nftId) {
         return;
     }
     
-    if (confirm(Transfer NFT to ${recipient}?)) {
+    if (confirm(`Transfer NFT to ${recipient}?`)) {
         const nfts = db.getNFTs();
         const nftIndex = nfts.findIndex(nft => nft.id === nftId);
         
@@ -348,7 +348,7 @@ function createCollection() {
         return;
     }
     
-    alert(Collection "${name}" created!);
+    alert(`Collection "${name}" created!`);
     showProfileTab('collections');
 }
 

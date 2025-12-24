@@ -11,16 +11,16 @@ async function loadHeader() {
             <header class="header">
                 <div class="container">
                     <div class="navbar">
-                        <div class="logo" onclick="window.location.href='index.html'" style="cursor: pointer;">
+                        <div class="logo" onclick="window.location.href='/'" style="cursor: pointer;">
                             <i class="fas fa-gem"></i>
                             <span>Magic Eden</span>
                         </div>
                         
                         <div class="nav-center">
-                            <a href="index.html" class="nav-link">Explore</a>
-                            <a href="dashboard.html" class="nav-link">Dashboard</a>
-                            <a href="profile.html" class="nav-link">Profile</a>
-                            <a href="create-nft.html" class="nav-link">Create</a>
+                            <a href="/" class="nav-link">Explore</a>
+                            <a href="/dashboard" class="nav-link">Dashboard</a>
+                            <a href="/profile" class="nav-link">Profile</a>
+                            <a href="/create-nft" class="nav-link">Create</a>
                         </div>
                         
                         <div class="nav-right">
@@ -31,11 +31,11 @@ async function loadHeader() {
                             
                             <div id="authSection">
                                 <div id="guestButtons" style="display: flex; gap: 10px; align-items: center;">
-                                    <button class="btn" onclick="window.location.href='register.html'">
+                                    <button class="btn" onclick="window.location.href='/register'">
                                         <i class="fas fa-user-plus"></i>
                                         Register
                                     </button>
-                                    <button class="btn btn-primary" onclick="window.location.href='login.html'">
+                                    <button class="btn btn-primary" onclick="window.location.href='/login'">
                                         <i class="fas fa-sign-in-alt"></i>
                                         Login
                                     </button>
@@ -77,11 +77,11 @@ async function loadFooter() {
                             <p>© 2024 Magic Eden. All rights reserved.</p>
                         </div>
                         <div class="footer-section">
-                            <a href="index.html"><i class="fas fa-store"></i> Marketplace</a>
-                            <a href="dashboard.html"><i class="fas fa-dashboard"></i> Dashboard</a>
-                            <a href="profile.html"><i class="fas fa-user"></i> Profile</a>
+                            <a href="/"><i class="fas fa-store"></i> Marketplace</a>
+                            <a href="/dashboard"><i class="fas fa-dashboard"></i> Dashboard</a>
+                            <a href="/profile"><i class="fas fa-user"></i> Profile</a>
                             <a href="#" onclick="showSupportModal()"><i class="fas fa-headset"></i> Support</a>
-                            <a href="admin.html" id="adminLink" style="display:none"><i class="fas fa-cog"></i> Admin</a>
+                            <a href="/admin" id="adminLink" style="display:none"><i class="fas fa-cog"></i> Admin</a>
                         </div>
                     </div>
                 </div>
@@ -176,10 +176,10 @@ function logout() {
         
         // If on protected page, redirect to home
         const currentPage = window.location.pathname.split('/').pop();
-        const protectedPages = ['dashboard.html', 'profile.html', 'admin.html'];
+        const protectedPages = ['/dashboard', '/profile', '/admin'];
         
         if (protectedPages.includes(currentPage)) {
-            window.location.href = 'index.html';
+            window.location.href = '/';
         } else {
             // Just reload to update header
             window.location.reload();

@@ -4,7 +4,7 @@
 function checkAdminAccess() {
     const userEmail = localStorage.getItem('magicEdenCurrentUser');
     if (!userEmail) {
-        window.location.href = 'login.html';
+        window.location.href = '/login';
         return false;
     }
     
@@ -12,13 +12,13 @@ function checkAdminAccess() {
     const user = users.find(u => u.email === userEmail);
     
     if (!user) {
-        window.location.href = 'login.html';
+        window.location.href = '/login';
         return false;
     }
     
     if (!user.isAdmin) {
         alert('Admin access required');
-        window.location.href = 'index.html';
+        window.location.href = '/';
         return false;
     }
     
@@ -275,7 +275,7 @@ function resolveTicket(id) {
 // Logout function
 function adminLogout() {
     localStorage.removeItem('magicEdenCurrentUser');
-    window.location.href = 'index.html';
+    window.location.href = '/';
 }
 
 // Initialize admin panel

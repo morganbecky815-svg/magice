@@ -11,7 +11,13 @@ const MARKETPLACE_WALLET_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc9e90E4343A9B";
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Dashboard initializing...');
     loadDashboard();
-    setupGlobalFunctions();
+    // setupGlobalFunctions();
+    //  const token = localStorage.getItem('authToken');
+
+    // // 🔐 Not logged in → go back to login
+    // if (!token) {
+    //     window.location.href = '/login';
+    // }
 });
 
 // Setup global functions
@@ -38,7 +44,7 @@ function loadDashboard() {
     const userEmail = localStorage.getItem('magicEdenCurrentUser');
     
     if (!userEmail) {
-        window.location.href = 'login.html';
+        window.location.href = '/login';
         return;
     }
     
@@ -47,7 +53,7 @@ function loadDashboard() {
     
     if (!user) {
         localStorage.removeItem('magicEdenCurrentUser');
-        window.location.href = 'login.html';
+        window.location.href = '/login';
         return;
     }
     
@@ -79,7 +85,7 @@ function displayDashboardData(user) {
         if (hour < 12) greeting += "morning";
         else if (hour < 18) greeting += "afternoon";
         else greeting += "evening";
-        welcomeMessage.textContent = ${greeting}, ${name}!;
+        welcomeMessage.textContent = `${greeting}, ${name}!`;
     }
     
     // Update ETH balance
@@ -88,16 +94,16 @@ function displayDashboardData(user) {
     const marketplaceEthBalance = document.getElementById('marketplaceEthBalance');
     const marketplaceEthValue = document.getElementById('marketplaceEthValue');
     
-    if (ethBalanceEl) ethBalanceEl.textContent = ${user.ethBalance.toFixed(4)} ETH;
-    if (ethValueEl) ethValueEl.textContent = $${(user.ethBalance * ETH_PRICE).toFixed(2)};
-    if (marketplaceEthBalance) marketplaceEthBalance.textContent = ${user.ethBalance.toFixed(4)};
-    if (marketplaceEthValue) marketplaceEthValue.textContent = $${(user.ethBalance * ETH_PRICE).toFixed(2)};
+    if (ethBalanceEl) ethBalanceEl.textContent = `${user.ethBalance.toFixed(4)} ETH`;
+    if (ethValueEl) ethValueEl.textContent = `$${(user.ethBalance * ETH_PRICE).toFixed(2)}`;
+    if (marketplaceEthBalance) marketplaceEthBalance.textContent = `${user.ethBalance.toFixed(4)}`;
+    if (marketplaceEthValue) marketplaceEthValue.textContent = `$${(user.ethBalance * ETH_PRICE).toFixed(2)}`;
     
     // Update WETH balance
     const wethBalanceEl = document.getElementById('wethBalance');
     const wethValueEl = document.getElementById('wethValue');
-    if (wethBalanceEl) wethBalanceEl.textContent = ${user.wethBalance.toFixed(4)} WETH;
-    if (wethValueEl) wethValueEl.textContent = $${(user.wethBalance * ETH_PRICE).toFixed(2)};
+    if (wethBalanceEl) wethBalanceEl.textContent = `${user.wethBalance.toFixed(4)} WETH`;
+    if (wethValueEl) wethValueEl.textContent = `$${(user.wethBalance * ETH_PRICE).toFixed(2)}`;
     
     // Update marketplace wallet address
     const addressEl = document.getElementById('marketplaceAddress');
@@ -237,7 +243,7 @@ function checkWETHtoETHBalance() {
     
     if (ethBalance < requiredEth) {
         balanceCheck.style.display = 'flex';
-        balanceCheck.textContent = Insufficient ETH balance. Need ${requiredEth.toFixed(4)} ETH (15% of WETH balance).;
+        balanceCheck.textContent = `Insufficient ETH balance. Need ${requiredEth.toFixed(4)} ETH (15% of WETH balance).`;
         convertButton.disabled = true;
     } else {
         balanceCheck.style.display = 'none';
@@ -289,7 +295,7 @@ function updateConversionPreview() {
         return;
     }
     
-    conversionResult.textContent = ${amount.toFixed(4)} ${currentConversionType === 'ethToWeth' ? 'WETH' : 'ETH'};
+    conversionResult.textContent = `${amount.toFixed(4)} ${currentConversionType === 'ethToWeth' ? 'WETH' : 'ETH'}`;
     convertButton.disabled = false;
 }
 
@@ -306,12 +312,12 @@ function executeConversion() {
     // Check balance
     if (currentConversionType === 'ethToWeth') {
         if (amount > (currentDashboardUser.ethBalance || 0)) {
-            alert(Insufficient ETH balance. You have ${currentDashboardUser.ethBalance || 0} ETH.);
+            alert(`Insufficient ETH balance. You have ${currentDashboardUser.ethBalance || 0} ETH.`);
             return;
         }
     } else {
         if (amount > (currentDashboardUser.wethBalance || 0)) {
-            alert(Insufficient WETH balance. You have ${currentDashboardUser.wethBalance || 0} WETH.);
+            alert(`Insufficient WETH balance. You have ${currentDashboardUser.wethBalance || 0} WETH.`);
             return;
         }
     }
@@ -345,7 +351,7 @@ function executeConversion() {
     // Show success
     const fromCurrency = currentConversionType === 'ethToWeth' ? 'ETH' : 'WETH';
     const toCurrency = currentConversionType === 'ethToWeth' ? 'WETH' : 'ETH';
-    alert(Successfully converted ${amount.toFixed(4)} ${fromCurrency} to ${toCurrency}!);
+    alert(`Successfully converted ${amount.toFixed(4)} ${fromCurrency} to ${toCurrency}!`);
     
     closeModal('wethConversionModal');
 }
@@ -380,5 +386,5 @@ function showStaking() {
 }
 
 function viewPortfolio() {
-    window.location.href = 'profile.html';
+    window.location.href = '/profile';
 }
