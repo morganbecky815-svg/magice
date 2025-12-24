@@ -8,16 +8,16 @@ function checkAuthOnAllPages() {
     const currentPage = window.location.pathname.split('/').pop();
     
     // Pages that require authentication
-    const protectedPages = ['dashboard.html', 'profile.html', 'create-nft.html', 'admin.html'];
+    const protectedPages = ['/dashboard', '/profile', '/create-nft', '/admin'];
     
     // Pages that should redirect to dashboard if already logged in
-    const loginPages = ['login.html', 'register.html'];
+    const loginPages = ['/login', '/register'];
     
     if (protectedPages.includes(currentPage)) {
         // Protected page - need to be logged in
         if (!userEmail) {
             console.log('❌ Not authenticated, redirecting to login');
-            window.location.href = 'login.html';
+            window.location.href = '/login';
             return false;
         }
         
@@ -28,7 +28,7 @@ function checkAuthOnAllPages() {
         if (!user) {
             console.log('❌ User not found in DB, clearing session');
             localStorage.removeItem('magicEdenCurrentUser');
-            window.location.href = 'login.html';
+            window.location.href = '/login';
             return false;
         }
         
@@ -38,7 +38,7 @@ function checkAuthOnAllPages() {
     } else if (loginPages.includes(currentPage) && userEmail) {
         // Already logged in, redirect to dashboard
         console.log('✅ Already logged in, redirecting to dashboard');
-        window.location.href = 'dashboard.html';
+        window.location.href = '/dashboard';
         return false;
     }
     
@@ -126,7 +126,7 @@ function logout() {
         localStorage.removeItem('magicEdenCurrentUser');
         
         // Redirect to home page
-        window.location.href = 'index.html';
+        window.location.href = '/';
     }
 }
 

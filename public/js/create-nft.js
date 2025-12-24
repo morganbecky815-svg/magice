@@ -544,7 +544,7 @@ async function mintNFT() {
         
         // Redirect to dashboard after a delay
         setTimeout(() => {
-            window.location.href = 'dashboard.html';
+            window.location.href = '/dashboard';
         }, 2000);
         
     } catch (error) {

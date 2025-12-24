@@ -42,7 +42,7 @@ class Database {
     initStorage(key, defaultValue) {
         if (!localStorage.getItem(key)) {
             localStorage.setItem(key, JSON.stringify(defaultValue));
-            console.log(📝 Created ${key} with default data);
+            console.log(`📝 Created ${key} with default data`);
         }
     }
     
@@ -352,7 +352,7 @@ class Database {
         // In a real app, you'd send an email here
         return { 
             success: true, 
-            message: Password reset email sent to ${email} (demo mode) 
+            message: `Password reset email sent to ${email} (demo mode)`
         };
     }
     
@@ -434,7 +434,7 @@ class Database {
         if (buyer.balance < nft.price) {
             return { 
                 success: false, 
-                message: Insufficient balance. You have ${buyer.balance} WETH, need ${nft.price} WETH 
+                message: `Insufficient balance. You have ${buyer.balance} WETH, need ${nft.price} WETH` 
             };
         }
         
@@ -446,13 +446,13 @@ class Database {
         localStorage.setItem('magicEdenUsers', JSON.stringify(users));
         localStorage.setItem('magicEdenNFTs', JSON.stringify(nfts));
         
-        console.log(✅ NFT purchased: ${nft.name} by ${buyer.email});
+        console.log(`✅ NFT purchased: ${nft.name} by ${buyer.email}`);
         
         return { 
             success: true, 
             nft: nfts[nftIndex], 
             buyer: buyer,
-            message: Successfully purchased "${nft.name}"!
+            message: `Successfully purchased "${nft.name}"!`
         };
     }
     
@@ -587,7 +587,7 @@ function login(email, password) {
         return {
             success: true,
             user: result.user,
-            redirectTo: 'dashboard.html'
+            redirectTo: '/dashboard'
         };
     }
     
@@ -616,7 +616,7 @@ function register(email, password, fullName = "") {
         return {
             success: true,
             user: result.user,
-            redirectTo: 'dashboard.html'
+            redirectTo: '/dashboard'
         };
     }
     
@@ -637,17 +637,17 @@ function logout() {
     
     // Redirect to home page if on protected page
     const currentPage = window.location.pathname.split('/').pop();
-    const protectedPages = ['dashboard.html', 'profile.html', 'admin.html'];
+    const protectedPages = ['/dashboard', '/profile', '/admin'];
     
     if (protectedPages.includes(currentPage)) {
-        window.location.href = 'index.html';
+        window.location.href = '/';
     } else {
         window.location.reload();
     }
 }
 
 // Check if page requires authentication
-function requireAuth(redirectTo = 'login.html') {
+function requireAuth(redirectTo = '/login') {
     const authStatus = checkAuthStatus();
     
     if (!authStatus.isLoggedIn) {
@@ -655,8 +655,9 @@ function requireAuth(redirectTo = 'login.html') {
         
         // Add current page as redirect parameter
         const currentPage = window.location.pathname.split('/').pop();
-        if (currentPage && currentPage !== 'index.html') {
-            redirectTo += ?redirect=${currentPage};
+        if (currentPage && currentPage !== '') {
+            // redirectTo += ?redirect=${currentPage};
+            redirectTo += '?redirect=' + currentPage;
         }
         
         window.location.href = redirectTo;
@@ -710,12 +711,12 @@ function loadNFTs() {
         grid.appendChild(card);
     });
     
-    console.log(✅ Loaded ${nfts.length} NFTs);
+    console.log(`✅ Loaded ${nfts.length} NFTs`);
 }
 
 // Filter NFTs by category
 function filterNFTs(category) {
-    console.log(🔍 Filtering NFTs by category: ${category});
+    console.log(`🔍 Filtering NFTs by category: ${category}`);
     
     const buttons = document.querySelectorAll('.filter-btn');
     if (buttons.length > 0 && event && event.target) {
@@ -760,25 +761,25 @@ function filterNFTs(category) {
         grid.appendChild(card);
     });
     
-    console.log(✅ Displaying ${filtered.length} NFTs);
+    console.log(`✅ Displaying ${filtered.length} NFTs`);
 }
 
 // Buy NFT
 function buyNFT(nftId) {
-    console.log(🛒 Attempting to buy NFT ID: ${nftId});
+    console.log(`🛒 Attempting to buy NFT ID: ${nftId}`);
     
     const authStatus = checkAuthStatus();
     
     if (!authStatus.isLoggedIn) {
         alert('Please login to buy NFTs');
-        window.location.href = 'login.html?redirect=' + window.location.pathname.split('/').pop();
+        window.location.href = 'login?redirect=' + window.location.pathname.split('/').pop();
         return;
     }
     
     const result = db.purchaseNFT(nftId, authStatus.user.email);
     
     if (result.success) {
-        console.log(✅ Purchased NFT: ${result.nft.name});
+        console.log(`✅ Purchased NFT: ${result.nft.name}`);
         alert(result.message);
         
         // Refresh displays
@@ -787,7 +788,7 @@ function buyNFT(nftId) {
         if (typeof checkAuthStatus === 'function') checkAuthStatus();
         
     } else {
-        console.log(❌ Purchase failed: ${result.message});
+        console.log(`❌ Purchase failed: ${result.message}`);
         alert(result.message);
     }
 }
@@ -816,7 +817,7 @@ function updateStats() {
         document.getElementById('totalVolume').textContent = totalVolume.toFixed(2) + ' WETH';
     }
     
-    console.log(📊 Stats updated: ${nfts.length} NFTs, ${users.length} Users, ${totalVolume.toFixed(2)} Volume);
+    console.log(`📊 Stats updated: ${nfts.length} NFTs, ${users.length} Users, ${totalVolume.toFixed(2)} Volume`);
 }
 
 // =====================
@@ -829,7 +830,7 @@ function showSupportModal() {
     
     if (!authStatus.isLoggedIn) {
         alert('Please login to contact support');
-        window.location.href = 'login.html';
+        window.location.href = '/login';
         return;
     }
     
@@ -900,14 +901,14 @@ function initPage() {
     
     // Initialize specific page functions
     switch (currentPage) {
-        case 'index.html':
+        case '/':
         case '':
             console.log('🏪 Initializing marketplace...');
             if (typeof loadNFTs === 'function') loadNFTs();
             if (typeof updateStats === 'function') updateStats();
             break;
             
-        case 'dashboard.html':
+        case '/dashboard':
             console.log('📊 Dashboard requires authentication...');
             const user = requireAuth();
             if (user) {
@@ -916,12 +917,12 @@ function initPage() {
             }
             break;
             
-        case 'profile.html':
+        case '/profile':
             console.log('👤 Profile requires authentication...');
             requireAuth();
             break;
             
-        case 'admin.html':
+        case '/admin':
             console.log('👑 Admin requires authentication...');
             requireAuth();
             break;

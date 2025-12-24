@@ -11,7 +11,7 @@ function showAddETH() {
     const userEmail = localStorage.getItem('magicEdenCurrentUser');
     if (!userEmail) {
         alert('Please login first');
-        window.location.href = 'login.html';
+        window.location.href = '/login';
         return;
     }
     
@@ -30,7 +30,7 @@ function showAddETH() {
         const marketplaceEthValue = document.getElementById('marketplaceEthValue');
         
         if (marketplaceEthBalance) marketplaceEthBalance.textContent = ethBalance.toFixed(4);
-        if (marketplaceEthValue) marketplaceEthValue.textContent = $${(ethBalance * 2500).toFixed(2)};
+        if (marketplaceEthValue) marketplaceEthValue.textContent = `$${(ethBalance * 2500).toFixed(2)}`;
     }
     
     // Show the modal
@@ -43,7 +43,7 @@ function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.style.display = 'none';
-        console.log(✅ Modal ${modalId} closed);
+        console.log(`✅ Modal ${modalId} closed`);
     }
 }
 

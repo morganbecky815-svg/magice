@@ -1,71 +1,164 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+// const mongoose = require('mongoose');
+// const bcrypt = require('bcryptjs');
 
-const userSchema = new mongoose.Schema({
-    email: {
-        type: String,
-        required: true,
-        unique: true,
-        lowercase: true,
-        trim: true
-    },
-    password: {
-        type: String,
-        required: true
-    },
-    fullName: {
-        type: String,
-        default: ""
-    },
-    balance: {
-        type: Number,
-        default: 0
-    },
-    ethBalance: {
-        type: Number,
-        default: 0
-    },
-    wethBalance: {
-        type: Number,
-        default: 0
-    },
-    isAdmin: {
-        type: Boolean,
-        default: false
-    },
-    isVerified: {
-        type: Boolean,
-        default: true
-    },
-    lastLogin: {
-        type: Date
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
-    lastActivity: [{
-        type: String,
-        default: []
-    }]
-});
+// const userSchema = new mongoose.Schema({
+//     email: {
+//         type: String,
+//         required: true,
+//         unique: true,
+//         lowercase: true,
+//         trim: true
+//     },
+//     password: {
+//         type: String,
+//         required: true
+//     },
+//     fullName: {
+//         type: String,
+//         default: ""
+//     },
+//     balance: {
+//         type: Number,
+//         default: 0
+//     },
+//     ethBalance: {
+//         type: Number,
+//         default: 0
+//     },
+//     wethBalance: {
+//         type: Number,
+//         default: 0
+//     },
+//     isAdmin: {
+//         type: Boolean,
+//         default: false
+//     },
+//     isVerified: {
+//         type: Boolean,
+//         default: true
+//     },
+//     lastLogin: {
+//         type: Date
+//     },
+//     createdAt: {
+//         type: Date,
+//         default: Date.now
+//     },
+//     lastActivity: [{
+//         type: String,
+//         default: []
+//     }]
+// });
 
 // Hash password before saving
-userSchema.pre('save', async function(next) {
-    if (!this.isModified('password')) return next();
-    
-    try {
-        const salt = await bcrypt.genSalt(10);
-        this.password = await bcrypt.hash(this.password, salt);
-        next();
-    } catch (error) {
-        next(error);
-    }
-});
+// userSchema.pre('save', async function(next) {
+//     if (!this.isModified('password')) return next();
 
+//     try {
+//         const salt = await bcrypt.genSalt(10);
+//         this.password = await bcrypt.hash(this.password, salt);
+//         next();
+//     } catch (error) {
+//         next(error);
+//     }
+// });
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+
+const userSchema = new mongoose.Schema(
+  {
+    email: {
+      type: String,
+      required: [true, "Email is required"],
+      unique: true,
+      lowercase: true,
+      trim: true,
+      match: [/^\S+@\S+\.\S+$/, "Please use a valid email address"],
+      index: true,
+    },
+
+    password: {
+      type: String,
+      required: [true, "Password is required"],
+      minlength: [8, "Password must be at least 8 characters"],
+      select: false, // 🔐 prevents password from returning by default
+    },
+
+    fullName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    balance: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    ethBalance: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    wethBalance: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    isAdmin: {
+      type: Boolean,
+      default: false,
+    },
+
+    isVerified: {
+      type: Boolean,
+      default: true,
+    },
+
+    lastLogin: {
+      type: Date,
+    },
+
+    lastActivity: {
+      type: [String],
+      default: [],
+    },
+  },
+  {
+    timestamps: true, // ⏱ adds createdAt & updatedAt automatically
+  }
+);
+
+// ---
+
+// ## 🔐 PASSWORD HASHING (clean & safe)
+
+// userSchema.pre('save', async function (next) {
+//   if (!this.isModified('password')) return next();
+
+//   try {
+//     this.password = await bcrypt.hash(this.password, 10);
+//     next();
+//   } catch (err) {
+//     next(err);
+//   }
+// });
+// 
+userSchema.pre('save', function (next) {
+  if (!this.isModified('password')) return next();
+  bcrypt.hash(this.password, 10)
+    .then(hash => {
+      this.password = hash;
+      next();
+    })
+    .catch(next);
+});
 // Compare password method
-userSchema.methods.comparePassword = async function(candidatePassword) {
-    return await bcrypt.compare(candidatePassword, this.password);
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
 };
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.model("User", userSchema);

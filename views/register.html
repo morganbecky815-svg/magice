@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -291,18 +292,42 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-            20%, 40%, 60%, 80% { transform: translateX(5px); }
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            10%,
+            30%,
+            50%,
+            70%,
+            90% {
+                transform: translateX(-5px);
+            }
+
+            20%,
+            40%,
+            60%,
+            80% {
+                transform: translateX(5px);
+            }
         }
 
         .shake {
-            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+            animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
         }
 
         /* Responsive */
@@ -310,15 +335,15 @@
             .register-card {
                 padding: 30px 20px;
             }
-            
+
             .register-header .logo {
                 font-size: 28px;
             }
-            
+
             .register-header h1 {
                 font-size: 24px;
             }
-            
+
             .social-buttons {
                 flex-direction: column;
             }
@@ -343,7 +368,7 @@
         .back-link a:hover {
             text-decoration: underline;
         }
-        
+
         /* Note about balances */
         .balance-note {
             background: rgba(138, 43, 226, 0.05);
@@ -354,13 +379,14 @@
             font-size: 13px;
             color: #888;
         }
-        
+
         .balance-note i {
             color: #8a2be2;
             margin-right: 8px;
         }
     </style>
 </head>
+
 <body>
     <!-- Back Link -->
     <div class="back-link">
@@ -379,57 +405,60 @@
                 <h1>Create Account</h1>
                 <p>Join the world's largest NFT marketplace</p>
             </div>
-            
+
             <!-- Message Display -->
             <div id="registerMessage" class="register-message"></div>
-            
+
             <!-- Registration Form -->
-            <form id="registerForm" onsubmit="return handleRegistration(event)">
+            <form id="registerForm" method="post" action="/register" onsubmit="return handleRegistration(event)">
                 <div class="form-group">
                     <label for="fullName">Full Name <span style="color: #888;">(Optional)</span></label>
-                    <input type="text" id="fullName" placeholder="John Doe">
+                    <input type="text" name="fullName" id="fullName" placeholder="John Doe">
                 </div>
-                
+
                 <div class="form-group">
                     <label for="registerEmail">Email Address *</label>
-                    <input type="email" id="registerEmail" placeholder="you@example.com" required>
+                    <input type="email" name="email" id="registerEmail" placeholder="you@example.com" required>
                     <div id="emailValidation" class="validation-message"></div>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="registerPassword">Password *</label>
-                    <input type="password" id="registerPassword" placeholder="••••••••" required minlength="6">
+                    <input type="password" name="password" id="registerPassword" placeholder="••••••••" required
+                        minlength="6">
                     <div id="passwordValidation" class="validation-message">
                         Password must be at least 6 characters
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="registerConfirmPassword">Confirm Password *</label>
-                    <input type="password" id="registerConfirmPassword" placeholder="••••••••" required>
+                    <input type="password" name="confirmPassword" id="registerConfirmPassword" placeholder="••••••••"
+                        required>
                     <div id="passwordMatch" class="validation-message"></div>
                 </div>
-                
+
                 <div class="terms-checkbox">
                     <input type="checkbox" id="agreeTerms" required>
                     <label for="agreeTerms">
-                        I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>. 
+                        I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
                         I understand that I must be at least 18 years old to use this platform.
                     </label>
                 </div>
-                
+
                 <!-- Note about starting balance -->
                 <div class="balance-note">
                     <i class="fas fa-info-circle"></i>
-                    <strong>Note:</strong> New accounts start with 0 balance. An admin will add funds to your account for testing purposes.
+                    <strong>Note:</strong> New accounts start with 0 balance. An admin will add funds to your account
+                    for testing purposes.
                 </div>
-                
+
                 <button type="submit" class="btn-register" id="registerButton">
                     <i class="fas fa-user-plus"></i>
                     Create Account
                 </button>
             </form>
-            
+
             <div class="social-register">
                 <p>Or register with</p>
                 <div class="social-buttons">
@@ -447,7 +476,7 @@
                     </button>
                 </div>
             </div>
-            
+
             <div class="register-footer">
                 <p>Already have an account? <a href="/login">Sign in here</a></p>
             </div>
@@ -455,196 +484,132 @@
     </div>
 
     <!-- Load app.js first (contains Database class) -->
-    <script src="app.js"></script>
-    
+    <script src="/js/app.js"></script>
+
     <!-- Registration JavaScript -->
     <script>
         // ===== REGISTRATION JAVASCRIPT =====
-        
+
         // Real-time validation
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             console.log('🚀 Registration page loaded');
-            
+
             const emailInput = document.getElementById('registerEmail');
             const passwordInput = document.getElementById('registerPassword');
             const confirmPasswordInput = document.getElementById('registerConfirmPassword');
-            
+
             // Email validation on input
-            emailInput?.addEventListener('input', function() {
+            emailInput?.addEventListener('input', function () {
                 validateEmail(this.value);
             });
-            
+
             // Password validation on input
-            passwordInput?.addEventListener('input', function() {
+            passwordInput?.addEventListener('input', function () {
                 validatePassword(this.value);
                 checkPasswordMatch();
             });
-            
+
             // Confirm password validation
             confirmPasswordInput?.addEventListener('input', checkPasswordMatch);
-            
+
             // Auto-focus on email field
             setTimeout(() => {
                 emailInput?.focus();
             }, 100);
-            
+
             // Check if we have db from app.js
             console.log('Database available:', typeof db !== 'undefined');
         });
 
         // Handle registration form submission
-        function handleRegistration(event) {
+        async function handleRegistration(event) {
             event.preventDefault();
-            console.log('📝 Registration form submitted');
-            
-            // Get form values
+
+            // Collect form data
             const fullName = document.getElementById('fullName').value.trim();
             const email = document.getElementById('registerEmail').value.trim();
             const password = document.getElementById('registerPassword').value;
             const confirmPassword = document.getElementById('registerConfirmPassword').value;
             const agreeTerms = document.getElementById('agreeTerms')?.checked;
-            
-            const messageEl = document.getElementById('registerMessage');
-            const registerButton = document.getElementById('registerButton');
-            
-            // Reset message
-            if (messageEl) {
-                messageEl.className = 'register-message';
-                messageEl.textContent = '';
-                messageEl.style.display = 'none';
-            }
-            
-            // Validate form
+
+            // Basic validation (keep your existing validation here)
             if (!email || !password || !confirmPassword) {
                 showError('❌ Please fill all required fields');
                 return false;
             }
-            
             if (!agreeTerms) {
                 showError('❌ You must agree to the Terms of Service');
                 return false;
             }
-            
             if (password !== confirmPassword) {
                 showError('❌ Passwords do not match');
                 return false;
             }
-            
             if (password.length < 6) {
                 showError('❌ Password must be at least 6 characters');
                 return false;
             }
-            
-            // Final email validation
-            if (!validateEmail(email, true)) {
-                return false;
-            }
-            
-            // Disable button during registration
-            if (registerButton) {
-                registerButton.disabled = true;
-                registerButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
-            }
-            
+
+            // Prepare data payload
+            const data = {
+                fullName,
+                email,
+                password
+            };
+
+            const registerButton = document.getElementById('registerButton');
+            // Disable button during request
+            registerButton.disabled = true;
+            registerButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
+
             try {
-                // Register user using Database class from app.js
-                if (typeof db === 'undefined') {
-                    showError('❌ Error: Database not loaded. Please refresh the page.');
-                    if (registerButton) {
-                        registerButton.disabled = false;
-                        registerButton.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
-                    }
-                    return false;
-                }
-                
-                console.log('👤 Attempting to register user:', email);
-                const result = db.registerUser(email, password);
-                
-                if (result.success) {
-                    // Store full name if provided
-                    if (fullName) {
-                        const users = db.getUsers();
-                        const user = users.find(u => u.email === email.toLowerCase());
-                        if (user) {
-                            user.fullName = fullName;
-                            localStorage.setItem('magicEdenUsers', JSON.stringify(users));
-                            console.log('✅ Added full name to user:', fullName);
-                        }
-                    }
-                    
-                    // AUTO-LOGIN after successful registration
-                    console.log('✅ Registration successful, auto-logging in...');
-                    
-                    // Store user session
+                const response = await fetch('/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    // Registration successful
                     localStorage.setItem('magicEdenCurrentUser', email);
-                    
-                    // Show success message
                     showSuccess('✅ Account created successfully! Redirecting to dashboard...');
-                    
-                    // Add shake animation to form
-                    const form = document.getElementById('registerForm');
-                    if (form) {
-                        form.classList.add('shake');
-                        setTimeout(() => {
-                            form.classList.remove('shake');
-                        }, 500);
-                    }
-                    
-                    // Verify user was actually created
                     setTimeout(() => {
-                        const users = db.getUsers();
-                        const createdUser = users.find(u => u.email === email.toLowerCase());
-                        
-                        if (createdUser) {
-                            console.log('✅ User verified in database, redirecting...');
-                            console.log('User data:', createdUser);
-                            window.location.href = '/dashboard';
-                        } else {
-                            console.log('❌ User not found in database after registration');
-                            showError('❌ Registration failed. Please try again.');
-                            if (registerButton) {
-                                registerButton.disabled = false;
-                                registerButton.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
-                            }
-                        }
+                        window.location.href = '/dashboard';
                     }, 1500);
-                    
                 } else {
-                    showError(`❌ ${result.message}`);
-                    if (registerButton) {
-                        registerButton.disabled = false;
-                        registerButton.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
-                    }
-                }
-                
-            } catch (error) {
-                console.error('❌ Registration error:', error);
-                showError('❌ An error occurred. Please try again.');
-                if (registerButton) {
+                    // Show error from server
+                    showError(`❌ ${result.message || 'Registration failed'}`);
                     registerButton.disabled = false;
                     registerButton.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
                 }
+            } catch (err) {
+                console.error('Registration error:', err);
+                showError('❌ An error occurred. Please try again.');
+                registerButton.disabled = false;
+                registerButton.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
             }
-            
+
             return false;
         }
-
         // Validation functions
         function validateEmail(email, showMessage = false) {
             const validationDiv = document.getElementById('emailValidation');
             const emailInput = document.getElementById('registerEmail');
-            
+
             if (!validationDiv || !emailInput) return false;
-            
+
             if (!email) {
                 validationDiv.textContent = '';
                 validationDiv.className = 'validation-message';
                 emailInput.classList.remove('error', 'success');
                 return false;
             }
-            
+
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            
+
             if (!emailRegex.test(email)) {
                 validationDiv.textContent = '❌ Please enter a valid email address';
                 validationDiv.className = 'validation-message error';
@@ -652,12 +617,12 @@
                 emailInput.classList.remove('success');
                 return false;
             }
-            
+
             // Check if email already exists
             if (typeof db !== 'undefined') {
                 const users = db.getUsers();
                 const exists = users.find(u => u.email === email.toLowerCase());
-                
+
                 if (exists) {
                     validationDiv.textContent = '❌ Email already registered';
                     validationDiv.className = 'validation-message error';
@@ -666,7 +631,7 @@
                     return false;
                 }
             }
-            
+
             validationDiv.textContent = '✓ Email is available';
             validationDiv.className = 'validation-message success';
             emailInput.classList.add('success');
@@ -677,16 +642,16 @@
         function validatePassword(password) {
             const validationDiv = document.getElementById('passwordValidation');
             const passwordInput = document.getElementById('registerPassword');
-            
+
             if (!validationDiv || !passwordInput) return;
-            
+
             if (!password) {
                 validationDiv.textContent = 'Password must be at least 6 characters';
                 validationDiv.className = 'validation-message';
                 passwordInput.classList.remove('error', 'success');
                 return;
             }
-            
+
             if (password.length < 6) {
                 validationDiv.textContent = '❌ Password must be at least 6 characters';
                 validationDiv.className = 'validation-message error';
@@ -694,12 +659,12 @@
                 passwordInput.classList.remove('success');
                 return false;
             }
-            
+
             // Check password strength
             let strength = 'Good';
             if (password.length >= 12) strength = 'Strong';
             if (password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password)) strength = 'Strong';
-            
+
             validationDiv.textContent = `✓ Password strength: ${strength}`;
             validationDiv.className = 'validation-message success';
             passwordInput.classList.add('success');
@@ -712,16 +677,16 @@
             const confirmPassword = document.getElementById('registerConfirmPassword')?.value || '';
             const matchDiv = document.getElementById('passwordMatch');
             const confirmInput = document.getElementById('registerConfirmPassword');
-            
+
             if (!matchDiv || !confirmInput) return;
-            
+
             if (!confirmPassword) {
                 matchDiv.textContent = '';
                 matchDiv.className = 'validation-message';
                 confirmInput.classList.remove('error', 'success');
                 return;
             }
-            
+
             if (password === confirmPassword) {
                 matchDiv.textContent = '✓ Passwords match';
                 matchDiv.className = 'validation-message success';
@@ -741,14 +706,14 @@
         function showError(message) {
             const messageEl = document.getElementById('registerMessage');
             if (!messageEl) return;
-            
+
             messageEl.textContent = message;
             messageEl.className = 'register-message error';
             messageEl.style.display = 'block';
-            
+
             // Scroll to message
             messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            
+
             // Shake animation
             const form = document.getElementById('registerForm');
             if (form) {
@@ -763,11 +728,11 @@
         function showSuccess(message) {
             const messageEl = document.getElementById('registerMessage');
             if (!messageEl) return;
-            
+
             messageEl.textContent = message;
             messageEl.className = 'register-message success';
             messageEl.style.display = 'block';
-            
+
             // Scroll to message
             messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
@@ -788,4 +753,5 @@
         console.log('✅ Registration JavaScript loaded');
     </script>
 </body>
+
 </html>
