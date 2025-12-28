@@ -1,3 +1,80 @@
+// convert-weth.js - SIMPLIFIED VERSION
+console.log('💱 convert-weth.js loaded');
+
+// Global variables
+let currentConversionType = 'ethToWeth';
+let userEthBalance = 2.5;  // Default values
+let userWethBalance = 1.2; // Default values
+const ETH_PRICE = 2500;
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔄 WETH conversion page initializing...');
+    
+    // Get user from global (set by the HTML check) or localStorage
+    const userEmail = window.currentUserEmail || localStorage.getItem('magicEdenCurrentUser');
+    
+    if (!userEmail) {
+        console.error('❌ FATAL: No user found even after HTML check!');
+        // Page should have redirected already, but just in case:
+        window.location.href = 'login.html';
+        return;
+    }
+    
+    console.log('✅ User authenticated:', userEmail);
+    
+    // Load user data (OFFLINE VERSION)
+    loadUserDataOffline(userEmail);
+    
+    // Setup event listeners
+    setupEventListeners();
+    
+    console.log('✅ WETH conversion page ready');
+});
+
+// OFFLINE user data loader
+function loadUserDataOffline(userEmail) {
+    console.log('Loading OFFLINE data for:', userEmail);
+    
+    try {
+        // Try to get from localStorage
+        const storedUsers = localStorage.getItem('magicEdenUsers');
+        
+        if (storedUsers) {
+            const users = JSON.parse(storedUsers);
+            const user = users.find(u => u.email === userEmail.toLowerCase());
+            
+            if (user) {
+                userEthBalance = user.ethBalance || 2.5;
+                userWethBalance = user.wethBalance || 1.2;
+                console.log('Found user data in localStorage');
+            }
+        } else {
+            // Create initial data
+            console.log('Creating initial user data');
+            const newUser = {
+                email: userEmail.toLowerCase(),
+                ethBalance: 2.5,
+                wethBalance: 1.2,
+                createdAt: new Date().toISOString()
+            };
+            
+            localStorage.setItem('magicEdenUsers', JSON.stringify([newUser]));
+        }
+        
+    } catch (error) {
+        console.error('Error loading user data:', error);
+        // Keep default values
+    }
+    
+    console.log(`💰 Balances - ETH: ${userEthBalance}, WETH: ${userWethBalance}`);
+    
+    // Update display
+    updateBalanceDisplay();
+    selectConversionType('ethToWeth');
+}
+
+// ... REST OF YOUR EXISTING CODE (updateBalanceDisplay, setupEventListeners, etc.) ...
 // convert-weth.js - WETH Conversion with 15% ETH Balance Check
 console.log('💱 convert-weth.js loaded');
 
@@ -11,11 +88,11 @@ const ETH_PRICE = 2500;
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔄 WETH conversion page initializing...');
     
-    // Check if user is logged in
+    // ✅ FIXED: Changed '/login' to 'login.html'
     const userEmail = localStorage.getItem('magicEdenCurrentUser');
     if (!userEmail) {
         alert('Please login to use conversion');
-        window.location.href = '/login';
+        window.location.href = 'login.html';  // ✅ FIXED
         return;
     }
     
@@ -37,7 +114,7 @@ function loadUserData(userEmail) {
         if (!user) {
             console.log('❌ User not found');
             alert('User not found. Please login again.');
-            window.location.href = '/login';
+            window.location.href = 'login.html';  // ✅ FIXED
             return;
         }
         
@@ -233,7 +310,7 @@ function updateConversionPreview() {
     
     // Update estimated fee
     const estimatedFee = amount * 0.001 * ETH_PRICE; // 0.1% fee in USD
-    document.getElementById('estimatedFee').textContent = ~`$${estimatedFee.toFixed(2)}`;
+    document.getElementById('estimatedFee').textContent = `~$${estimatedFee.toFixed(2)}`;
     
     // Enable convert button
     convertBtn.disabled = false;
