@@ -4,6 +4,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Convert ETH ↔ WETH | Magic Eden</title>
+    
+    <!-- 🔥 CRITICAL FIX: Add this script FIRST in head -->
+    <script>
+        // IMMEDIATE auth check - runs before ANYTHING else
+        (function() {
+            console.log('=== CONVERT WETH - IMMEDIATE AUTH CHECK ===');
+            
+            // Check ALL possible user storage locations
+            const userEmail = localStorage.getItem('magicEdenCurrentUser') || 
+                             localStorage.getItem('currentUser') ||
+                             localStorage.getItem('userEmail');
+            
+            const authToken = localStorage.getItem('authToken') || 
+                             localStorage.getItem('token');
+            
+            console.log('Found user:', userEmail);
+            console.log('Found token:', authToken ? 'Yes' : 'No');
+            console.log('All localStorage:', { ...localStorage });
+            
+            // If NO auth found, redirect IMMEDIATELY
+            if (!userEmail && !authToken) {
+                console.log('❌ No auth found, redirecting to login...');
+                alert('Please login to use conversion');
+                window.location.href = 'login.html';
+                
+                // Stop ALL further execution
+                throw new Error('Redirecting to login - auth required');
+            }
+            
+            console.log('✅ Auth passed, continuing to load page...');
+            
+            // Save user email to global for other scripts
+            window.currentUserEmail = userEmail;
+        })();
+    </script>
+    
+    <!-- Then your stylesheets -->
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/convert-weth.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -70,26 +107,55 @@
                         </button>
                     </div>
                     
-                    <!-- Conversion Direction -->
-                    <div class="conversion-direction">
-                        <div class="from-section">
-                            <div class="currency-label">From</div>
-                            <div class="currency-display">
-                                <span class="currency-symbol" id="fromSymbol">ETH</span>
-                                <span class="currency-balance" id="fromBalance">0.0000</span>
-                            </div>
-                        </div>
-                        <div class="arrow">
-                            <i class="fas fa-arrow-right"></i>
-                        </div>
-                        <div class="to-section">
-                            <div class="currency-label">To</div>
-                            <div class="currency-display">
-                                <span class="currency-symbol" id="toSymbol">WETH</span>
-                                <span class="currency-balance" id="toBalance">0.0000</span>
-                            </div>
-                        </div>
-                    </div>
+                   <!-- In your conversion-direction section: -->
+<div class="conversion-direction">
+    <div class="from-section">
+        <div class="currency-label">From</div>
+        <div class="currency-display">
+            <span class="currency-symbol" id="fromSymbol">ETH</span> <!-- ID ADDED -->
+            <span class="currency-balance" id="fromBalance">0.0000</span> <!-- ID ADDED -->
+        </div>
+    </div>
+    <div class="arrow">
+        <i class="fas fa-arrow-right"></i>
+    </div>
+    <div class="to-section">
+        <div class="currency-label">To</div>
+        <div class="currency-display">
+            <span class="currency-symbol" id="toSymbol">WETH</span> <!-- ID ADDED -->
+            <span class="currency-balance" id="toBalance">0.0000</span> <!-- ID ADDED -->
+        </div>
+    </div>
+</div>
+
+<!-- In your amount-section: -->
+<div class="amount-section">
+    <div class="amount-header">
+        <label>Amount to Convert</label>
+        <div class="max-btn" onclick="setMaxAmount()">MAX</div>
+    </div>
+    <div class="amount-input-container">
+        <input type="number" 
+               id="convertAmount" 
+               class="amount-input" 
+               placeholder="0.00"
+               min="0.0001"
+               step="0.0001">
+        <span class="currency-label-input" id="inputCurrency">ETH</span> <!-- ID ADDED -->
+    </div>
+    <div class="balance-info">
+        Available: <span id="availableBalance">0.0000</span> <span id="availableCurrency">WETH</span> <!-- IDS ADDED -->
+    </div>
+</div>
+
+<!-- In conversion-details: -->
+<div class="conversion-details">
+    <div class="detail-row">
+        <span>You Receive:</span>
+        <span class="detail-value" id="receiveAmount">0.0000 WETH</span> <!-- ID ADDED -->
+    </div>
+    <!-- ... other rows ... -->
+</div>
                     
                     <!-- 15% ETH Balance Warning (Only for WETH → ETH) -->
                     <div class="balance-warning" id="ethBalanceWarning" style="display: none;">
@@ -152,7 +218,121 @@
     </main>
     
     <!-- Load Scripts -->
-    <script src="../js/app.js"></script>
-    <script src="../js/convert-weth.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/convert-weth.js"></script>
+    <!-- Fix tabs WITHOUT changing JavaScript -->
+    <script>
+        // COMPLETE FIX FOR CONVERSION TABS - Add this at the VERY END
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔄 Setting up complete conversion tab system...');
+            
+            // Wait for everything to load
+            setTimeout(function() {
+                const tabs = document.querySelectorAll('.conversion-tab');
+                console.log('Found', tabs.length, 'tabs');
+                
+                // Function to update ALL display elements
+                function updateConversionDisplay(isEthToWeth) {
+                    console.log('Updating display for:', isEthToWeth ? 'ETH → WETH' : 'WETH → ETH');
+                    
+                    // 1. Update "From" and "To" symbols
+                    const fromSymbol = document.getElementById('fromSymbol');
+                    const toSymbol = document.getElementById('toSymbol');
+                    
+                    if (fromSymbol && toSymbol) {
+                        if (isEthToWeth) {
+                            fromSymbol.textContent = 'ETH';
+                            toSymbol.textContent = 'WETH';
+                        } else {
+                            fromSymbol.textContent = 'WETH';
+                            toSymbol.textContent = 'ETH';
+                        }
+                    }
+                    
+                    // 2. Update balances display
+                    const fromBalance = document.getElementById('fromBalance');
+                    const toBalance = document.getElementById('toBalance');
+                    
+                    // You'll need to get actual balances from your JS variables
+                    // For now, using placeholder
+                    if (fromBalance && toBalance) {
+                        if (isEthToWeth) {
+                            fromBalance.textContent = ''; // Example ETH balance
+                            toBalance.textContent = '';   // Example WETH balance
+                        } else {
+                            fromBalance.textContent = ''; // Example WETH balance  
+                            toBalance.textContent = '';   // Example ETH balance
+                        }
+                    }
+                    
+                    // 3. Update "Amount to Convert" currency label
+                    const inputCurrency = document.getElementById('inputCurrency');
+                    if (inputCurrency) {
+                        inputCurrency.textContent = isEthToWeth ? 'ETH' : 'WETH';
+                    }
+                    
+                    // 4. Update "Available" currency label  
+                    const availableCurrency = document.getElementById('availableCurrency');
+                    if (availableCurrency) {
+                        availableCurrency.textContent = isEthToWeth ? 'ETH' : 'WETH';
+                    }
+                    
+                    // 5. Update "You Receive" text
+                    const receiveAmount = document.getElementById('receiveAmount');
+                    if (receiveAmount) {
+                        receiveAmount.textContent = isEthToWeth ? '0.0000 WETH' : '0.0000 ETH';
+                    }
+                    
+                    // 6. Show/hide ETH balance warning for WETH → ETH
+                    const warningElement = document.getElementById('ethBalanceWarning');
+                    if (warningElement) {
+                        if (!isEthToWeth) {
+                            warningElement.style.display = 'flex';
+                        } else {
+                            warningElement.style.display = 'none';
+                        }
+                    }
+                }
+                
+                tabs.forEach(tab => {
+                    // Get tab text
+                    const text = tab.textContent || tab.innerText;
+                    console.log('Setting up tab:', text);
+                    
+                    // Remove any broken onclick handlers
+                    tab.onclick = null;
+                    
+                    // Add new click handler
+                    tab.addEventListener('click', function() {
+                        console.log('✅ Tab clicked:', text);
+                        
+                        const isEthToWeth = text.includes('ETH → WETH') || text.includes('ETH -> WETH');
+                        
+                        // Update ALL display elements
+                        updateConversionDisplay(isEthToWeth);
+                        
+                        // Call the original function if it exists
+                        if (typeof selectConversionType === 'function') {
+                            selectConversionType(isEthToWeth ? 'ethToWeth' : 'wethToEth');
+                        }
+                        
+                        // Update active state (visual feedback)
+                        tabs.forEach(t => t.classList.remove('active'));
+                        this.classList.add('active');
+                    });
+                });
+                
+                // Set initial state
+                const activeTab = document.querySelector('.conversion-tab.active');
+                if (activeTab) {
+                    const activeText = activeTab.textContent || activeTab.innerText;
+                    const isEthToWeth = activeText.includes('ETH → WETH') || activeText.includes('ETH -> WETH');
+                    updateConversionDisplay(isEthToWeth);
+                }
+                
+                console.log('✅ Complete conversion system setup!');
+            }, 1000); // Wait 1 second for page to fully load
+        });
+    </script>
 </body>
 </html>
