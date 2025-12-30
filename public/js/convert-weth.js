@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!userEmail) {
         console.error('❌ FATAL: No user found even after HTML check!');
         // Page should have redirected already, but just in case:
-        window.location.href = 'login.html';
+        window.location.href = '/login';
         return;
     }
     
@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const userEmail = localStorage.getItem('magicEdenCurrentUser');
     if (!userEmail) {
         alert('Please login to use conversion');
-        window.location.href = 'login.html';  // ✅ FIXED
+        window.location.href = '/login';  // ✅ FIXED
         return;
     }
     
@@ -114,7 +114,7 @@ function loadUserData(userEmail) {
         if (!user) {
             console.log('❌ User not found');
             alert('User not found. Please login again.');
-            window.location.href = 'login.html';  // ✅ FIXED
+            window.location.href = '/login';  // ✅ FIXED
             return;
         }
         

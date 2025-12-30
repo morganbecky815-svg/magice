@@ -27,7 +27,7 @@
             if (!userEmail && !authToken) {
                 console.log('❌ No auth found, redirecting to login...');
                 alert('Please login to use conversion');
-                window.location.href = 'login.html';
+                window.location.href = '/login';
                 
                 // Stop ALL further execution
                 throw new Error('Redirecting to login - auth required');
@@ -49,7 +49,7 @@
     <!-- Header -->
     <header class="convert-header">
         <div class="container">
-            <a href="dashboard.html" class="back-button">
+            <a href="/dashboard" class="back-button">
                 <i class="fas fa-arrow-left"></i> Back to Dashboard
             </a>
             <div class="header-title">

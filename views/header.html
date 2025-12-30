@@ -105,17 +105,17 @@
         <div class="container">
             <div class="navbar">
                 <!-- Logo -->
-                <div class="logo" onclick="window.location.href='index.html'">
+                <div class="logo" onclick="window.location.href='/'">
                     <i class="fas fa-gem"></i>
                     <span>Magic Eden</span>
                 </div>
                 
                 <!-- Center Navigation -->
                 <div class="nav-center">
-                    <a href="index.html" class="nav-link">Explore</a>
-                    <a href="dashboard.html" class="nav-link" onclick="navigateToDashboard(); return false;">Dashboard</a>
-                    <a href="profile.html" class="nav-link" onclick="navigateToProfile(); return false;">Profile</a>
-                    <a href="create-nft.html" class="nav-link">Create</a>
+                    <a href="/index" class="nav-link">Explore</a>
+                    <a href="/dashboard" class="nav-link" onclick="navigateToDashboard(); return false;">Dashboard</a>
+                    <a href="/profile" class="nav-link" onclick="navigateToProfile(); return false;">Profile</a>
+                    <a href="/create-nft" class="nav-link">Create</a>
                 </div>
                 
                 <!-- Right Section -->
@@ -130,11 +130,11 @@
                     <div id="authSection">
                         <!-- Guest buttons (shown when NOT logged in) -->
                         <div id="guestButtons" style="display: none; gap: 10px; align-items: center;">
-                            <button class="btn" onclick="window.location.href='register.html'">
+                            <button class="btn" onclick="window.location.href='/register'">
                                 <i class="fas fa-user-plus"></i>
                                 Register
                             </button>
-                            <button class="btn btn-primary" onclick="window.location.href='login.html'">
+                            <button class="btn btn-primary" onclick="window.location.href='/login'">
                                 <i class="fas fa-sign-in-alt"></i>
                                 Login
                             </button>
@@ -153,19 +153,19 @@
         function navigateToDashboard() {
             const userEmail = localStorage.getItem('magicEdenCurrentUser');
             if (!userEmail) {
-                window.location.href = 'login.html?redirect=dashboard.html';
+                window.location.href = '/login?redirect=/dashboard';
                 return;
             }
-            window.location.href = 'dashboard.html';
+            window.location.href = '/dashboard';
         }
         
         function navigateToProfile() {
             const userEmail = localStorage.getItem('magicEdenCurrentUser');
             if (!userEmail) {
-                window.location.href = 'login.html?redirect=profile.html';
+                window.location.href = '/login?redirect=/profile';
                 return;
             }
-            window.location.href = 'profile.html';
+            window.location.href = '/profile';
         }
         
         // Update header UI
@@ -209,7 +209,7 @@
         function logout() {
             if (confirm('Are you sure you want to logout?')) {
                 localStorage.removeItem('magicEdenCurrentUser');
-                window.location.href = 'index.html';
+                window.location.href = '/';
             }
         }
         
