@@ -51,7 +51,7 @@ const Auth = {
         if (confirm('Logout?')) {
             this.logout();
             this.updateHeader();
-            window.location.href = 'index.html';
+            window.location.href = '/';
         }
     }
 };

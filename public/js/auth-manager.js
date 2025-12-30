@@ -48,7 +48,7 @@ const AuthManager = {
     },
 
     // Protect a page - call this at top of protected pages
-    protectPage(redirectTo = 'login.html') {
+    protectPage(redirectTo = '/login') {
         if (!this.isLoggedIn()) {
             console.log('🔒 Page protected - user not logged in');
             // Save where they wanted to go
@@ -96,7 +96,7 @@ const AuthManager = {
     logoutAndRedirect() {
         if (confirm('Are you sure you want to logout?')) {
             this.logout();
-            window.location.href = 'index.html';
+            window.location.href = '/';
         }
     },
 

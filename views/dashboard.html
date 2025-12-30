@@ -11,9 +11,9 @@
     <script>
         if (!AuthManager.isLoggedIn()) {
             //save where they wanted to go
-            sessionStorage.setItem('redirectAfterLogin', 'dashboard.html');
+            sessionStorage.setItem('redirectAfterLogin', '/dashboard');
             //Redirect to Login
-            window.location.href = 'login.html';
+            window.location.href = '/login';
         }
     </script>
 </head>
