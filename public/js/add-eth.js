@@ -11,7 +11,7 @@ function showAddETH() {
     const userEmail = localStorage.getItem('magicEdenCurrentUser');
     if (!userEmail) {
         alert('Please login first');
-        window.location.href = '/login';
+       // window.location.href = '/login';
         return;
     }
     

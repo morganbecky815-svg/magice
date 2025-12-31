@@ -1,4 +1,66 @@
 // ============================================
+// 🛡️ SMART REDIRECT PROTECTION - FIXED
+// ============================================
+(function() {
+    console.log('🛡️ App.js loading with SMART redirect protection...');
+    
+    // ONLY protect Add ETH page
+    const currentPath = window.location.pathname;
+    const isAddEthPage = currentPath === '/add-eth' || currentPath.includes('/add-eth');
+    
+    if (isAddEthPage) {
+        console.log('💰 ADD-ETH PAGE DETECTED - ENABLING PROTECTION');
+        
+        // Save original functions BEFORE modifying
+        const originalLocation = {
+            href: Object.getOwnPropertyDescriptor(window.location, 'href'),
+            replace: window.location.replace,
+            assign: window.location.assign
+        };
+        
+        // 1. SAFE href setter (only blocks login redirects)
+        Object.defineProperty(window.location, 'href', {
+            set: function(url) {
+                const urlStr = url.toString();
+                console.log('📍 href set attempt:', urlStr);
+                
+                // ONLY block redirects to login from Add ETH page
+                if (urlStr.includes('/login') && isAddEthPage) {
+                    console.error('❌ BLOCKED: Add ETH → Login redirect');
+                    console.trace();
+                    return; // Block ONLY this redirect
+                }
+                
+                // Allow all other redirects
+                return originalLocation.href.set.call(this, url);
+            },
+            get: originalLocation.href.get
+        });
+        
+        // 2. SAFE replace function
+        window.location.replace = function(url) {
+            console.log('📍 location.replace attempt:', url);
+            
+            if (url.includes('/login') && isAddEthPage) {
+                console.error('❌ BLOCKED: Add ETH replace → Login');
+                return;
+            }
+            
+            return originalLocation.replace.call(this, url);
+        };
+        
+        console.log('✅ Add ETH redirect protection enabled (dashboard will work)');
+    } else {
+        console.log('📋 Normal page - no redirect protection needed');
+    }
+})();
+
+// ============================================
+// 🚀 MAGIC EDEN NFT MARKETPLACE - CORE APP
+// ============================================
+
+console.log('🚀 Magic Eden Marketplace Initializing...');
+// ============================================
 // MAGIC EDEN NFT MARKETPLACE - CORE APP
 // COMPLETELY REWRITTEN WITH WORKING AUTHENTICATION
 // ============================================
@@ -646,6 +708,47 @@ function logout() {
     }
 }
 
+// Check if user is logged in
+function checkAuthStatus() {
+    console.log('🔍 Checking auth status...');
+    
+    // ⭐ ADD: Check if we're on Add ETH page (skip redirect logic)
+    const isAddEthPage = window.location.pathname.includes('/add-eth');
+    
+    const userEmail = localStorage.getItem('magicEdenCurrentUser');
+    
+    if (userEmail) {
+        const user = db.getUser(userEmail);
+        if (user) {
+            currentUser = user;
+            console.log('✅ User is logged in:', user.email);
+            
+            // Fix user data if needed
+            db.fixUserData(userEmail);
+            
+            return {
+                isLoggedIn: true,
+                user: user
+            };
+        } else {
+            // User not found in database
+            console.log('❌ User not found in DB, clearing session');
+            
+            // ⭐ MODIFIED: Only clear if NOT on Add ETH page
+            if (!isAddEthPage) {
+                localStorage.removeItem('magicEdenCurrentUser');
+                currentUser = null;
+            }
+        }
+    }
+    
+    console.log('🔓 No user logged in');
+    return {
+        isLoggedIn: false,
+        user: null
+    };
+}
+
 // Check if page requires authentication
 function requireAuth(redirectTo = '/login') {
     const authStatus = checkAuthStatus();
@@ -654,10 +757,27 @@ function requireAuth(redirectTo = '/login') {
         console.log('🔒 Authentication required, redirecting to:', redirectTo);
         
         // Add current page as redirect parameter
-        const currentPage = window.location.pathname.split('/').pop();
+        const currentPage = window.location.pathname;
         if (currentPage && currentPage !== '') {
-            // redirectTo += ?redirect=${currentPage};
-            redirectTo += '?redirect=' + currentPage;
+            redirectTo += '?redirect=' + encodeURIComponent(currentPage);
+        }
+        
+        window.location.href = redirectTo;
+        return null;
+    }
+    
+    return authStatus.user;
+}
+    
+    const authStatus = checkAuthStatus();
+    
+    if (!authStatus.isLoggedIn) {
+        console.log('🔒 Authentication required, redirecting to:', redirectTo);
+        
+        // Add current page as redirect parameter
+        const currentPage = window.location.pathname;
+        if (currentPage && currentPage !== '') {
+            redirectTo += '?redirect=' + encodeURIComponent(currentPage);
         }
         
         window.location.href = redirectTo;
@@ -894,21 +1014,29 @@ function scrollToNFTs() {
 function initPage() {
     console.log('🚀 Initializing page:', window.location.pathname);
     
-    const currentPage = window.location.pathname.split('/').pop();
+    const currentPage = window.location.pathname;
+    
+    // ⭐ ADD: Special handling for Add ETH page
+    if (currentPage.includes('/add-eth')) {
+        console.log('💰 Add ETH page detected - minimal initialization');
+        // Just check auth status, don't run full initialization
+        checkAuthStatus();
+        return;
+    }
     
     // Check auth status first
     checkAuthStatus();
     
     // Initialize specific page functions
-    switch (currentPage) {
-        case '/':
+    switch (currentPage.split('/').pop()) {
         case '':
+        case '/':
             console.log('🏪 Initializing marketplace...');
             if (typeof loadNFTs === 'function') loadNFTs();
             if (typeof updateStats === 'function') updateStats();
             break;
             
-        case '/dashboard':
+        case 'dashboard':
             console.log('📊 Dashboard requires authentication...');
             const user = requireAuth();
             if (user) {
@@ -917,12 +1045,12 @@ function initPage() {
             }
             break;
             
-        case '/profile':
+        case 'profile':
             console.log('👤 Profile requires authentication...');
             requireAuth();
             break;
             
-        case '/admin':
+        case 'admin':
             console.log('👑 Admin requires authentication...');
             requireAuth();
             break;

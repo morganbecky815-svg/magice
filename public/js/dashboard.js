@@ -1,5 +1,5 @@
 // ============================================
-// DASHBOARD.JS - FRESH & WORKING
+// DASHBOARD.JS - CORRECTED VERSION
 // ============================================
 
 let currentDashboardUser = null;
@@ -7,52 +7,39 @@ let currentConversionType = 'ethToWeth';
 const ETH_PRICE = 2500;
 const MARKETPLACE_WALLET_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc9e90E4343A9B";
 
+// Add this check BEFORE DOMContentLoaded
+console.log("🚀 DASHBOARD.JS LOADING - PRE-CHECK:");
+console.log("magicEdenCurrentUser:", localStorage.getItem('magicEdenCurrentUser'));
+console.log("AuthManager exists?", typeof AuthManager !== 'undefined');
+
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Dashboard initializing...');
+    console.log('🚀 Dashboard DOM loaded, initializing...');
     loadDashboard();
-    // setupGlobalFunctions();
-    //  const token = localStorage.getItem('authToken');
-
-    // // 🔐 Not logged in → go back to login
-    // if (!token) {
-    //     window.location.href = '/login';
-    // }
 });
-
-// Setup global functions
-function setupGlobalFunctions() {
-    window.showAddETH = showAddETH;
-    window.showWETHConversion = showWETHConversion;
-    window.closeModal = closeModal;
-    window.copyAddress = copyAddress;
-    window.openMetaMaskBuy = openMetaMaskBuy;
-    window.showDepositInstructions = showDepositInstructions;
-    window.refreshBalance = refreshBalance;
-    window.selectConversion = selectConversion;
-    window.setMaxAmount = setMaxAmount;
-    window.updateConversionPreview = updateConversionPreview;
-    window.executeConversion = executeConversion;
-    window.buyCrypto = buyCrypto;
-    window.transferFunds = transferFunds;
-    window.showStaking = showStaking;
-    window.viewPortfolio = viewPortfolio;
-}
 
 // Load dashboard data
 function loadDashboard() {
-    const userEmail = localStorage.getItem('magicEdenCurrentUser');
+    console.log("🔍 loadDashboard() called");
+    console.log("AuthManager.isLoggedIn():", AuthManager.isLoggedIn());
+    console.log("AuthManager.getCurrentUser():", AuthManager.getCurrentUser());
     
-    if (!userEmail) {
+    // Use AuthManager for ALL auth checks
+    if (!AuthManager.isLoggedIn()) {
+        console.log("❌ Not logged in, redirecting to login");
         window.location.href = '/login';
         return;
     }
+    
+    const userEmail = AuthManager.getCurrentUser();
+    console.log("Loading dashboard for:", userEmail);
     
     const users = db.getUsers();
     const user = users.find(u => u.email === userEmail.toLowerCase());
     
     if (!user) {
-        localStorage.removeItem('magicEdenCurrentUser');
+        console.log("❌ User not found in database");
+        AuthManager.logout();
         window.location.href = '/login';
         return;
     }
@@ -108,6 +95,24 @@ function displayDashboardData(user) {
     // Update marketplace wallet address
     const addressEl = document.getElementById('marketplaceAddress');
     if (addressEl) addressEl.textContent = MARKETPLACE_WALLET_ADDRESS;
+}
+
+// Setup global functions
+function setupGlobalFunctions() {
+    window.showWETHConversion = showWETHConversion;
+    window.closeModal = closeModal;
+    window.copyAddress = copyAddress;
+    window.openMetaMaskBuy = openMetaMaskBuy;
+    window.showDepositInstructions = showDepositInstructions;
+    window.refreshBalance = refreshBalance;
+    window.selectConversion = selectConversion;
+    window.setMaxAmount = setMaxAmount;
+    window.updateConversionPreview = updateConversionPreview;
+    window.executeConversion = executeConversion;
+    window.buyCrypto = buyCrypto;
+    window.transferFunds = transferFunds;
+    window.showStaking = showStaking;
+    window.viewPortfolio = viewPortfolio;
 }
 
 // Show Add ETH Modal
@@ -356,7 +361,7 @@ function executeConversion() {
     closeModal('wethConversionModal');
 }
 
-// Other functions (keep your existing ones)
+// Other functions
 function loadDashboardActivity(userEmail) {
     // Your existing code
 }
@@ -374,7 +379,7 @@ function updateWalletDisplay() {
 }
 
 function buyCrypto() {
-    showAddETH();
+    window.location.href = '/add-eth';
 }
 
 function transferFunds() {
