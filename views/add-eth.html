@@ -8,6 +8,52 @@
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="../css/add-eth.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+   <!-- Add this EXACTLY as shown -->
+   <script src="../js/auth-manager.js"></script>
+   <script>
+    console.log("🔍 ADD-ETH PAGE - ENHANCED AUTH CHECK");
+    
+    // Wait a bit for AuthManager to load if needed
+    setTimeout(() => {
+        if (typeof AuthManager !== 'undefined') {
+            console.log("1. AuthManager loaded");
+            console.log("2. isLoggedIn?", AuthManager.isLoggedIn());
+            console.log("3. User:", AuthManager.getCurrentUser());
+            
+            if (AuthManager.isLoggedIn()) {
+                console.log("✅ User authenticated via AuthManager");
+                // Page continues loading normally
+            } else {
+                console.log("❌ AuthManager says not logged in");
+                
+                // Fallback: Check localStorage directly
+                const directUser = localStorage.getItem('magicEdenCurrentUser');
+                console.log("4. Direct localStorage check:", directUser);
+                
+                if (directUser) {
+                    console.log("⚠️ User in localStorage but AuthManager missed it!");
+                    console.log("Continuing anyway...");
+                } else {
+                    console.log("No user anywhere, redirecting to login");
+                    // Use AuthManager's redirect (it handles redirectAfterLogin)
+                    AuthManager.protectPage();
+                }
+            }
+        } else {
+            console.error("❌ AuthManager not loaded!");
+            
+            // Emergency fallback
+            const user = localStorage.getItem('magicEdenCurrentUser');
+            if (!user) {
+                console.log("No user in localStorage, going to login");
+                window.location.href = '/login';
+            } else {
+                console.log("User found in localStorage:", user, "- Allowing access");
+            }
+        }
+    }, 150); // Small delay to ensure AuthManager loads
+</script>
+   
 </head>
 <body>
     <!-- Simple header -->

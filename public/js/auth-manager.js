@@ -4,7 +4,9 @@
 const AuthManager = {
     // Check if user is logged in
     isLoggedIn() {
-        return !!localStorage.getItem('magicEdenCurrentUser');
+        const user = localStorage.getItem('magicEdenCurrentUser');
+        console.log("🔐 AuthManager.isLoggedIn() checking:", user);
+        return !!user;
     },
 
     // Get current user email
@@ -14,18 +16,22 @@ const AuthManager = {
 
     // Login function
     login(email, token = null) {
+        console.log("🔐 AuthManager.login() called with:", email);
+        
+        // Save to localStorage
         localStorage.setItem('magicEdenCurrentUser', email);
         if (token) {
             localStorage.setItem('authToken', token);
         }
         localStorage.setItem('lastLogin', Date.now().toString());
         
+        console.log("✅ User logged in:", email);
+        console.log("Current localStorage:", Object.keys(localStorage));
+        
         // Dispatch event so other scripts know user logged in
         document.dispatchEvent(new CustomEvent('authChange', { 
             detail: { loggedIn: true, email } 
         }));
-        
-        console.log('✅ User logged in:', email);
     },
 
     // Logout function
@@ -49,14 +55,23 @@ const AuthManager = {
 
     // Protect a page - call this at top of protected pages
     protectPage(redirectTo = '/login') {
+        console.log("🛡️ protectPage() called for:", window.location.pathname);
+        
         if (!this.isLoggedIn()) {
             console.log('🔒 Page protected - user not logged in');
-            // Save where they wanted to go
-            sessionStorage.setItem('redirectAfterLogin', window.location.pathname);
-            // Redirect to login
+            
+            // ⭐ ONLY save redirect if we're NOT already going to login
+            // This prevents redirect loops
+            if (!window.location.pathname.includes('/login')) {
+                sessionStorage.setItem('redirectAfterLogin', window.location.pathname);
+                console.log("Saved redirect:", window.location.pathname);
+            }
+            
             window.location.href = redirectTo;
             return false;
         }
+        
+        console.log("✅ Access granted");
         return true;
     },
 
@@ -112,18 +127,9 @@ const AuthManager = {
             console.log('Auth changed:', event.detail);
             this.updateAuthUI();
         });
-        
-        // Auto-update UI every few seconds (optional)
-        setInterval(() => this.updateAuthUI(), 5000);
     }
 };
 
 // Make it globally available
 window.AuthManager = AuthManager;
-
-// Auto-initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => AuthManager.init());
-} else {
-    AuthManager.init();
-}
+// DO NOT auto-initialize - let each page call it if needed

@@ -7,6 +7,14 @@
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/create-nft.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Auth Check -->
+    <script src="../js/auth-manager.js"></script>
+    <script>
+        console.log("🔐 Create NFT page auth check...");
+        AuthManager.protectPage();
+        console.log("✅ Create NFT auth passed!");
+    </script>
 </head>
 <body>
     <!-- Header -->
@@ -126,18 +134,36 @@
                                 </div>
                             </div>
                             
-                            <!-- Properties & Attributes -->
+                            <!-- Selling Price -->
                             <div class="form-section">
-                                <h3><i class="fas fa-tags"></i> Properties</h3>
-                                <p class="section-description">Add attributes to make your NFT discoverable (e.g., Background: Blue, Hat: Red)</p>
+                                <h3><i class="fas fa-tag"></i> Selling Price</h3>
                                 
-                                <div class="attributes-container" id="attributesContainer">
-                                    <!-- Attributes will be added here dynamically -->
+                                <div class="form-group">
+                                    <label for="nftPrice">Set Your Price (WETH)</label>
+                                    <div class="price-input-group">
+                                        <input 
+                                            type="number" 
+                                            id="nftPrice" 
+                                            placeholder="0.00" 
+                                            min="0.01" 
+                                            step="0.01" 
+                                            value="0.5"
+                                            required>
+                                        <span class="currency-symbol">WETH</span>
+                                    </div>
+                                    <div class="form-hint">Set the price you want to sell your NFT for. Minimum: 0.01 WETH</div>
+                                    
+                                    <div class="price-conversion">
+                                        <div class="conversion-row">
+                                            <span>Current ETH Price:</span>
+                                            <span id="ethPriceDisplay">$2,500</span>
+                                        </div>
+                                        <div class="conversion-row">
+                                            <span>Your NFT Value:</span>
+                                            <span id="nftValueDisplay">$1,250</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                
-                                <button type="button" class="btn-outline" onclick="addAttribute()">
-                                    <i class="fas fa-plus"></i> Add Property
-                                </button>
                             </div>
                             
                             <!-- Royalties -->
@@ -176,8 +202,8 @@
                                             <i class="fas fa-gem"></i>
                                         </div>
                                         <div class="config-details">
-                                            <h4>Single Edition</h4>
-                                            <p>Your NFT will be a unique 1 of 1 item. Only one copy will ever exist.</p>
+                                            <h4>Fixed Price Listing</h4>
+                                            <p>Your NFT will be listed for sale immediately at your set WETH price.</p>
                                         </div>
                                     </div>
                                     
@@ -187,7 +213,7 @@
                                         </div>
                                         <div class="config-details">
                                             <h4>Traditional Minting</h4>
-                                            <p>NFT is created immediately on Ethereum blockchain upon payment.</p>
+                                            <p>NFT is created on Ethereum blockchain and listed on marketplace.</p>
                                         </div>
                                     </div>
                                     
@@ -206,26 +232,29 @@
                             
                             <!-- Cost Summary -->
                             <div class="form-section cost-summary">
-                                <h3><i class="fas fa-calculator"></i> Cost Summary</h3>
+                                <h3><i class="fas fa-calculator"></i> Cost & Earnings Summary</h3>
                                 
                                 <div class="cost-card">
                                     <div class="cost-header">
-                                        <h4>Minting Fee</h4>
-                                        <div class="cost-amount">0.1 ETH</div>
+                                        <h4>Costs & Potential Earnings</h4>
                                     </div>
                                     
                                     <div class="cost-breakdown">
                                         <div class="breakdown-item">
-                                            <span>NFT Creation</span>
-                                            <span>0.095 ETH</span>
+                                            <span>Minting Fee</span>
+                                            <span>- 0.1 ETH</span>
                                         </div>
                                         <div class="breakdown-item">
-                                            <span>Gas Fee</span>
-                                            <span>0.005 ETH</span>
+                                            <span>Your Selling Price</span>
+                                            <span id="sellingPriceDisplay">0.5 WETH</span>
+                                        </div>
+                                        <div class="breakdown-item">
+                                            <span>Platform Fee (15%)</span>
+                                            <span id="platformFeeDisplay">- 0.075 WETH</span>
                                         </div>
                                         <div class="breakdown-item total">
-                                            <span>Total to Pay</span>
-                                            <span>0.1 ETH</span>
+                                            <span>Your Potential Earnings</span>
+                                            <span id="potentialEarnings">0.425 WETH</span>
                                         </div>
                                     </div>
                                     
@@ -279,7 +308,7 @@
                                     <i class="fas fa-eye"></i> Preview NFT
                                 </button>
                                 <button type="submit" class="btn-create" id="createBtn" disabled>
-                                    <i class="fas fa-plus-circle"></i> Create NFT for 0.1 ETH
+                                    <i class="fas fa-plus-circle"></i> Create & List NFT
                                 </button>
                             </div>
                         </div>
