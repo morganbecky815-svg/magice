@@ -433,7 +433,6 @@ function viewPortfolio() {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <!-- Header will be loaded by JavaScript -->
     
     <main class="dashboard">
         <div class="container">
@@ -626,6 +625,72 @@ function viewPortfolio() {
         </div>
     </main>
 
+    <script>
+        // Get userId from URL
+        function getUserIdFromURL() {
+          const path = window.location.pathname;
+          // Extract userId from /user/:userId/profile or /user/:userId/dashboard
+          const match = path.match(/\/user\/([^\/]+)\/(profile|dashboard)/);
+          return match ? match[1] : null;
+        }
+        
+        // Load user-specific data
+        async function loadUserData() {
+          const userId = getUserIdFromURL();
+          
+          if (!userId) {
+            console.error('No user ID in URL');
+            return;
+          }
+          
+          try {
+            // Fetch user data from API
+            const response = await fetch(`/api/user/${userId}`);
+            const data = await response.json();
+            
+            if (data.success) {
+              displayUserData(data.user);
+            }
+          } catch (error) {
+            console.error('Error loading user data:', error);
+          }
+        }
+        
+        // Display user data
+        function displayUserData(user) {
+          // Update all user-specific elements on the page
+          document.title = `${user.fullName}'s Profile - Magic Eden`;
+          
+          // Update username
+          const usernameElements = document.querySelectorAll('.username, #username');
+          usernameElements.forEach(el => {
+            el.textContent = user.fullName;
+          });
+          
+          // Update email
+          const emailElements = document.querySelectorAll('.user-email, #userEmail');
+          emailElements.forEach(el => {
+            el.textContent = user.email;
+          });
+          
+          // Update balances
+          if (document.getElementById('userBalance')) {
+            document.getElementById('userBalance').textContent = `${user.balance} WETH`;
+          }
+          
+          // You can add more updates here...
+        }
+        
+        // Load data when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+          const userId = getUserIdFromURL();
+          
+          if (userId) {
+            console.log(`Loading data for user: ${userId}`);
+            loadUserData();
+          }
+        });
+        </script>
     <!-- Load Scripts -->
     <script src="../js/app.js"></script>
     <script src="../js/dashboard.js"></script>  <!-- ✅ FIXED PATH -->
