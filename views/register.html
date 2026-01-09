@@ -410,7 +410,7 @@
             <div id="registerMessage" class="register-message"></div>
 
             <!-- Registration Form -->
-            <form id="registerForm" method="post" action="/register" onsubmit="return handleRegistration(event)">
+            <form id="registerForm" method="post" action="/api/auth/register" onsubmit="return handleRegistration(event)">
                 <div class="form-group">
                     <label for="fullName">Full Name <span style="color: #888;">(Optional)</span></label>
                     <input type="text" name="fullName" id="fullName" placeholder="John Doe">
@@ -517,77 +517,95 @@
 
         // Handle registration form submission
         async function handleRegistration(event) {
-            event.preventDefault();
+    event.preventDefault();
 
-            // Collect form data
-            const fullName = document.getElementById('fullName').value.trim();
-            const email = document.getElementById('registerEmail').value.trim();
-            const password = document.getElementById('registerPassword').value;
-            const confirmPassword = document.getElementById('registerConfirmPassword').value;
-            const agreeTerms = document.getElementById('agreeTerms')?.checked;
+    // Collect form data
+    const fullName = document.getElementById('fullName').value.trim();
+    const email = document.getElementById('registerEmail').value.trim();
+    const password = document.getElementById('registerPassword').value;
+    const confirmPassword = document.getElementById('registerConfirmPassword').value;
+    const agreeTerms = document.getElementById('agreeTerms')?.checked;
 
-            // Basic validation (keep your existing validation here)
-            if (!email || !password || !confirmPassword) {
-                showError('❌ Please fill all required fields');
-                return false;
+    // Basic validation
+    if (!email || !password || !confirmPassword) {
+        showError('❌ Please fill all required fields');
+        return false;
+    }
+    if (!agreeTerms) {
+        showError('❌ You must agree to the Terms of Service');
+        return false;
+    }
+    if (password !== confirmPassword) {
+        showError('❌ Passwords do not match');
+        return false;
+    }
+    if (password.length < 6) {
+        showError('❌ Password must be at least 6 characters');
+        return false;
+    }
+
+    // Prepare data payload
+    const data = {
+        fullName,
+        email: email.toLowerCase().trim(),
+        password
+    };
+
+    const registerButton = document.getElementById('registerButton');
+    // Disable button during request
+    registerButton.disabled = true;
+    registerButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
+
+    try {
+        console.log('📤 Sending registration:', data.email);
+        
+        const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+        console.log('📥 Server response:', result);
+        
+        if (response.ok && result.success) {
+            // Registration successful
+            showSuccess('✅ Account created successfully! Redirecting to dashboard...');
+            
+            // Save to localStorage
+            localStorage.setItem('token', result.token);
+            localStorage.setItem('user', JSON.stringify(result.user));
+            
+            setTimeout(() => {
+                window.location.href = '/dashboard';
+            }, 1500);
+        } else {
+            // Show error from server (400 Bad Request)
+            const errorMsg = result.error || result.message || 'Registration failed';
+            showError(`❌ ${errorMsg}`);
+            
+            // Highlight the problematic field
+            if (errorMsg.includes('email') || errorMsg.includes('Email')) {
+                document.getElementById('registerEmail').classList.add('error');
             }
-            if (!agreeTerms) {
-                showError('❌ You must agree to the Terms of Service');
-                return false;
+            if (errorMsg.includes('password') || errorMsg.includes('Password')) {
+                document.getElementById('registerPassword').classList.add('error');
             }
-            if (password !== confirmPassword) {
-                showError('❌ Passwords do not match');
-                return false;
-            }
-            if (password.length < 6) {
-                showError('❌ Password must be at least 6 characters');
-                return false;
-            }
-
-            // Prepare data payload
-            const data = {
-                fullName,
-                email,
-                password
-            };
-
-            const registerButton = document.getElementById('registerButton');
-            // Disable button during request
-            registerButton.disabled = true;
-            registerButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
-
-            try {
-                const response = await fetch('/register', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data)
-                });
-
-                const result = await response.json();
-                if (response.ok && result.success) {
-                    // Registration successful
-                    localStorage.setItem('magicEdenCurrentUser', email);
-                    showSuccess('✅ Account created successfully! Redirecting to dashboard...');
-                    setTimeout(() => {
-                        window.location.href = '/dashboard';
-                    }, 1500);
-                } else {
-                    // Show error from server
-                    showError(`❌ ${result.message || 'Registration failed'}`);
-                    registerButton.disabled = false;
-                    registerButton.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
-                }
-            } catch (err) {
-                console.error('Registration error:', err);
-                showError('❌ An error occurred. Please try again.');
-                registerButton.disabled = false;
-                registerButton.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
-            }
-
-            return false;
+            
+            registerButton.disabled = false;
+            registerButton.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
         }
+    } catch (err) {
+        console.error('Registration error:', err);
+        showError('❌ An error occurred. Please try again.');
+        registerButton.disabled = false;
+        registerButton.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
+    }
+
+    return false;
+}
         // Validation functions
         function validateEmail(email, showMessage = false) {
             const validationDiv = document.getElementById('emailValidation');
