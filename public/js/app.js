@@ -346,18 +346,32 @@ function setupEventListeners() {
         });
     }
     
-    // Register form
-    const registerForm = document.getElementById('registerForm');
-    if (registerForm) {
-        registerForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const fullName = document.getElementById('fullName')?.value || '';
-            await register(email, password, fullName);
-        });
-    }
-}
+    // FIXED Registration handler
+//const registerForm = document.getElementById('registerForm');
+//if (registerForm) {
+  //registerForm.addEventListener('submit', async function(e) {
+   // e.preventDefault();
+    
+    // Check if elements exist before reading values
+   // const emailInput = document.getElementById('email');
+   // const passwordInput = document.getElementById('password');
+   // const fullNameInput = document.getElementById('fullName');
+    
+   // if (!emailInput || !passwordInput) {
+   //   console.error('Registration form elements missing');
+   //   showNotification('Form error: Missing required fields', 'error');
+   //   return;
+   // }
+    
+   // const email = emailInput.value;
+    //const password = passwordInput.value;
+   // const fullName = fullNameInput ? fullNameInput.value : '';
+    
+   // await register(email, password, fullName);
+  //});
+  //}
+   }
+
 
 // Initialize the setup
 setupEventListeners();

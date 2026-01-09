@@ -1,67 +1,3 @@
-// const mongoose = require('mongoose');
-// const bcrypt = require('bcryptjs');
-
-// const userSchema = new mongoose.Schema({
-//     email: {
-//         type: String,
-//         required: true,
-//         unique: true,
-//         lowercase: true,
-//         trim: true
-//     },
-//     password: {
-//         type: String,
-//         required: true
-//     },
-//     fullName: {
-//         type: String,
-//         default: ""
-//     },
-//     balance: {
-//         type: Number,
-//         default: 0
-//     },
-//     ethBalance: {
-//         type: Number,
-//         default: 0
-//     },
-//     wethBalance: {
-//         type: Number,
-//         default: 0
-//     },
-//     isAdmin: {
-//         type: Boolean,
-//         default: false
-//     },
-//     isVerified: {
-//         type: Boolean,
-//         default: true
-//     },
-//     lastLogin: {
-//         type: Date
-//     },
-//     createdAt: {
-//         type: Date,
-//         default: Date.now
-//     },
-//     lastActivity: [{
-//         type: String,
-//         default: []
-//     }]
-// });
-
-// Hash password before saving
-// userSchema.pre('save', async function(next) {
-//     if (!this.isModified('password')) return next();
-
-//     try {
-//         const salt = await bcrypt.genSalt(10);
-//         this.password = await bcrypt.hash(this.password, salt);
-//         next();
-//     } catch (error) {
-//         next(error);
-//     }
-// });
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
@@ -73,92 +9,72 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
-      match: [/^\S+@\S+\.\S+$/, "Please use a valid email address"],
-      index: true,
+      match: [/^\S+@\S+\.\S+$/, "Please use a valid email address"]
     },
 
     password: {
       type: String,
       required: [true, "Password is required"],
-      minlength: [8, "Password must be at least 8 characters"],
-      select: false, // 🔐 prevents password from returning by default
+      minlength: [6, "Password must be at least 6 characters"]
     },
 
     fullName: {
       type: String,
       trim: true,
-      default: "",
+      default: ""
     },
 
     balance: {
       type: Number,
       default: 0,
-      min: 0,
+      min: 0
     },
 
     ethBalance: {
       type: Number,
       default: 0,
-      min: 0,
+      min: 0
     },
 
     wethBalance: {
       type: Number,
       default: 0,
-      min: 0,
+      min: 0
     },
 
     isAdmin: {
       type: Boolean,
-      default: false,
+      default: false
     },
 
     isVerified: {
       type: Boolean,
-      default: true,
+      default: true
     },
 
     lastLogin: {
-      type: Date,
-    },
-
-    lastActivity: {
-      type: [String],
-      default: [],
-    },
+      type: Date
+    }
   },
   {
-    timestamps: true, // ⏱ adds createdAt & updatedAt automatically
+    timestamps: true
   }
 );
 
-// ---
-
-// ## 🔐 PASSWORD HASHING (clean & safe)
-
-// userSchema.pre('save', async function (next) {
-//   if (!this.isModified('password')) return next();
-
-//   try {
-//     this.password = await bcrypt.hash(this.password, 10);
-//     next();
-//   } catch (err) {
-//     next(err);
-//   }
-// });
-// 
-userSchema.pre('save', function (next) {
-  if (!this.isModified('password')) return next();
-  bcrypt.hash(this.password, 10)
-    .then(hash => {
-      this.password = hash;
-      next();
-    })
-    .catch(next);
+// ========== PASSWORD HASHING (FIXED - NO next) ==========
+userSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
+  
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
 });
-// Compare password method
+
+// ========== PASSWORD COMPARISON METHOD ==========
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-module.exports = mongoose.model("User", userSchema);
+// ========== CREATE MODEL ==========
+const User = mongoose.model("User", userSchema);
+
+module.exports = User;
