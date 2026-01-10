@@ -19,6 +19,123 @@
         window.ETH_PRICE = 2500;
     }
 })();
+
+// Update balance on Add ETH page
+function updateAddEthPageBalance() {
+    // Get user from localStorage
+    const userStr = localStorage.getItem('user');
+    
+    if (!userStr) {
+        console.log('No user found');
+        return;
+    }
+    
+    try {
+        const user = JSON.parse(userStr);
+        const ethBalance = user.ethBalance || 0;
+        
+        console.log('💰 Updating Add ETH page balance:', ethBalance);
+        
+        // Update balance displays
+        const balanceAmount = document.getElementById('balanceAmount');
+        const marketplaceBalance = document.getElementById('marketplaceBalance');
+        
+        if (balanceAmount) {
+            balanceAmount.textContent = `${ethBalance.toFixed(4)} ETH`;
+        }
+        
+        if (marketplaceBalance) {
+            marketplaceBalance.textContent = `${ethBalance.toFixed(4)} ETH`;
+        }
+        
+        // Also update any other balance displays
+        document.querySelectorAll('.balance-amount').forEach(el => {
+            el.textContent = `${ethBalance.toFixed(4)} ETH`;
+        });
+        
+    } catch (error) {
+        console.error('Error updating Add ETH page balance:', error);
+    }
+}
+// Check if we're on Add ETH page
+if (window.location.pathname.includes('add-eth')) {
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('🔄 Loading balance for Add ETH page...');
+        
+        // Update balance from localStorage
+        updateAddEthPageBalance();
+        
+        // Also fetch fresh balance from backend
+        if (typeof loadUserBalance === 'function') {
+            loadUserBalance().then(() => {
+                // Update again after loading from backend
+                updateAddEthPageBalance();
+            });
+        }
+        
+        // Update balance every 10 seconds
+        setInterval(updateAddEthPageBalance, 10000);
+    });
+}
+
+// Calculate and display USD value of ETH balance
+function updateBalanceUsdValue() {
+    // Get user balance
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return;
+    
+    try {
+        const user = JSON.parse(userStr);
+        const ethBalance = user.ethBalance || 0;
+        
+        // Get current ETH price
+        const ethPrice = window.ETH_PRICE || localStorage.getItem('currentEthPrice') || 2500;
+        
+        // Calculate USD value
+        const usdValue = (ethBalance * ethPrice).toFixed(2);
+        
+        console.log('💰 Balance USD calculation:', {
+            ethBalance,
+            ethPrice,
+            usdValue
+        });
+        
+        // Update USD value display
+        const usdElement = document.getElementById('balanceUsdValue');
+        if (usdElement) {
+            usdElement.textContent = `($${usdValue})`;
+        }
+        
+        // Also update any other USD value displays
+        document.querySelectorAll('.balance-usd-value').forEach(el => {
+            el.textContent = `$${usdValue}`;
+        });
+        
+    } catch (error) {
+        console.error('Error calculating USD value:', error);
+    }
+}
+
+// Initialize when page loads
+if (window.location.pathname.includes('add-eth')) {
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('💵 Initializing USD value calculation for Add ETH page');
+        
+        // Initial calculation
+        updateBalanceUsdValue();
+        
+        // Update when ETH price changes
+        setInterval(updateBalanceUsdValue, 5000);
+        
+        // Also update when user data changes
+        window.addEventListener('storage', function(event) {
+            if (event.key === 'user' || event.key === 'currentEthPrice') {
+                updateBalanceUsdValue();
+            }
+        });
+    });
+}
+
 // marketplace-wallet.js
 // This file handles ONLY the marketplace wallet functionality
 
@@ -67,6 +184,47 @@ function closeModal(modalId) {
         console.log(`✅ Modal ${modalId} closed`);
     }
 }
+
+// Fix for balanceUSD showing $0.00
+function updateBalanceUSD() {
+    // Get the balance USD element
+    const balanceUsdElement = document.getElementById('balanceUSD');
+    if (!balanceUsdElement) return;
+    
+    // Get user from localStorage
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return;
+    
+    try {
+        const user = JSON.parse(userStr);
+        const ethBalance = user.ethBalance || user.balance || 0;
+        
+        // Get ETH price
+        const ethPrice = window.ETH_PRICE || localStorage.getItem('currentEthPrice') || 2500;
+        
+        // Calculate USD value
+        const usdValue = (ethBalance * ethPrice).toFixed(2);
+        
+        // Update the display
+        balanceUsdElement.textContent = '$' + usdValue + ' USD';
+        
+    } catch (error) {
+        console.error('Error updating balanceUSD:', error);
+    }
+}
+
+// Run when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Update immediately
+    updateBalanceUSD();
+    
+    // Update a few times in case data loads slowly
+    setTimeout(updateBalanceUSD, 1000);
+    setTimeout(updateBalanceUSD, 2000);
+    
+    // Update every 10 seconds
+    setInterval(updateBalanceUSD, 10000);
+});
 
 // Copy wallet address to clipboard
 function copyAddress() {

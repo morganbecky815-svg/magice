@@ -4,6 +4,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
 const { auth } = require('./middleware/auth'); // Your auth middleware
+const userRoutes = require('./routes/user');
 
 // Load environment variables
 dotenv.config();
@@ -215,6 +216,9 @@ app.use((err, req, res, next) => {
 app.use('*', (req, res) => {
     res.status(404).sendFile(path.join(__dirname, 'views', '404.html'));
 });
+
+// ✅ USER ROUTES
+app.use('/api/user', userRoutes);
 
 // ✅ START SERVER
 const PORT = process.env.PORT || 5000;

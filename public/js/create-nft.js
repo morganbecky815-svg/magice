@@ -27,7 +27,7 @@ console.log("🚀 Initializing NFT Creation...");
 let currentFile = null;
 let attributes = [];
 let isBalanceSufficient = false;
-let ethToUsdRate = 2500; // Current ETH price in USD
+let ethToUsdRate = window.ETH_PRICE || localStorage.getItem // Current ETH price in USD
 let isMintingInProgress = false;
 
 // Initialize when DOM is loaded
@@ -43,15 +43,8 @@ function initializeNFTForm() {
     console.log("📝 Initializing NFT Form...");
     
     try {
-        // Set default balance from auth manager
-        const user = AuthManager.getCurrentUser();
-        if (user && user.balance) {
-            document.getElementById('userEthBalance').textContent = `${user.balance.toFixed(4)} ETH`;
-            document.getElementById('currentBalance').textContent = `${user.balance.toFixed(4)} ETH`;
-        } else {
-            document.getElementById('userEthBalance').textContent = '0.8500 ETH';
-            document.getElementById('currentBalance').textContent = '0.8500 ETH';
-        }
+        // Load real balance from backend
+        loadRealUserBalance();
         
         // Setup file upload
         setupFileUpload();
@@ -430,42 +423,10 @@ function updateRoyaltySlider() {
     updateCostSummary();
 }
 
-// Balance Check
+// Balance Check - Loads real balance from backend
 async function checkUserBalance() {
     try {
-        // Get user balance from auth manager
-        const user = AuthManager.getCurrentUser();
-        const userBalance = user?.balance || 0.85; // Fallback to default
-        const requiredBalance = 0.1;
-        
-        const balanceElement = document.getElementById('userEthBalance');
-        const statusElement = document.getElementById('balanceStatus');
-        const insufficientElement = document.getElementById('insufficientBalance');
-        
-        if (!balanceElement || !statusElement || !insufficientElement) {
-            console.warn("⚠️ Balance check elements not found");
-            return;
-        }
-        
-        // Update balance displays
-        balanceElement.textContent = `${userBalance.toFixed(4)} ETH`;
-        document.getElementById('currentBalance').textContent = `${userBalance.toFixed(4)} ETH`;
-        
-        if (userBalance >= requiredBalance) {
-            statusElement.className = 'balance-status success';
-            statusElement.innerHTML = '<i class="fas fa-check-circle"></i> Sufficient ETH balance for minting';
-            insufficientElement.style.display = 'none';
-            isBalanceSufficient = true;
-        } else {
-            statusElement.className = 'balance-status error';
-            statusElement.innerHTML = '<i class="fas fa-exclamation-circle"></i> Insufficient ETH balance';
-            insufficientElement.style.display = 'flex';
-            isBalanceSufficient = false;
-        }
-        
-        statusElement.style.display = 'block';
-        updateCreateButton();
-        
+        await loadRealUserBalance();
     } catch (error) {
         console.error("❌ Error checking balance:", error);
         showError("Failed to check ETH balance. Please refresh the page.");
@@ -1413,5 +1374,112 @@ function addSpinnerStyles() {
 
 // Initialize spinner styles
 addSpinnerStyles();
+
+// ============================================
+// ADDED: Real balance functions
+// ============================================
+
+// Load real user balance from backend
+async function loadRealUserBalance() {
+    try {
+        console.log("🔄 Loading real user balance from backend...");
+        
+        // Get user from localStorage
+        const userStr = localStorage.getItem('user');
+        const token = localStorage.getItem('token');
+        
+        if (!userStr || !token) {
+            console.log("❌ No user or token found");
+            return 0;
+        }
+        
+        const user = JSON.parse(userStr);
+        
+        // Fetch fresh user data from backend
+        const response = await fetch(`http://localhost:5000/api/user/${user._id}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.user) {
+            console.log("✅ Real user balance loaded:", data.user.ethBalance);
+            
+            // Update localStorage with fresh data
+            localStorage.setItem('user', JSON.stringify(data.user));
+            
+            // Update balance displays
+            updateBalanceDisplay(data.user.ethBalance || 0);
+            
+            // Check if balance is sufficient
+            checkBalanceSufficiency(data.user.ethBalance || 0);
+            
+            return data.user.ethBalance;
+        }
+    } catch (error) {
+        console.error("❌ Error loading real balance:", error);
+        
+        // Fallback to localStorage balance
+        try {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                updateBalanceDisplay(user.ethBalance || user.balance || 0);
+                checkBalanceSufficiency(user.ethBalance || user.balance || 0);
+            }
+        } catch (fallbackError) {
+            console.error("Fallback also failed:", fallbackError);
+        }
+    }
+    return 0;
+}
+
+// Update balance display
+function updateBalanceDisplay(balance) {
+    const balanceElements = [
+        document.getElementById('userEthBalance'),
+        document.getElementById('currentBalance'),
+        document.querySelector('.current-balance span:last-child')
+    ];
+    
+    balanceElements.forEach(el => {
+        if (el) {
+            el.textContent = `${balance.toFixed(4)} ETH`;
+        }
+    });
+    
+    console.log("💰 Balance display updated:", balance);
+}
+
+// Check balance sufficiency
+function checkBalanceSufficiency(balance) {
+    const requiredBalance = 0.1;
+    const statusElement = document.getElementById('balanceStatus');
+    const insufficientElement = document.getElementById('insufficientBalance');
+    
+    if (!statusElement || !insufficientElement) return;
+    
+    if (balance >= requiredBalance) {
+        statusElement.className = 'balance-status success';
+        statusElement.innerHTML = '<i class="fas fa-check-circle"></i> Sufficient ETH balance for minting';
+        insufficientElement.style.display = 'none';
+        isBalanceSufficient = true;
+    } else {
+        statusElement.className = 'balance-status error';
+        statusElement.innerHTML = '<i class="fas fa-exclamation-circle"></i> Insufficient ETH balance';
+        insufficientElement.style.display = 'flex';
+        isBalanceSufficient = false;
+    }
+    
+    statusElement.style.display = 'block';
+    updateCreateButton();
+}
 
 console.log("✅ NFT Creation script loaded successfully");
