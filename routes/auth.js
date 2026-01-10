@@ -68,6 +68,7 @@ router.post('/register', async (req, res) => {
       });
     }
   });
+  module.exports = router;
 
 // Login User
 router.post('/login', async (req, res) => {
@@ -124,6 +125,7 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ error: 'Login failed' });
   }
 });
+
 
 
 // Get Current User

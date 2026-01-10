@@ -1,31 +1,180 @@
-// profile.js - Profile Page JavaScript
-
-let currentProfileUser = null;
-
-// Load profile data
-function loadProfile() {
-    const userEmail = localStorage.getItem('magicEdenCurrentUser');
+// ========== AUTO-REDIRECT TO CORRECT PROFILE URL ==========
+// Check if we're on wrong URL and redirect
+(function checkAndRedirect() {
+    const currentPath = window.location.pathname;
+    console.log('Current path:', currentPath);
     
+    // If we're on /profile without userId
+    if (currentPath === '/profile') {
+        const userId = localStorage.getItem('userId');
+        const userEmail = localStorage.getItem('magicEdenCurrentUser');
+        
+        console.log('userId from localStorage:', userId);
+        console.log('userEmail:', userEmail);
+        
+        if (userId) {
+            console.log('Redirecting to correct profile URL...');
+            window.location.href = `/user/${userId}/profile`;
+            return; // Stop execution, page will reload
+        } else if (userEmail) {
+            // Try to get userId from user object
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                try {
+                    const user = JSON.parse(userStr);
+                    if (user && user._id) {
+                        console.log('Found userId in user object, redirecting...');
+                        localStorage.setItem('userId', user._id);
+                        window.location.href = `/user/${user._id}/profile`;
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Error parsing user:', error);
+                }
+            }
+        }
+    }
+})();
+// ========== END AUTO-REDIRECT ==========
+// Fetch live ETH price on load
+(async function() {
+    try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+        const data = await response.json();
+        
+        if (data.ethereum && data.ethereum.usd) {
+            window.ETH_PRICE = data.ethereum.usd;
+            console.log('✅ Live ETH price loaded:', window.ETH_PRICE);
+            
+            // Update all price displays
+            document.querySelectorAll('[data-eth-price]').forEach(el => {
+                const ethAmount = parseFloat(el.getAttribute('data-eth-amount') || 0);
+                el.textContent = `$${(ethAmount * window.ETH_PRICE).toFixed(2)}`;
+            });
+        }
+    } catch (error) {
+        console.error('Failed to fetch ETH price, using default');
+        window.ETH_PRICE = 2500;
+    }
+})();
+// ========== ADD AT TOP OF profile.js ==========
+
+// Get userId from URL
+function getUserIdFromURL() {
+    const path = window.location.pathname;
+    console.log('Profile URL path:', path);
+    
+    // Check for /user/:userId/profile format
+    if (path.startsWith('/user/') && path.includes('/profile')) {
+        const parts = path.split('/');
+        const userId = parts[2];
+        console.log('✅ User ID from URL:', userId);
+        return userId;
+    }
+    
+    // Also check for just /profile (without user ID)
+    if (path === '/profile' || path === '/profile.html') {
+        console.log('ℹ️ On generic /profile page');
+        
+        // Try to get user ID from localStorage
+        const userData = localStorage.getItem('user');
+        if (userData) {
+            try {
+                const user = JSON.parse(userData);
+                if (user && user._id) {
+                    console.log('✅ Found user ID in localStorage:', user._id);
+                    return user._id;
+                }
+            } catch (e) {
+                console.error('Error parsing user data:', e);
+            }
+        }
+        
+        console.log('ℹ️ No user ID in URL or localStorage - this is OK for generic /profile');
+        return 'current'; // Return a special value to indicate current user
+    }
+    
+    console.log('❌ Unknown URL format:', path);
+    return null;
+}
+
+// Load profile by user ID
+async function loadProfileByUserId(userId) {
+    try {
+        console.log('Fetching profile for user ID:', userId);
+        const response = await fetch(`/api/user/${userId}`);
+        const data = await response.json();
+        
+        if (data.success && data.user) {
+            displayProfileData(data.user);
+        } else {
+            console.error('API error, falling back');
+            fallbackProfile();
+        }
+    } catch (error) {
+        console.error('API fetch failed:', error);
+        fallbackProfile();
+    }
+}
+
+// Fallback if API fails
+function fallbackProfile() {
+    const userEmail = localStorage.getItem('magicEdenCurrentUser');
     if (!userEmail) {
-        // Redirect to login if not authenticated
         window.location.href = '/login';
         return;
     }
     
     const user = db.getUser(userEmail);
-    
     if (!user) {
-        // User not found, redirect to login
-        localStorage.removeItem('magicEdenCurrentUser');
         window.location.href = '/login';
         return;
     }
     
-    currentProfileUser = user;
     displayProfileData(user);
     loadUserNFTs(user.email);
     loadUserActivity(user.email);
-    updateProfileHeader();
+}
+
+// ========== REPLACE YOUR loadProfile() FUNCTION ==========
+// Replace your existing loadProfile() function with this:
+function loadProfile() {
+    console.log('Loading profile...');
+    
+    // First check if user is logged in
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+    
+    if (!token || !userData) {
+        console.log('❌ Not logged in, redirecting to login');
+        window.location.href = '/login';
+        return;
+    }
+    
+    // Get user ID
+    const userId = getUserIdFromURL();
+    
+    console.log('User ID result:', userId);
+    
+    if (userId === 'current') {
+        // This means we're on generic /profile page
+        console.log('ℹ️ Loading generic profile page');
+        try {
+            const user = JSON.parse(userData);
+            displayProfileData(user);
+            loadUserNFTs(user.email);
+            loadUserActivity(user.email);
+        } catch (e) {
+            console.error('Error parsing user:', e);
+            fallbackProfile();
+        }
+    } else if (userId) {
+        console.log('✅ Using user ID:', userId);
+        loadProfileByUserId(userId);
+    } else {
+        console.log('⚠️ No user ID found');
+        fallbackProfile();
+    }
 }
 
 // Display profile data
@@ -158,7 +307,7 @@ function loadUserActivity(userEmail) {
                 <div class="activity-description">${activity.description}</div>
                 <div class="activity-time">${activity.time}</div>
             </div>
-            ${activity.amount ? <div class="activity-amount">${activity.amount}</div> : ''}
+            ${activity.amount ? '<div class="activity-amount">' + activity.amount + '</div>' : ''}
         `;
         activityList.appendChild(item);
     });
@@ -231,34 +380,54 @@ function confirmAddFunds() {
     }
 }
 
-function editProfile() {
-    showProfileTab('settings');
-}
-
-function saveProfile() {
-    const fullName = document.getElementById('settingsName').value.trim();
-    const bio = document.getElementById('settingsBio').value.trim();
-    
-    if (!currentProfileUser) return;
-    
-    const users = db.getUsers();
-    const userIndex = users.findIndex(u => u.email === currentProfileUser.email);
-    
-    if (userIndex !== -1) {
-        users[userIndex].fullName = fullName;
-        users[userIndex].bio = bio;
-        localStorage.setItem('magicEdenUsers', JSON.stringify(users));
+// ========== STEP 5 - UPDATED saveProfile() FUNCTION ==========
+async function saveProfile() {
+    try {
+        // Get user ID from URL
+        const path = window.location.pathname.split('/');
+        const userId = path[2];
         
-        // Update current user
-        currentProfileUser.fullName = fullName;
-        currentProfileUser.bio = bio;
+        if (!userId) {
+            alert('Cannot save profile: No user ID found');
+            return;
+        }
         
-        // Update display
-        document.getElementById('profileName').textContent = fullName || currentProfileUser.email.split('@')[0];
+        const fullName = document.getElementById('settingsName').value.trim();
+        const bio = document.getElementById('settingsBio').value.trim();
         
-        alert('Profile updated successfully!');
+        // Call backend API to update profile
+        const response = await fetch(`/api/user/${userId}/profile`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({ fullName, bio })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update displayed profile name
+            document.getElementById('profileName').textContent = fullName || data.user.email.split('@')[0];
+            
+            // Update localStorage user data
+            const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+            currentUser.fullName = fullName;
+            currentUser.bio = bio;
+            localStorage.setItem('user', JSON.stringify(currentUser));
+            
+            alert('Profile updated successfully!');
+        } else {
+            alert('Error updating profile: ' + (data.error || 'Unknown error'));
+        }
+        
+    } catch (error) {
+        console.error('Save profile error:', error);
+        alert('Failed to save profile. Please try again.');
     }
 }
+// ========== END OF STEP 5 ==========
 
 function resetPassword() {
     const newPassword = prompt('Enter new password (minimum 6 characters):');
@@ -368,4 +537,4 @@ window.resetPassword = resetPassword;
 window.sellNFT = sellNFT;
 window.transferNFT = transferNFT;
 window.createCollection = createCollection;
-window.closeModal = closeModal;
+window.closeModal = closeModal;dal;
