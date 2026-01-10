@@ -4,7 +4,7 @@
 
 let currentDashboardUser = null;
 let currentConversionType = 'ethToWeth';
-let ETH_PRICE = 2500; // Default price
+let ETH_PRICE = window.ETH_PRICE || localStorage.getItem('currentEthPrice') ||2500; // Default price
 const MARKETPLACE_WALLET_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc9e90E4343A9B";
 
 // Fetch live ETH price on load
@@ -482,6 +482,43 @@ function executeConversion() {
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) modal.style.display = 'none';
+}
+
+// Dashboard ETH price updates
+function updateDashboardPrices() {
+    const ethPrice = window.ETH_PRICE || localStorage.getItem('currentEthPrice') || 2500;
+    
+    // Update all price displays
+    document.querySelectorAll('[data-eth-price]').forEach(el => {
+        const ethAmount = parseFloat(el.getAttribute('data-eth-amount') || 0);
+        el.textContent = `$${(ethAmount * ethPrice).toFixed(2)}`;
+    });
+    
+    // Update ETH price display
+    const ethPriceEl = document.getElementById('currentEthPrice');
+    if (ethPriceEl) {
+        ethPriceEl.textContent = `$${ethPrice}`;
+    }
+    
+    // Update user balance values
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (user.ethBalance) {
+        document.querySelectorAll('[data-eth-usd]').forEach(el => {
+            const usdValue = (user.ethBalance * ethPrice).toFixed(2);
+            el.textContent = `$${usdValue}`;
+        });
+    }
+}
+
+// Initialize when dashboard loads
+if (window.location.pathname.includes('dashboard')) {
+    document.addEventListener('DOMContentLoaded', function() {
+        // Update prices on load
+        updateDashboardPrices();
+        
+        // Update every 30 seconds
+        setInterval(updateDashboardPrices, 30000);
+    });
 }
 
 // Make functions globally available

@@ -12,8 +12,42 @@
     <script src="../js/auth-manager.js"></script>
     <script>
         console.log("🔐 Create NFT page auth check...");
-        AuthManager.protectPage();
-        console.log("✅ Create NFT auth passed!");
+        
+        // Simple auth check that won't conflict
+        const token = localStorage.getItem('token');
+        const user = localStorage.getItem('user');
+        
+        console.log("Auth check:", { 
+            hasToken: !!token, 
+            hasUser: !!user,
+            path: window.location.pathname 
+        });
+        
+        if (!token || !user) {
+            console.log("❌ User not authenticated, redirecting to login...");
+            
+            // Store where user wanted to go
+            if (!window.location.pathname.includes('/login')) {
+                sessionStorage.setItem('redirectAfterLogin', '/create-nft');
+                console.log("Saved redirect to /create-nft");
+            }
+            
+            // Redirect to login
+            window.location.href = '/login';
+        } else {
+            console.log("✅ User authenticated!");
+            console.log("✅ Create NFT auth passed!");
+            
+            // Make sure AuthManager knows user is logged in
+            try {
+                const userData = JSON.parse(user);
+                if (typeof AuthManager !== 'undefined') {
+                    AuthManager.login(userData.email, token, userData);
+                }
+            } catch (error) {
+                console.error("Error parsing user data:", error);
+            }
+        }
     </script>
 </head>
 <body>

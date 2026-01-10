@@ -22,6 +22,107 @@
         window.ETH_PRICE = 2500;
     }
 })();
+
+// ============================================
+// ADDED: ETH PRICE REFRESH FUNCTIONALITY
+// ============================================
+// Refresh ETH price periodically
+function startEthPriceUpdates() {
+    // Initial fetch
+    setTimeout(() => {
+        const refreshBtn = document.getElementById('refreshEthPrice');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', refreshEthPrice);
+        }
+    }, 1000);
+    
+    // Update every 60 seconds
+    setInterval(refreshEthPrice, 60000);
+}
+
+async function refreshEthPrice() {
+    try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+        const data = await response.json();
+        
+        if (data.ethereum && data.ethereum.usd) {
+            window.ETH_PRICE = data.ethereum.usd;
+            console.log('✅ ETH price refreshed:', window.ETH_PRICE);
+            
+            // Update all price displays using the new function
+            updateAllEthPriceDisplays();
+        }
+    } catch (error) {
+        console.error('Failed to refresh ETH price');
+    }
+}
+
+// Update all ETH price displays across the site
+function updateAllEthPriceDisplays() {
+    const ethPrice = window.ETH_PRICE || localStorage.getItem('currentEthPrice') || 2500;
+    
+    console.log('🔄 Updating all ETH price displays:', ethPrice);
+    
+    // 1. Update all [data-eth-price] elements
+    document.querySelectorAll('[data-eth-price]').forEach(el => {
+        const ethAmount = parseFloat(el.getAttribute('data-eth-amount') || 0);
+        el.textContent = `$${(ethAmount * ethPrice).toFixed(2)}`;
+    });
+    
+    // 2. Update dashboard specific elements
+    const dashboardElements = [
+        'currentEthPrice',
+        'ethPriceDisplay',
+        'dashboardEthPrice',
+        'marketplaceEthPrice'
+    ];
+    
+    dashboardElements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.textContent = `$${ethPrice}`;
+        }
+    });
+    
+    // 3. Update user balance USD values if on dashboard
+    if (window.location.pathname.includes('dashboard') || 
+        window.location.pathname.includes('add-eth') ||
+        window.location.pathname.includes('convert-weth')) {
+        
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (user.ethBalance) {
+            const ethValue = (user.ethBalance * ethPrice).toFixed(2);
+            const wethValue = ((user.wethBalance || user.balance || 0) * ethPrice).toFixed(2);
+            
+            // Update USD values
+            document.querySelectorAll('[data-eth-usd]').forEach(el => {
+                el.textContent = `$${ethValue}`;
+            });
+            
+            document.querySelectorAll('[data-weth-usd]').forEach(el => {
+                el.textContent = `$${wethValue}`;
+            });
+        }
+    }
+}
+
+// Start global ETH price updates for all pages
+function startGlobalEthPriceUpdates() {
+    // Initial fetch
+    fetchAndStoreEthPrice();
+    
+    // Update every 60 seconds
+    setInterval(fetchAndStoreEthPrice, 60000);
+    
+    // Also update when user returns to tab
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            fetchAndStoreEthPrice();
+        }
+    });
+}
+// ============================================
+
 if (!window.AuthManager) {
     window.AuthManager = {
         isLoggedIn: function() {
@@ -93,10 +194,25 @@ document.addEventListener('DOMContentLoaded', function() {
     // Test backend connection
     testBackendConnection();
     
+    // Start global ETH price updates (for all pages)
+    startGlobalEthPriceUpdates();
+    
     // Load NFTs if on homepage
     if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
         loadNFTs();
     }
+    
+    // ============================================
+    // ADDED: Initialize balance loading
+    // ============================================
+    if (currentUser && currentUser._id) {
+        // Load user balance
+        loadUserBalance();
+    }
+    
+    // Start ETH price updates
+    startEthPriceUpdates();
+    // ============================================
 });
 
 // ========================
@@ -223,6 +339,14 @@ async function login(email, password) {
             // Update UI
             updateAuthUI();
             
+            // ============================================
+            // ADDED: Load user balance after login
+            // ============================================
+            if (currentUser._id) {
+                await loadUserBalance();
+            }
+            // ============================================
+            
             // Show success message
             showNotification('Login successful!', 'success');
             
@@ -256,6 +380,14 @@ async function register(email, password, fullName = '') {
             
             // Update UI
             updateAuthUI();
+            
+            // ============================================
+            // ADDED: Load user balance after registration
+            // ============================================
+            if (currentUser._id) {
+                await loadUserBalance();
+            }
+            // ============================================
             
             // Show success message
             showNotification('Registration successful!', 'success');
@@ -357,6 +489,12 @@ async function buyNFT(nftId) {
                 localStorage.setItem('user', JSON.stringify(data.user));
                 currentUser = data.user;
                 updateAuthUI();
+                
+                // ============================================
+                // ADDED: Also update balance displays
+                // ============================================
+                updateAllBalanceDisplays();
+                // ============================================
             }
             
             // Reload NFTs
@@ -455,6 +593,287 @@ function setupEventListeners() {
 setupEventListeners();
 
 
+// ============================================
+// ADDED: USER BALANCE FUNCTIONS
+// ============================================
+
+// Load user balance from backend
+async function loadUserBalance() {
+    try {
+        const user = JSON.parse(localStorage.getItem('user'));
+        const token = localStorage.getItem('token');
+        
+        if (!user || !user._id || !token) {
+            console.log('User not logged in or missing user ID');
+            return null;
+        }
+        
+        console.log('🔄 Loading user balance for:', user._id);
+        
+        const response = await fetch(`${API_BASE_URL}/user/${user._id}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Failed to load balance:', response.status, errorText);
+            return null;
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.user) {
+            console.log('✅ User balance loaded:', data.user);
+            
+            // Update localStorage with fresh data
+            localStorage.setItem('user', JSON.stringify(data.user));
+            currentUser = data.user;
+            
+            // Update UI displays
+            updateAllBalanceDisplays();
+            
+            return data.user;
+        }
+    } catch (error) {
+        console.error('Failed to load user balance:', error);
+        // Don't show error notification here - it might be expected
+    }
+    return null;
+}
+
+// Update all balance displays on the page
+function updateAllBalanceDisplays() {
+    if (!currentUser) return;
+    
+    console.log('Updating balance displays:', currentUser);
+    
+    // Update ETH balance displays
+    document.querySelectorAll('[data-eth-balance]').forEach(el => {
+        el.textContent = `${currentUser.ethBalance || 0} ETH`;
+    });
+    
+    // Update WETH balance displays  
+    document.querySelectorAll('[data-weth-balance]').forEach(el => {
+        el.textContent = `${currentUser.wethBalance || 0} WETH`;
+    });
+    
+    // Update specific elements by ID
+    const elements = {
+        'ethBalance': `${currentUser.ethBalance || 0} ETH`,
+        'wethBalance': `${currentUser.wethBalance || 0} WETH`,
+        'marketplaceBalance': `${currentUser.ethBalance || 0} ETH`,
+        'dashboardEthBalance': `${currentUser.ethBalance || 0} ETH`,
+        'dashboardWethBalance': `${currentUser.wethBalance || 0} WETH`,
+        'userEthBalance': `${currentUser.ethBalance || 0} ETH`,
+        'userWethBalance': `${currentUser.wethBalance || 0} WETH`
+    };
+    
+    for (const [id, value] of Object.entries(elements)) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.textContent = value;
+            console.log(`Updated ${id}: ${value}`);
+        }
+    }
+    
+    // Also update the navbar balance display
+    updateAuthUI();
+}
+
+// Add ETH to user balance
+async function addETH(amount) {
+    try {
+        const user = JSON.parse(localStorage.getItem('user'));
+        const token = localStorage.getItem('token');
+        
+        if (!user || !token) {
+            showNotification('Please login first', 'error');
+            return null;
+        }
+        
+        console.log('Adding ETH:', amount, 'for user:', user._id);
+        
+        const response = await fetch(`${API_BASE_URL}/user/${user._id}/add-eth`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ amount: parseFloat(amount) })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || `Failed to add ETH: ${response.status}`);
+        }
+        
+        if (data.success) {
+            console.log('ETH added successfully:', data);
+            
+            // Update local user data
+            if (data.user) {
+                const updatedUser = { ...user, ...data.user };
+                localStorage.setItem('user', JSON.stringify(updatedUser));
+                currentUser = updatedUser;
+                updateAllBalanceDisplays();
+            }
+            
+            showNotification(data.message || 'ETH added successfully', 'success');
+            return data;
+        }
+    } catch (error) {
+        console.error('Add ETH error:', error);
+        showNotification(error.message || 'Failed to add ETH', 'error');
+    }
+    return null;
+}
+
+// Convert ETH to WETH
+async function convertToWETH(amount) {
+    try {
+        const user = JSON.parse(localStorage.getItem('user'));
+        const token = localStorage.getItem('token');
+        
+        if (!user || !token) {
+            showNotification('Please login first', 'error');
+            return null;
+        }
+        
+        console.log('Converting to WETH:', amount, 'for user:', user._id);
+        
+        const response = await fetch(`${API_BASE_URL}/user/${user._id}/convert-to-weth`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ amount: parseFloat(amount) })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || `Failed to convert to WETH: ${response.status}`);
+        }
+        
+        if (data.success) {
+            console.log('Converted to WETH successfully:', data);
+            
+            // Update local user data
+            if (data.user) {
+                const updatedUser = { ...user, ...data.user };
+                localStorage.setItem('user', JSON.stringify(updatedUser));
+                currentUser = updatedUser;
+                updateAllBalanceDisplays();
+            }
+            
+            showNotification(data.message || 'Converted to WETH successfully', 'success');
+            return data;
+        }
+    } catch (error) {
+        console.error('Convert to WETH error:', error);
+        showNotification(error.message || 'Failed to convert to WETH', 'error');
+    }
+    return null;
+}
+
+// Fetch and store live ETH price globally
+async function fetchAndStoreEthPrice() {
+    try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+        const data = await response.json();
+        
+        if (data.ethereum && data.ethereum.usd) {
+            window.ETH_PRICE = data.ethereum.usd;
+            localStorage.setItem('currentEthPrice', window.ETH_PRICE);
+            console.log('✅ Live ETH price stored:', window.ETH_PRICE);
+            
+            // Update ALL price displays across the site
+            updateAllEthPriceDisplays();
+            
+            return window.ETH_PRICE;
+        }
+    } catch (error) {
+        console.error('Failed to fetch ETH price:', error);
+    }
+    return window.ETH_PRICE || 2500;
+}
+
+// Page-specific setup for ETH/WETH pages
+function setupBalancePages() {
+    // Add ETH page handler
+    const addEthForm = document.getElementById('addEthForm');
+    if (addEthForm) {
+        console.log('Setting up Add ETH form');
+        addEthForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const amountInput = document.getElementById('ethAmount');
+            if (amountInput) {
+                const amount = parseFloat(amountInput.value);
+                if (amount > 0) {
+                    await addETH(amount);
+                    // Clear the input
+                    amountInput.value = '';
+                } else {
+                    showNotification('Please enter a valid amount', 'error');
+                }
+            }
+        });
+    }
+    
+    // Convert WETH page handler
+    const convertForm = document.getElementById('convertWethForm');
+    if (convertForm) {
+        console.log('Setting up Convert WETH form');
+        convertForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const amountInput = document.getElementById('convertAmount');
+            if (amountInput) {
+                const amount = parseFloat(amountInput.value);
+                if (amount > 0) {
+                    await convertToWETH(amount);
+                    // Clear the input
+                    amountInput.value = '';
+                } else {
+                    showNotification('Please enter a valid amount', 'error');
+                }
+            }
+        });
+    }
+    
+    // Refresh balance button
+    const refreshBalanceBtn = document.getElementById('refreshBalance');
+    if (refreshBalanceBtn) {
+        refreshBalanceBtn.addEventListener('click', async function() {
+            await loadUserBalance();
+            showNotification('Balance refreshed', 'success');
+        });
+    }
+}
+
+// Initialize balance pages when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Small delay to ensure everything is loaded
+    setTimeout(() => {
+        setupBalancePages();
+        
+        // If on balance-related pages, load balance immediately
+        if (window.location.pathname.includes('add-eth') || 
+            window.location.pathname.includes('convert-weth') ||
+            window.location.pathname.includes('dashboard')) {
+            if (currentUser && currentUser._id) {
+                loadUserBalance();
+            }
+        }
+    }, 500);
+});
+
+// ============================================
+
 // Make functions available globally
 window.login = login;
 window.register = register;
@@ -462,3 +881,15 @@ window.logout = logout;
 window.buyNFT = buyNFT;
 window.loadNFTs = loadNFTs;
 window.showNotification = showNotification;
+
+
+// ============================================
+// ADDED: Export new balance functions to global scope
+// ============================================
+window.loadUserBalance = loadUserBalance;
+window.addETH = addETH;
+window.convertToWETH = convertToWETH;
+window.updateAllBalanceDisplays = updateAllBalanceDisplays;
+window.refreshEthPrice = refreshEthPrice;
+window.updateAllEthPriceDisplays = updateAllEthPriceDisplays;
+// ============================================

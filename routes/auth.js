@@ -163,7 +163,7 @@ router.put('/profile', authMiddleware, async (req, res, next) => {
             success: true,
             message: 'Profile updated',
             user: {
-                id: user._id,
+                _id: user._id,
                 email: user.email,
                 fullName: user.fullName,
                 balance: user.balance,
