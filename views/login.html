@@ -12,14 +12,7 @@
 <script src="/js/auth-manager.js"></script>
 
 <!-- Simple check - if already logged in, redirect -->
-<script>
-    // Check if already logged in
-    if (AuthManager && AuthManager.isLoggedIn()) {
-        const redirectTo = sessionStorage.getItem('redirectAfterLogin') || '/dashboard';
-        sessionStorage.removeItem('redirectAfterLogin');
-        window.location.href = redirectTo;
-    }
-</script>
+
 </head>
 <body>
 <!-- Back Link -->
@@ -38,24 +31,23 @@
             <p>Sign in to your account</p>
         </div>
         <!-- Messages -->
-        <div id="errorMessage" class="login-message error" style="display: none;"></div>
-        <div id="successMessage" class="login-message success" style="display: none;"></div>
+        <div id="loginMessage" class="login-message" style="display: none;"></div>
         <!-- Login Form -->
-        <form id="loginForm">
-            <div class="form-group">
-                <label>Email Address</label>
-                <input type="email" id="loginEmail" placeholder="you@example.com" required autofocus />
-            </div>
-            <div class="form-group">
-                <label>Password</label>
-                <input type="password" id="loginPassword" placeholder="••••••••" required />
-            </div>
-            <div class="forgot-password">
-                <a href="#" onclick="return showForgotPassword()">Forgot password?</a>
-            </div>
-            <button type="submit" class="btn-login">
-                <i class="fas fa-sign-in-alt"></i> Sign In
-            </button>
+        <form id="loginForm" onsubmit="return false;">
+          <div class="form-group">
+              <label for="loginEmail">Email Address</label>
+              <input type="email" id="loginEmail" name="email" placeholder="you@example.com" required autofocus />
+          </div>
+          <div class="form-group">
+              <label for="loginPassword">Password</label>
+              <input type="password" id="loginPassword" name="password" placeholder="••••••" required />
+          </div>
+          <div class="forgot-password">
+              <a href="#" onclick="return showForgotPassword()">Forgot password?</a>
+          </div>
+          <button type="submit" class="btn-login">
+              <i class="fas fa-sign-in-alt"></i> Sign In
+          </button>
         </form>
         <div class="login-footer">
             <p>Don't have an account? <a href="/register">Register here</a></p>
@@ -80,156 +72,93 @@
 </div>
 
 <!-- Load Scripts -->
+<script src="/js/login.js"></script>
+
+<!-- Add this RIGHT BEFORE the closing </body> tag -->
 <script>
-  // Your API endpoints (keep these)
-  const API_LOGIN_ENDPOINT = '/login'; // Replace with your actual login POST URL
-  const API_PASSWORD_RESET_ENDPOINT = '/reset-password'; // Your reset password URL
-
-  // Utility functions (keep these)
-  function showLoginError(message) {
-    const errorMsg = document.getElementById('errorMessage');
-    errorMsg.textContent = message;
-    errorMsg.style.display = 'block';
-    errorMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-
-  function showLoginSuccess(message) {
-    const successMsg = document.getElementById('successMessage');
-    successMsg.textContent = message;
-    successMsg.style.display = 'block';
-    successMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-
-  function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) modal.style.display = 'none';
-  }
-
-  function showForgotPassword() {
-    document.getElementById('forgotPasswordModal').style.display = 'flex';
-    return false;
-  }
-
-  // MODIFIED: Updated handleLogin to use AuthManager
-  async function handleLogin(event) {
-    event.preventDefault();
-
-    const email = document.getElementById('loginEmail').value.trim();
-    const password = document.getElementById('loginPassword').value;
-    const errorMsg = document.getElementById('errorMessage');
-    const successMsg = document.getElementById('successMessage');
-    const loginBtn = document.querySelector('.btn-login');
-
-    // Reset messages
-    errorMsg.style.display = 'none';
-    successMsg.style.display = 'none';
-
-    if (!email || !password) {
-      showLoginError('Please enter both email and password');
-      return false;
-    }
-
-    // Show loading indicator
-    const originalText = loginBtn.innerHTML;
-    loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
-    loginBtn.disabled = true;
-
-    try {
-      const response = await fetch(API_LOGIN_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        // USE AuthManager to save user info
-        AuthManager.login(email, result.token);
-        
-        showLoginSuccess('Login successful! Redirecting...');
-        
-        // Disable form
-        document.getElementById('loginForm').querySelectorAll('input, button').forEach(e => e.disabled = true);
-        
-        // Redirect to saved destination or dashboard
-        setTimeout(() => {
-          const redirectTo = sessionStorage.getItem('redirectAfterLogin') || '/dashboard';
-          sessionStorage.removeItem('redirectAfterLogin');
-          window.location.href = redirectTo;
-        }, 1000);
-        
-      } else {
-        // Handle backend error message
-        showLoginError(result.message || 'Invalid login credentials');
-        loginBtn.innerHTML = originalText;
-        loginBtn.disabled = false;
+  // EMERGENCY OVERRIDE - FIX LOGIN FORM
+  console.log("🚨 EMERGENCY LOGIN FIX ACTIVATED");
+  
+  // Wait for page to load
+  document.addEventListener('DOMContentLoaded', function() {
+      console.log("✅ DOM ready");
+      
+      // Get the login form
+      const loginForm = document.getElementById('loginForm');
+      if (!loginForm) {
+          console.error("❌ ERROR: Login form not found!");
+          return;
       }
-    } catch (error) {
-      console.error('Login request failed:', error);
       
-      // FALLBACK: Use mock login for testing if API fails
-      console.log('API failed, using mock login for testing');
-      AuthManager.login(email, 'mock-token-' + Date.now());
-      showLoginSuccess('Login successful! Redirecting...');
+      console.log("✅ Login form found, overriding...");
       
-      document.getElementById('loginForm').querySelectorAll('input, button').forEach(e => e.disabled = true);
+      // REMOVE ALL existing event listeners by cloning
+      const newForm = loginForm.cloneNode(true);
+      loginForm.parentNode.replaceChild(newForm, loginForm);
       
-      setTimeout(() => {
-        const redirectTo = sessionStorage.getItem('redirectAfterLogin') || '/dashboard';
-        sessionStorage.removeItem('redirectAfterLogin');
-        window.location.href = redirectTo;
-      }, 1000);
-    }
-
-    return false;
-  }
-
-  async function sendPasswordReset() {
-    const email = document.getElementById('resetEmail').value.trim();
-
-    if (!email || !email.includes('@')) {
-      alert('Please enter a valid email address');
-      return;
-    }
-
-    try {
-      const response = await fetch(API_PASSWORD_RESET_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+      // Add NEW event handler
+      newForm.addEventListener('submit', function(e) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          console.log("🔄 Form submission PREVENTED");
+          
+          // Get form values
+          const email = document.getElementById('loginEmail').value;
+          const password = document.getElementById('loginPassword').value;
+          const loginButton = newForm.querySelector('button[type="submit"]');
+          
+          console.log("📧 Email entered:", email);
+          
+          // Disable button
+          if (loginButton) {
+              loginButton.disabled = true;
+              loginButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
+          }
+          
+          // Make AJAX request
+          fetch('/api/auth/login', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ email, password })
+          })
+          .then(response => response.json())
+          .then(result => {
+              console.log("API Response:", result);
+              
+              if (result.success) {
+                  // Save data
+                  localStorage.setItem('token', result.token);
+                  localStorage.setItem('user', JSON.stringify(result.user));
+                  localStorage.setItem('magicEdenCurrentUser', result.user.email);
+                  
+                  console.log("✅ Login successful! Redirecting...");
+                  
+                  // Redirect to dashboard
+                  window.location.href = '/dashboard';
+              } else {
+                  alert('Login failed: ' + (result.error || 'Unknown error'));
+                  if (loginButton) {
+                      loginButton.disabled = false;
+                      loginButton.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+                  }
+              }
+          })
+          .catch(error => {
+              console.error('Login error:', error);
+              alert('Network error. Is backend running?');
+              if (loginButton) {
+                  loginButton.disabled = false;
+                  loginButton.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+              }
+          });
+          
+          return false;
       });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        alert(`Password reset link sent to ${email}`);
-        closeModal('forgotPasswordModal');
-      } else {
-        alert(result.message || 'Failed to send reset link');
-      }
-    } catch (err) {
-      alert('Error sending reset email, please try again.');
-    }
-  }
-
-  // Initialize - SIMPLIFIED
-  document.addEventListener('DOMContentLoaded', () => {
-    // Focus on email field
-    document.getElementById('loginEmail').focus();
-
-    // Setup form listener
-    document.getElementById('loginForm').addEventListener('submit', handleLogin);
+      
+      console.log("✅ Login form override complete");
   });
-
-  // Expose functions globally (keep these)
-  window.showForgotPassword = showForgotPassword;
-  window.closeModal = closeModal;
-  window.sendPasswordReset = sendPasswordReset;
-</script>
-<!-- At the BOTTOM of your HTML, before </body> -->
-
+  </script>
 </body>
 </html>

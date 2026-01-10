@@ -1,9 +1,87 @@
 // Magic Eden Marketplace - Frontend JavaScript
 // CONNECTS TO YOUR BACKEND SERVER
+// AuthManager - Add this to app.js
+// Fetch live ETH price on load
+(async function() {
+    try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+        const data = await response.json();
+        
+        if (data.ethereum && data.ethereum.usd) {
+            window.ETH_PRICE = data.ethereum.usd;
+            console.log('✅ Live ETH price loaded:', window.ETH_PRICE);
+            
+            // Update all price displays
+            document.querySelectorAll('[data-eth-price]').forEach(el => {
+                const ethAmount = parseFloat(el.getAttribute('data-eth-amount') || 0);
+                el.textContent = `$${(ethAmount * window.ETH_PRICE).toFixed(2)}`;
+            });
+        }
+    } catch (error) {
+        console.error('Failed to fetch ETH price, using default');
+        window.ETH_PRICE = 2500;
+    }
+})();
+if (!window.AuthManager) {
+    window.AuthManager = {
+        isLoggedIn: function() {
+            return !!localStorage.getItem('magicEdenCurrentUser') || 
+                   !!localStorage.getItem('token');
+        },
+        getCurrentUser: function() {
+            return localStorage.getItem('magicEdenCurrentUser');
+        },
+        logout: function() {
+            localStorage.removeItem('magicEdenCurrentUser');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('userId');
+        },
+        login: function(email, token) {
+            localStorage.setItem('magicEdenCurrentUser', email);
+            localStorage.setItem('token', token);
+        }
+    };
+}
 
-const API_BASE_URL = 'http://localhost:5000/api';
-let currentUser = null;
-let userToken = null;
+// Add this to app.js (after AuthManager)
+if (!window.db) {
+    window.db = {
+        getUsers: function() {
+            const usersJSON = localStorage.getItem('magicEdenUsers');
+            return usersJSON ? JSON.parse(usersJSON) : [];
+        },
+        
+        fixUserData: function(email) {
+            console.log('fixUserData called for:', email);
+            // Implementation...
+        }
+    };
+}
+
+// Define API_BASE_URL - use var to avoid duplicate declaration errors
+if (typeof window.API_BASE_URL === 'undefined') {
+    window.API_BASE_URL = 'http://localhost:5000/api';
+}
+
+// Define currentUser - use var to avoid duplicate declaration errors  
+if (typeof window.currentUser === 'undefined') {
+    window.currentUser = null;
+}
+
+// Define userToken - use var to avoid duplicate declaration errors
+if (typeof window.userToken === 'undefined') {
+    window.userToken = null;
+}
+
+// Now use them (don't redeclare with var/let/const)
+API_BASE_URL = window.API_BASE_URL;
+currentUser = window.currentUser;
+userToken = window.userToken;
+
+ //API_BASE_URL = 'http://localhost:5000/api';
+ //currentUser = null;
+// userToken = null;
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {

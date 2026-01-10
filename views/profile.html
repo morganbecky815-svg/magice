@@ -10,7 +10,7 @@
 </head>
 <body>
    
-    <!-- Header (same as index.html) -->
+    <!-- Header -->
     <header class="header">
         <div class="container">
             <div class="navbar">
@@ -88,7 +88,6 @@
             <div id="nftsTab" class="profile-content active">
                 <h2>My NFTs</h2>
                 <div class="nfts-grid" id="userNFTsGrid">
-                    <!-- User's NFTs will load here -->
                     <div class="loading">Loading your NFTs...</div>
                 </div>
             </div>
@@ -97,7 +96,6 @@
             <div id="activityTab" class="profile-content">
                 <h2>Recent Activity</h2>
                 <div class="activity-list" id="activityList">
-                    <!-- Activity will load here -->
                     <div class="loading">Loading activity...</div>
                 </div>
             </div>
@@ -106,7 +104,6 @@
             <div id="collectionsTab" class="profile-content">
                 <h2>My Collections</h2>
                 <div class="collections-grid" id="collectionsGrid">
-                    <!-- Collections will load here -->
                     <div class="empty-state">
                         <i class="fas fa-layer-group"></i>
                         <p>You haven't created any collections yet</p>
@@ -120,17 +117,17 @@
                 <h2>Account Settings</h2>
                 <div class="settings-form">
                     <div class="form-group">
-                        <label>Email Address</label>
+                        <label for="settingsEmail">Email Address</label>
                         <input type="email" id="settingsEmail" readonly>
                     </div>
                     
                     <div class="form-group">
-                        <label>Display Name</label>
+                        <label for="settingsName">Display Name</label>
                         <input type="text" id="settingsName" placeholder="Enter your display name">
                     </div>
                     
                     <div class="form-group">
-                        <label>Bio</label>
+                        <label for="settingsBio">Bio</label>
                         <textarea id="settingsBio" placeholder="Tell us about yourself" rows="4"></textarea>
                     </div>
                     
@@ -168,7 +165,7 @@
             <h3><i class="fas fa-coins"></i> Add Funds to Wallet</h3>
             <p>Add WETH to your wallet to purchase NFTs</p>
             <div class="form-group">
-                <label>Amount (WETH)</label>
+                <label for="fundAmount">Amount (WETH)</label>
                 <input type="number" id="fundAmount" min="0.01" step="0.01" value="1.0" placeholder="0.00">
             </div>
             <div class="modal-actions">
@@ -178,73 +175,215 @@
         </div>
     </div>
 
+    <!-- Profile JavaScript -->
     <script>
-        // Get userId from URL
-        function getUserIdFromURL() {
-          const path = window.location.pathname;
-          // Extract userId from /user/:userId/profile or /user/:userId/dashboard
-          const match = path.match(/\/user\/([^\/]+)\/(profile|dashboard)/);
-          return match ? match[1] : null;
-        }
+    // Load user profile data
+    async function loadProfileData() {
+      try {
+        console.log('Loading profile data...');
         
-        // Load user-specific data
-        async function loadUserData() {
-          const userId = getUserIdFromURL();
+        // Get userId from URL (format: /user/:userId/profile)
+        const path = window.location.pathname.split('/');
+        const userId = path[2];
+        
+        if (!userId) {
+          console.error('No user ID found in URL');
           
-          if (!userId) {
-            console.error('No user ID in URL');
+          // Try to get userId from localStorage and redirect
+          const storedUserId = localStorage.getItem('userId');
+          if (storedUserId) {
+            console.log('Redirecting to user-specific profile URL...');
+            window.location.href = `/user/${storedUserId}/profile`;
             return;
           }
           
-          try {
-            // Fetch user data from API
-            const response = await fetch(`/api/user/${userId}`);
-            const data = await response.json();
-            
-            if (data.success) {
-              displayUserData(data.user);
-            }
-          } catch (error) {
-            console.error('Error loading user data:', error);
+          // Check if user is logged in by email
+          const userEmail = localStorage.getItem('magicEdenCurrentUser');
+          if (!userEmail) {
+            console.log('Not logged in, redirecting to login');
+            window.location.href = '/login';
+            return;
           }
+          
+          console.log('Using email-based profile fallback');
+          // Use fallback logic (you'll need to implement this)
+          loadProfileFallback(userEmail);
+          return;
         }
         
-        // Display user data
-        function displayUserData(user) {
-          // Update all user-specific elements on the page
-          document.title = `${user.fullName}'s Profile - Magic Eden`;
+        console.log('Fetching user:', userId);
+        
+        // Fetch user data from API
+        const response = await fetch(`/api/user/${userId}`);
+        const data = await response.json();
+        
+        console.log('API response:', data);
+        
+        if (data.success && data.user) {
+          const user = data.user;
           
-          // Update username
-          const usernameElements = document.querySelectorAll('.username, #username');
-          usernameElements.forEach(el => {
-            el.textContent = user.fullName;
-          });
+          // Update profile name
+          if (document.getElementById('profileName')) {
+            document.getElementById('profileName').textContent = user.fullName || user.email.split('@')[0];
+          }
           
           // Update email
-          const emailElements = document.querySelectorAll('.user-email, #userEmail');
-          emailElements.forEach(el => {
-            el.textContent = user.email;
-          });
-          
-          // Update balances
-          if (document.getElementById('userBalance')) {
-            document.getElementById('userBalance').textContent = `${user.balance} WETH`;
+          if (document.getElementById('profileEmail')) {
+            document.getElementById('profileEmail').textContent = user.email || '';
           }
           
-          // You can add more updates here...
+          // Update settings form
+          if (document.getElementById('settingsEmail')) {
+            document.getElementById('settingsEmail').value = user.email || '';
+          }
+          
+          if (document.getElementById('settingsName')) {
+            document.getElementById('settingsName').value = user.fullName || '';
+          }
+          
+          // Update NFT count
+          if (document.getElementById('nftsOwned')) {
+            document.getElementById('nftsOwned').textContent = user.nftCount || '0';
+          }
+          
+          // Update wallet balance
+          if (document.getElementById('walletBalance')) {
+            document.getElementById('walletBalance').textContent = user.balance || '0';
+          }
+          
+          // Update join date
+          if (document.getElementById('joinDate') && user.createdAt) {
+            const date = new Date(user.createdAt);
+            document.getElementById('joinDate').textContent = date.toLocaleDateString();
+          }
+          
+          // Update profile header
+          const profileHeader = document.getElementById('profileHeader');
+          if (profileHeader) {
+            profileHeader.innerHTML = `
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-user-circle" style="font-size: 24px;"></i>
+                <span>${user.fullName || user.email.split('@')[0]}</span>
+              </div>
+            `;
+          }
+          
+          console.log('Profile data loaded successfully!');
+          
+        } else {
+          console.error('API returned error:', data);
+          // Fallback to localStorage data
+          const userEmail = localStorage.getItem('magicEdenCurrentUser');
+          if (userEmail) {
+            loadProfileFallback(userEmail);
+          }
         }
         
-        // Load data when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-          const userId = getUserIdFromURL();
-          
-          if (userId) {
-            console.log(`Loading data for user: ${userId}`);
-            loadUserData();
-          }
-        });
-        </script>
-    <script src="app.js"></script>
-    <script src="profile.js"></script>
+      } catch (error) {
+        console.error('Error loading profile:', error);
+        // Fallback to localStorage data
+        const userEmail = localStorage.getItem('magicEdenCurrentUser');
+        if (userEmail) {
+          loadProfileFallback(userEmail);
+        }
+      }
+    }
+    
+    // Fallback function when API fails
+    function loadProfileFallback(userEmail) {
+      console.log('Using fallback profile data for:', userEmail);
+      
+      // Update with basic info from localStorage
+      if (document.getElementById('profileName')) {
+        document.getElementById('profileName').textContent = userEmail.split('@')[0];
+      }
+      
+      if (document.getElementById('profileEmail')) {
+        document.getElementById('profileEmail').textContent = userEmail;
+      }
+      
+      if (document.getElementById('settingsEmail')) {
+        document.getElementById('settingsEmail').value = userEmail;
+      }
+      
+      // Update profile header
+      const profileHeader = document.getElementById('profileHeader');
+      if (profileHeader) {
+        profileHeader.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-user-circle" style="font-size: 24px;"></i>
+            <span>${userEmail.split('@')[0]}</span>
+          </div>
+        `;
+      }
+    }
+    
+    // Tab switching functions
+    function showProfileTab(tabName) {
+      // Hide all tabs
+      document.querySelectorAll('.profile-content').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // Remove active class from all tab buttons
+      document.querySelectorAll('.profile-tab').forEach(button => {
+        button.classList.remove('active');
+      });
+      
+      // Show selected tab
+      document.getElementById(tabName + 'Tab').classList.add('active');
+      
+      // Activate clicked button
+      event.currentTarget.classList.add('active');
+    }
+    
+    // Modal functions
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+    }
+    
+    function openModal(modalId) {
+      document.getElementById(modalId).style.display = 'flex';
+    }
+    
+    // Placeholder functions
+    function editProfile() {
+      showProfileTab('settings');
+    }
+    
+    function createCollection() {
+      alert('Create collection feature coming soon!');
+    }
+    
+    function saveProfile() {
+      const name = document.getElementById('settingsName').value;
+      const bio = document.getElementById('settingsBio').value;
+      
+      // In a real app, you would save this to your backend
+      localStorage.setItem('userFullName', name);
+      localStorage.setItem('userBio', bio);
+      
+      // Update display
+      if (document.getElementById('profileName')) {
+        document.getElementById('profileName').textContent = name || localStorage.getItem('magicEdenCurrentUser').split('@')[0];
+      }
+      
+      alert('Profile saved! (Note: This is a demo. In a real app, data would be saved to the server)');
+    }
+    
+    function resetPassword() {
+      alert('Password reset feature coming soon!');
+    }
+    
+    function confirmAddFunds() {
+      const amount = document.getElementById('fundAmount').value;
+      alert(`Added ${amount} WETH to your wallet! (Demo only)`);
+      closeModal('addFundsModal');
+    }
+    
+    // Load data when page is ready
+    document.addEventListener('DOMContentLoaded', loadProfileData);
+    </script>
+
 </body>
 </html>

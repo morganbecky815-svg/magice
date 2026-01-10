@@ -2,13 +2,18 @@
 // Add this ONE file and it handles ALL auth logic
 
 const AuthManager = {
-    // Check if user is logged in
-    isLoggedIn() {
-        const user = localStorage.getItem('magicEdenCurrentUser');
-        console.log("🔐 AuthManager.isLoggedIn() checking:", user);
-        return !!user;
-    },
+    // Check if user is logged in (user + token required)
+isLoggedIn() {
+    const user = localStorage.getItem('magicEdenCurrentUser');
+    const token = localStorage.getItem('authToken');
 
+    console.log("🔐 AuthManager.isLoggedIn()", {
+        user,
+        hasToken: !!token
+    });
+
+    return !!(user && token);
+},
     // Get current user email
     getCurrentUser() {
         return localStorage.getItem('magicEdenCurrentUser') || '';

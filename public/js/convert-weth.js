@@ -1,3 +1,24 @@
+// Fetch live ETH price on load
+(async function() {
+    try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+        const data = await response.json();
+        
+        if (data.ethereum && data.ethereum.usd) {
+            window.ETH_PRICE = data.ethereum.usd;
+            console.log('✅ Live ETH price loaded:', window.ETH_PRICE);
+            
+            // Update all price displays
+            document.querySelectorAll('[data-eth-price]').forEach(el => {
+                const ethAmount = parseFloat(el.getAttribute('data-eth-amount') || 0);
+                el.textContent = `$${(ethAmount * window.ETH_PRICE).toFixed(2)}`;
+            });
+        }
+    } catch (error) {
+        console.error('Failed to fetch ETH price, using default');
+        window.ETH_PRICE = 2500;
+    }
+})();
 // convert-weth.js - SIMPLIFIED VERSION
 console.log('💱 convert-weth.js loaded');
 
@@ -74,15 +95,7 @@ function loadUserDataOffline(userEmail) {
     selectConversionType('ethToWeth');
 }
 
-// ... REST OF YOUR EXISTING CODE (updateBalanceDisplay, setupEventListeners, etc.) ...
-// convert-weth.js - WETH Conversion with 15% ETH Balance Check
-console.log('💱 convert-weth.js loaded');
 
-// Global variables
-let currentConversionType = 'ethToWeth';
-let userEthBalance = 0;
-let userWethBalance = 0;
-const ETH_PRICE = 2500;
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {

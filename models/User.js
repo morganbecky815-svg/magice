@@ -24,6 +24,13 @@ const userSchema = new mongoose.Schema(
       default: ""
     },
 
+    bio: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: [500, "Bio cannot exceed 500 characters"]
+    },
+
     balance: {
       type: Number,
       default: 0,
@@ -42,6 +49,17 @@ const userSchema = new mongoose.Schema(
       min: 0
     },
 
+    nftCount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+
+    profileImage: {
+      type: String,
+      default: ""
+    },
+
     isAdmin: {
       type: Boolean,
       default: false
@@ -54,25 +72,86 @@ const userSchema = new mongoose.Schema(
 
     lastLogin: {
       type: Date
+    },
+
+    // Social links (optional)
+    twitter: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+
+    website: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+
+    // Wallet address (for crypto)
+    walletAddress: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+
+    // Activity stats
+    totalTrades: {
+      type: Number,
+      default: 0
+    },
+
+    totalVolume: {
+      type: Number,
+      default: 0
     }
   },
   {
-    timestamps: true
+    timestamps: true // This automatically adds createdAt and updatedAt
   }
 );
 
-// ========== PASSWORD HASHING (FIXED - NO next) ==========
-userSchema.pre("save", async function () {
+// ========== VIRTUAL FIELDS ==========
+// Get registration date (from createdAt)
+userSchema.virtual('joinDate').get(function() {
+  return this.createdAt;
+});
+
+// Get formatted display name
+userSchema.virtual('displayName').get(function() {
+  return this.fullName || this.email.split('@')[0];
+});
+
+// ========== PASSWORD HASHING ==========
+userSchema.pre("save", async function() {
+  // Only hash the password if it has been modified (or is new)
   if (!this.isModified("password")) return;
   
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+  } catch (error) {
+    throw new Error("Error hashing password");
+  }
 });
 
 // ========== PASSWORD COMPARISON METHOD ==========
-userSchema.methods.comparePassword = async function (candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  try {
+    return await bcrypt.compare(candidatePassword, this.password);
+  } catch (error) {
+    throw new Error("Error comparing passwords");
+  }
 };
+
+// ========== TO JSON TRANSFORM ==========
+// Remove password when converting to JSON
+userSchema.set("toJSON", {
+  transform: function(doc, ret) {
+    delete ret.password;
+    delete ret.__v;
+    return ret;
+  }
+});
 
 // ========== CREATE MODEL ==========
 const User = mongoose.model("User", userSchema);

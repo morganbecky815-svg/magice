@@ -1,47 +1,60 @@
-// navigation.js - Common navigation functions
+// navigation.js - Fixed version that allows user routes
+function updateNavbarWithUserLinks(userId) {
+    const links = document.querySelectorAll('a[href]');
+    links.forEach(link => {
+        const href = link.getAttribute('href');
+        if (userId && href && ['/dashboard', '/profile'].includes(href)) {
+            link.href = `/user/${userId}${href}`;
+        }
+    });
+}
 
-// Check authentication on ALL pages
+// Check authentication on ALL pages - FIXED VERSION
 function checkAuthOnAllPages() {
     console.log('🔍 Checking authentication on page:', window.location.pathname);
     
     const userEmail = localStorage.getItem('magicEdenCurrentUser');
-    const currentPage = window.location.pathname.split('/').pop();
+    const currentPath = window.location.pathname;
     
-    // Pages that require authentication
-    const protectedPages = ['/dashboard', '/profile', '/create-nft', '/admin'];
+    // ✅ DON'T check auth on these pages - INCLUDES USER ROUTES
+    const exemptPaths = [
+      '/login', 
+      '/register', 
+      '/',
+      '/api/', // All API routes
+      '/css/', // CSS files
+      '/js/',  // JS files
+      '/images/' // Images
+    ];
     
-    // Pages that should redirect to dashboard if already logged in
-    const loginPages = ['/login', '/register'];
+    // Check if current path starts with any exempt path
+    const isExempt = exemptPaths.some(path => currentPath.startsWith(path));
     
-    if (protectedPages.includes(currentPage)) {
-        // Protected page - need to be logged in
-        if (!userEmail) {
-            console.log('❌ Not authenticated, redirecting to login');
-            window.location.href = '/login';
+    // ✅ ALSO allow ALL user routes (e.g., /user/123/dashboard)
+    const isUserRoute = currentPath.startsWith('/user/');
+    
+    if (isExempt || isUserRoute) {
+        console.log('✅ Page exempt from auth check');
+        
+        // If already logged in and trying to access login/register, redirect to dashboard
+        if (userEmail && (currentPath === '/login' || currentPath === '/register')) {
+            console.log('✅ Already logged in, redirecting to dashboard');
+            const userId = localStorage.getItem('userId');
+            window.location.href = userId ? `/user/${userId}/dashboard` : '/dashboard';
             return false;
         }
         
-        // Check if user exists in database
-        const users = db.getUsers();
-        const user = users.find(u => u.email === userEmail.toLowerCase());
-        
-        if (!user) {
-            console.log('❌ User not found in DB, clearing session');
-            localStorage.removeItem('magicEdenCurrentUser');
-            window.location.href = '/login';
-            return false;
-        }
-        
-        console.log('✅ Authenticated on protected page:', currentPage);
         return true;
-        
-    } else if (loginPages.includes(currentPage) && userEmail) {
-        // Already logged in, redirect to dashboard
-        console.log('✅ Already logged in, redirecting to dashboard');
-        window.location.href = '/dashboard';
+    }
+    
+    // All other pages require authentication
+    if (!userEmail) {
+        console.log('❌ Not authenticated, redirecting to login');
+        window.location.href = '/login';
         return false;
     }
     
+    console.log('✅ Authenticated as:', userEmail);
     return true;
 }
 
@@ -62,17 +75,7 @@ function updateNavigationUI() {
     
     if (userEmail) {
         // User is logged in
-        const users = db.getUsers();
-        const user = users.find(u => u.email === userEmail.toLowerCase());
-        
-        if (!user) {
-            // User not found, clear session
-            localStorage.removeItem('magicEdenCurrentUser');
-            updateNavigationUI(); // Refresh
-            return;
-        }
-        
-        console.log('👤 Displaying user info for:', user.email);
+        console.log('👤 Displaying user info for:', userEmail);
         
         if (guestButtons) guestButtons.style.display = 'none';
         
@@ -81,8 +84,8 @@ function updateNavigationUI() {
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <i class="fas fa-user-circle" style="font-size: 24px; color: #8a2be2;"></i>
                     <div style="display: flex; flex-direction: column;">
-                        <span style="color: #8a2be2; font-weight: 600; font-size: 14px;">${user.email.split('@')[0]}</span>
-                        <small style="color: #666; font-size: 12px;">${user.balance || 0} WETH</small>
+                        <span style="color: #8a2be2; font-weight: 600; font-size: 14px;">${userEmail.split('@')[0]}</span>
+                        <small style="color: #666; font-size: 12px;">User</small>
                     </div>
                 </div>
                 <button class="btn" onclick="logout()" style="padding: 8px 15px; font-size: 14px;">
@@ -99,8 +102,8 @@ function updateNavigationUI() {
             authSection.innerHTML = userHTML;
         }
         
-        if (adminLink && user.isAdmin) {
-            adminLink.style.display = 'block';
+        if (adminLink) {
+            adminLink.style.display = 'none';
         }
         
     } else {
@@ -124,6 +127,9 @@ function logout() {
     if (confirm('Are you sure you want to logout?')) {
         console.log('🚪 Logging out user');
         localStorage.removeItem('magicEdenCurrentUser');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
         
         // Redirect to home page
         window.location.href = '/';
@@ -139,20 +145,6 @@ function initNavigation() {
     
     // Update UI
     updateNavigationUI();
-    
-    // Check every 30 seconds if user is still valid
-    setInterval(() => {
-        const userEmail = localStorage.getItem('magicEdenCurrentUser');
-        if (userEmail) {
-            const users = db.getUsers();
-            const user = users.find(u => u.email === userEmail.toLowerCase());
-            if (!user) {
-                console.log('🔄 User session expired, logging out');
-                localStorage.removeItem('magicEdenCurrentUser');
-                updateNavigationUI();
-            }
-        }
-    }, 30000);
 }
 
 // Make functions globally available
