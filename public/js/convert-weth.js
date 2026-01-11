@@ -19,33 +19,21 @@
         window.ETH_PRICE = 2500;
     }
 })();
-// convert-weth.js - SIMPLIFIED VERSION
+
+// convert-weth.js - CORRECTED VERSION
 console.log('💱 convert-weth.js loaded');
 
 // Global variables
 let currentConversionType = 'ethToWeth';
-let userEthBalance = 2.5;  // Default values
-let userWethBalance = 1.2; // Default values
-const ETH_PRICE = 2500;
+let userEthBalance = 0;
+let userWethBalance = 0;
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔄 WETH conversion page initializing...');
     
-    // Get user from global (set by the HTML check) or localStorage
-    const userEmail = window.currentUserEmail || localStorage.getItem('magicEdenCurrentUser');
-    
-    if (!userEmail) {
-        console.error('❌ FATAL: No user found even after HTML check!');
-        // Page should have redirected already, but just in case:
-        window.location.href = '/login';
-        return;
-    }
-    
-    console.log('✅ User authenticated:', userEmail);
-    
-    // Load user data (OFFLINE VERSION)
-    loadUserDataOffline(userEmail);
+    // Load REAL user data from backend
+    loadRealUserData();
     
     // Setup event listeners
     setupEventListeners();
@@ -53,111 +41,93 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ WETH conversion page ready');
 });
 
-// OFFLINE user data loader
-function loadUserDataOffline(userEmail) {
-    console.log('Loading OFFLINE data for:', userEmail);
-    
+// Load REAL user data from backend
+async function loadRealUserData() {
     try {
-        // Try to get from localStorage
-        const storedUsers = localStorage.getItem('magicEdenUsers');
+        console.log('🔄 Loading REAL user data from backend...');
         
-        if (storedUsers) {
-            const users = JSON.parse(storedUsers);
-            const user = users.find(u => u.email === userEmail.toLowerCase());
-            
-            if (user) {
-                userEthBalance = user.ethBalance || 2.5;
-                userWethBalance = user.wethBalance || 1.2;
-                console.log('Found user data in localStorage');
-            }
-        } else {
-            // Create initial data
-            console.log('Creating initial user data');
-            const newUser = {
-                email: userEmail.toLowerCase(),
-                ethBalance: 2.5,
-                wethBalance: 1.2,
-                createdAt: new Date().toISOString()
-            };
-            
-            localStorage.setItem('magicEdenUsers', JSON.stringify([newUser]));
-        }
+        // Get user from localStorage (same as your app.js)
+        const userStr = localStorage.getItem('user');
+        const token = localStorage.getItem('token');
         
-    } catch (error) {
-        console.error('Error loading user data:', error);
-        // Keep default values
-    }
-    
-    console.log(`💰 Balances - ETH: ${userEthBalance}, WETH: ${userWethBalance}`);
-    
-    // Update display
-    updateBalanceDisplay();
-    selectConversionType('ethToWeth');
-}
-
-
-
-// Initialize when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔄 WETH conversion page initializing...');
-    
-    // ✅ FIXED: Changed '/login' to 'login.html'
-    const userEmail = localStorage.getItem('magicEdenCurrentUser');
-    if (!userEmail) {
-        alert('Please login to use conversion');
-        window.location.href = '/login';  // ✅ FIXED
-        return;
-    }
-    
-    // Load user data
-    loadUserData(userEmail);
-    
-    // Setup event listeners
-    setupEventListeners();
-    
-    console.log('✅ WETH conversion page ready');
-});
-
-// Load user data
-function loadUserData(userEmail) {
-    try {
-        const users = db.getUsers();
-        const user = users.find(u => u.email === userEmail.toLowerCase());
-        
-        if (!user) {
-            console.log('❌ User not found');
-            alert('User not found. Please login again.');
-            window.location.href = '/login';  // ✅ FIXED
+        if (!userStr || !token) {
+            console.log('❌ No user or token found');
+            alert('Please login to use conversion');
+            window.location.href = '/login';
             return;
         }
         
-        // Get balances (default to 0 if not set)
-        userEthBalance = user.ethBalance || 0;
-        userWethBalance = user.wethBalance || 0;
+        const user = JSON.parse(userStr);
         
-        console.log(`💰 User balances - ETH: ${userEthBalance}, WETH: ${userWethBalance}`);
+        // Fetch fresh user data from backend (same as your app.js)
+        const response = await fetch(`http://localhost:5000/api/user/${user._id}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
         
-        // Update display
-        updateBalanceDisplay();
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
         
-        // Set default conversion type
-        selectConversionType('ethToWeth');
+        const data = await response.json();
+        
+        if (data.success && data.user) {
+            console.log('✅ REAL user data loaded:', data.user);
+            
+            // Update local variables with REAL data
+            userEthBalance = data.user.ethBalance || 0;
+            userWethBalance = data.user.wethBalance || data.user.balance || 0;
+            
+            // Update localStorage with fresh data
+            localStorage.setItem('user', JSON.stringify(data.user));
+            
+            console.log(`💰 REAL Balances - ETH: ${userEthBalance}, WETH: ${userWethBalance}`);
+            
+            // Update display
+            updateBalanceDisplay();
+            selectConversionType('ethToWeth');
+            
+            return data.user;
+        }
         
     } catch (error) {
-        console.error('Error loading user data:', error);
-        alert('Error loading your data. Please refresh the page.');
+        console.error('❌ Error loading real user data:', error);
+        
+        // Fallback to localStorage user data
+        try {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                userEthBalance = user.ethBalance || 0;
+                userWethBalance = user.wethBalance || user.balance || 0;
+                
+                console.log(`💰 Fallback Balances - ETH: ${userEthBalance}, WETH: ${userWethBalance}`);
+                
+                updateBalanceDisplay();
+                selectConversionType('ethToWeth');
+            }
+        } catch (fallbackError) {
+            console.error('Fallback also failed:', fallbackError);
+        }
     }
+    return null;
 }
 
-// Update balance display
+// Update balance display with REAL values
 function updateBalanceDisplay() {
+    const ethPrice = window.ETH_PRICE || 2500;
+    
     // Update ETH balance
     document.getElementById('ethBalanceDisplay').textContent = `${userEthBalance.toFixed(4)} ETH`;
-    document.getElementById('ethValueDisplay').textContent = `$${(userEthBalance * ETH_PRICE).toFixed(2)}`;
+    document.getElementById('ethValueDisplay').textContent = `$${(userEthBalance * ethPrice).toFixed(2)}`;
     
     // Update WETH balance
     document.getElementById('wethBalanceDisplay').textContent = `${userWethBalance.toFixed(4)} WETH`;
-    document.getElementById('wethValueDisplay').textContent = `$${(userWethBalance * ETH_PRICE).toFixed(2)}`;
+    document.getElementById('wethValueDisplay').textContent = `$${(userWethBalance * ethPrice).toFixed(2)}`;
+    
+    console.log('✅ Balance display updated with REAL values');
 }
 
 // Setup event listeners
@@ -186,9 +156,21 @@ function selectConversionType(type) {
         document.getElementById('fromSymbol').textContent = 'ETH';
         document.getElementById('toSymbol').textContent = 'WETH';
         document.getElementById('fromBalance').textContent = userEthBalance.toFixed(4);
-        document.getElementById('toBalance').textContent = userWethBalance.toFixed(4);
+        
+        // Update BOTH "to" displays
+        const toBalanceElement = document.getElementById('toBalance');
+        if (toBalanceElement) {
+            toBalanceElement.textContent = userWethBalance.toFixed(4);
+        }
+        
         document.getElementById('inputCurrency').textContent = 'ETH';
         document.getElementById('availableCurrency').textContent = 'ETH';
+        
+        // Update second "You Receive" display
+        const receiveAmountElement = document.getElementById('receiveAmount');
+        if (receiveAmountElement) {
+            receiveAmountElement.textContent = '0.0000 WETH';
+        }
         
         // Hide ETH balance warning
         document.getElementById('ethBalanceWarning').style.display = 'none';
@@ -200,9 +182,21 @@ function selectConversionType(type) {
         document.getElementById('fromSymbol').textContent = 'WETH';
         document.getElementById('toSymbol').textContent = 'ETH';
         document.getElementById('fromBalance').textContent = userWethBalance.toFixed(4);
-        document.getElementById('toBalance').textContent = userEthBalance.toFixed(4);
+        
+        // Update BOTH "to" displays
+        const toBalanceElement = document.getElementById('toBalance');
+        if (toBalanceElement) {
+            toBalanceElement.textContent = userEthBalance.toFixed(4);
+        }
+        
         document.getElementById('inputCurrency').textContent = 'WETH';
         document.getElementById('availableCurrency').textContent = 'WETH';
+        
+        // Update second "You Receive" display
+        const receiveAmountElement = document.getElementById('receiveAmount');
+        if (receiveAmountElement) {
+            receiveAmountElement.textContent = '0.0000 ETH';
+        }
         
         // Check 15% ETH balance requirement
         checkEthBalanceRequirement();
@@ -281,7 +275,6 @@ function setMaxAmount() {
 function updateConversionPreview() {
     const amountInput = document.getElementById('convertAmount');
     const convertBtn = document.getElementById('convertBtn');
-    const receiveAmount = document.getElementById('receiveAmount');
     
     const amount = parseFloat(amountInput.value) || 0;
     
@@ -289,7 +282,21 @@ function updateConversionPreview() {
     convertBtn.disabled = true;
     
     if (amount <= 0) {
-        receiveAmount.textContent = currentConversionType === 'ethToWeth' ? '0.0000 WETH' : '0.0000 ETH';
+        // Update BOTH "You Receive" displays
+        const receiveText = currentConversionType === 'ethToWeth' ? '0.0000 WETH' : '0.0000 ETH';
+        
+        // Update the first display (in conversion-direction)
+        const toBalanceElement = document.getElementById('toBalance');
+        if (toBalanceElement) {
+            toBalanceElement.textContent = '0.0000';
+        }
+        
+        // Update the second display (in conversion-details)
+        const receiveAmountElement = document.getElementById('receiveAmount');
+        if (receiveAmountElement) {
+            receiveAmountElement.textContent = receiveText;
+        }
+        
         return;
     }
     
@@ -311,18 +318,41 @@ function updateConversionPreview() {
     }
     
     if (!hasEnoughBalance) {
-        receiveAmount.textContent = 'Insufficient balance';
+        // Update BOTH "You Receive" displays
+        const toBalanceElement = document.getElementById('toBalance');
+        if (toBalanceElement) {
+            toBalanceElement.textContent = 'Insufficient';
+        }
+        
+        const receiveAmountElement = document.getElementById('receiveAmount');
+        if (receiveAmountElement) {
+            receiveAmountElement.textContent = 'Insufficient balance';
+        }
         return;
     }
     
     // Calculate receive amount (1:1 conversion)
     const receive = amount; // 1 ETH = 1 WETH
     
-    // Update display
-    receiveAmount.textContent = `${receive.toFixed(4)} ${currentConversionType === 'ethToWeth' ? 'WETH' : 'ETH'}`;
+    // Update BOTH "You Receive" displays
+    const receiveText = `${receive.toFixed(4)}`;
+    const currencyText = currentConversionType === 'ethToWeth' ? 'WETH' : 'ETH';
+    
+    // Update the first display (in conversion-direction)
+    const toBalanceElement = document.getElementById('toBalance');
+    if (toBalanceElement) {
+        toBalanceElement.textContent = receive.toFixed(4);
+    }
+    
+    // Update the second display (in conversion-details)
+    const receiveAmountElement = document.getElementById('receiveAmount');
+    if (receiveAmountElement) {
+        receiveAmountElement.textContent = `${receive.toFixed(4)} ${currencyText}`;
+    }
     
     // Update estimated fee
-    const estimatedFee = amount * 0.001 * ETH_PRICE; // 0.1% fee in USD
+    const ethPrice = window.ETH_PRICE || 2500;
+    const estimatedFee = amount * 0.001 * ethPrice; // 0.1% fee in USD
     document.getElementById('estimatedFee').textContent = `~$${estimatedFee.toFixed(2)}`;
     
     // Enable convert button
@@ -330,7 +360,7 @@ function updateConversionPreview() {
 }
 
 // Execute conversion
-function executeConversion() {
+async function executeConversion() {
     const amountInput = document.getElementById('convertAmount');
     const amount = parseFloat(amountInput.value);
     
@@ -341,11 +371,15 @@ function executeConversion() {
     }
     
     // Get current user
-    const userEmail = localStorage.getItem('magicEdenCurrentUser');
-    if (!userEmail) {
+    const userStr = localStorage.getItem('user');
+    const token = localStorage.getItem('token');
+    
+    if (!userStr || !token) {
         alert('Please login first');
         return;
     }
+    
+    const user = JSON.parse(userStr);
     
     // Check balance
     if (currentConversionType === 'ethToWeth') {
@@ -368,49 +402,71 @@ function executeConversion() {
         }
     }
     
-    // Get users array
-    const users = db.getUsers();
-    const userIndex = users.findIndex(u => u.email === userEmail.toLowerCase());
+    // Show loading
+    const convertBtn = document.getElementById('convertBtn');
+    const originalText = convertBtn.innerHTML;
+    convertBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Converting...';
+    convertBtn.disabled = true;
     
-    if (userIndex === -1) {
-        alert('Error: User not found');
-        return;
+    try {
+        // Make REAL API call to convert
+        // NOTE: You might need to adjust the endpoint based on your backend
+        const endpoint = currentConversionType === 'ethToWeth' 
+            ? `/user/${user._id}/convert-to-weth`
+            : `/user/${user._id}/convert-to-eth`;
+        
+        const response = await fetch(`http://localhost:5000/api${endpoint}`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ amount })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Conversion failed');
+        }
+        
+        if (data.success) {
+            // Update local variables
+            if (data.user) {
+                userEthBalance = data.user.ethBalance || 0;
+                userWethBalance = data.user.wethBalance || 0;
+                
+                // Update localStorage
+                localStorage.setItem('user', JSON.stringify({ ...user, ...data.user }));
+            }
+            
+            // Update display
+            updateBalanceDisplay();
+            updateAvailableBalance();
+            checkEthBalanceRequirement();
+            
+            // Reset amount
+            amountInput.value = '';
+            updateConversionPreview();
+            
+            // Show success message
+            const fromCurrency = currentConversionType === 'ethToWeth' ? 'ETH' : 'WETH';
+            const toCurrency = currentConversionType === 'ethToWeth' ? 'WETH' : 'ETH';
+            
+            alert(`✅ Successfully converted ${amount.toFixed(4)} ${fromCurrency} to ${toCurrency}!`);
+            
+            console.log(`✅ Conversion completed: ${amount} ${fromCurrency} → ${toCurrency}`);
+        }
+        
+    } catch (error) {
+        console.error('Conversion error:', error);
+        alert('Conversion failed: ' + error.message);
+        
+    } finally {
+        // Reset button
+        convertBtn.innerHTML = originalText;
+        convertBtn.disabled = false;
     }
-    
-    // Update balances
-    if (currentConversionType === 'ethToWeth') {
-        // ETH → WETH
-        users[userIndex].ethBalance = (users[userIndex].ethBalance || 0) - amount;
-        users[userIndex].wethBalance = (users[userIndex].wethBalance || 0) + amount;
-    } else {
-        // WETH → ETH
-        users[userIndex].wethBalance = (users[userIndex].wethBalance || 0) - amount;
-        users[userIndex].ethBalance = (users[userIndex].ethBalance || 0) + amount;
-    }
-    
-    // Save to localStorage
-    localStorage.setItem('magicEdenUsers', JSON.stringify(users));
-    
-    // Update local variables
-    userEthBalance = users[userIndex].ethBalance;
-    userWethBalance = users[userIndex].wethBalance;
-    
-    // Update display
-    updateBalanceDisplay();
-    updateAvailableBalance();
-    checkEthBalanceRequirement();
-    
-    // Reset amount
-    amountInput.value = '';
-    updateConversionPreview();
-    
-    // Show success message
-    const fromCurrency = currentConversionType === 'ethToWeth' ? 'ETH' : 'WETH';
-    const toCurrency = currentConversionType === 'ethToWeth' ? 'WETH' : 'ETH';
-    
-    alert(`✅ Successfully converted ${amount.toFixed(4)} ${fromCurrency} to ${toCurrency}!`);
-    
-    console.log(`✅ Conversion completed: ${amount} ${fromCurrency} → ${toCurrency}`);
 }
 
 // Make functions globally available
