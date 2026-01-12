@@ -7,19 +7,39 @@
         
         if (data.ethereum && data.ethereum.usd) {
             window.ETH_PRICE = data.ethereum.usd;
+            ethToUsdRate = data.ethereum.usd; // Set the global rate
             console.log('✅ Live ETH price loaded:', window.ETH_PRICE);
             
-            // Update all price displays
-            document.querySelectorAll('[data-eth-price]').forEach(el => {
-                const ethAmount = parseFloat(el.getAttribute('data-eth-amount') || 0);
-                el.textContent = `$${(ethAmount * window.ETH_PRICE).toFixed(2)}`;
-            });
+            // Update ONLY the ETH price display
+            const ethPriceDisplay = document.getElementById('ethPriceDisplay');
+            if (ethPriceDisplay) {
+                ethPriceDisplay.textContent = `$${ethToUsdRate.toLocaleString()}`;
+            }
+            
+            // Also update any NFT value display if price is set
+            const priceInput = document.getElementById('nftPrice');
+            if (priceInput) {
+                const price = parseFloat(priceInput.value) || 0;
+                const nftValueDisplay = document.getElementById('nftValueDisplay');
+                if (nftValueDisplay) {
+                    const nftValueUsd = price * ethToUsdRate;
+                    nftValueDisplay.textContent = `$${nftValueUsd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                }
+            }
         }
     } catch (error) {
         console.error('Failed to fetch ETH price, using default');
         window.ETH_PRICE = 2500;
+        ethToUsdRate = 2500; // Set default rate
+        
+        // Update ETH price display with default
+        const ethPriceDisplay = document.getElementById('ethPriceDisplay');
+        if (ethPriceDisplay) {
+            ethPriceDisplay.textContent = `$${ethToUsdRate.toLocaleString()}`;
+        }
     }
 })();
+
 // NFT Creation Functionality
 console.log("🚀 Initializing NFT Creation...");
 
@@ -27,7 +47,7 @@ console.log("🚀 Initializing NFT Creation...");
 let currentFile = null;
 let attributes = [];
 let isBalanceSufficient = false;
-let ethToUsdRate = window.ETH_PRICE || localStorage.getItem // Current ETH price in USD
+let ethToUsdRate = window.ETH_PRICE || 2500; // Current ETH price in USD
 let isMintingInProgress = false;
 
 // Initialize when DOM is loaded
@@ -323,16 +343,21 @@ function updatePriceDisplay() {
     
     const price = parseFloat(priceInput.value) || 0;
     
-    // Calculate values
+    // Calculate NFT value in USD - ONLY THIS SHOULD CHANGE
     const nftValueUsd = price * ethToUsdRate;
     
-    // Update displays
+    // Update displays - DO NOT CHANGE ETH PRICE DISPLAY HERE
     if (ethPriceDisplay) {
+        // ETH price should stay as loaded from API or default
         ethPriceDisplay.textContent = `$${ethToUsdRate.toLocaleString()}`;
     }
     
     if (nftValueDisplay) {
-        nftValueDisplay.textContent = `$${nftValueUsd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        if (isNaN(nftValueUsd) || nftValueUsd === 0) {
+            nftValueDisplay.textContent = '$0.00';
+        } else {
+            nftValueDisplay.textContent = `$${nftValueUsd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        }
     }
     
     if (sellingPriceDisplay) {
@@ -478,6 +503,8 @@ function updateTermsLabel() {
             <ul>
                 <li>Minting fee of 0.1 ETH is non-refundable</li>
                 <li>Royalties will be applied to secondary sales</li>
+                <li>NFT will be listed for sale immediately upon minting</li>
+                <LI>A 15% platform and gas fee will be deducted from your sales revenue when converting WETH to ETH.</LI>
                 <li>NFT will be permanently recorded on Ethereum blockchain</li>
             </ul>
         `;
@@ -1030,6 +1057,15 @@ function setupEventListeners() {
         nftPriceInput.addEventListener('input', updatePriceDisplay);
     }
     
+    // Add preview button listener
+    const previewBtn = document.getElementById('previewBtn');
+    if (previewBtn) {
+        previewBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            previewNFT();
+        });
+    }
+    
     // Clean up HTML on page load
     cleanUpHTML();
 }
@@ -1042,10 +1078,12 @@ function cleanUpHTML() {
             <i class="fas fa-handshake"></i>
             <div>
                 <p><strong>Fee Structure:</strong></p>
-                <ul>
+                <>
                     <li><strong>Minting Fee:</strong> 0.1 ETH per NFT (paid now)</li>
-                    <li><strong>Royalties:</strong> You earn ${document.getElementById('royaltyPercentage').value || '5'}% on all secondary sales</li>
-                </ul>
+                 <li><strong>Royalties:</strong> as set above (earned on secondary sales)</li>
+                                                <li><strong>Platform Commission & Gas Fees:</strong> 15% of sale price (deducted during WETH → ETH conversion)</li>
+                                            </ul>   
+                
             </div>
         `;
     }
@@ -1190,10 +1228,20 @@ function addPreviewStyles() {
             justify-content: space-between;
             padding: 0.75rem 0;
             border-bottom: 1px solid #e2e8f0;
+            color: #333;
         }
         
         .preview-summary-item:last-child {
             border-bottom: none;
+        }
+        
+        .preview-summary-item span:first-child {
+            color: #666;
+        }
+        
+        .preview-summary-item span:last-child {
+            color: #333;
+            font-weight: 500;
         }
         
         .preview-note {
