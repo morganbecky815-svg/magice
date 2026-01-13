@@ -29,6 +29,10 @@
                 <div class="nav-right">
                     <div class="user-info" id="profileHeader">
                         <!-- Filled by JavaScript -->
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-user-circle"></i>
+                            <span>Loading...</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -59,7 +63,7 @@
                     <button class="btn btn-primary" onclick="window.location.href='/create-nft'">
                         <i class="fas fa-plus"></i> Create NFT
                     </button>
-                    <button class="btn" onclick="window.location.href='/add-eth'">
+                    <button class="btn" onclick="addFunds()">
                         <i class="fas fa-coins"></i> Add Funds
                     </button>
                     <button class="btn" onclick="editProfile()">
@@ -175,215 +179,9 @@
         </div>
     </div>
 
-    <!-- Profile JavaScript -->
-    <script>
-    // Load user profile data
-    async function loadProfileData() {
-      try {
-        console.log('Loading profile data...');
-        
-        // Get userId from URL (format: /user/:userId/profile)
-        const path = window.location.pathname.split('/');
-        const userId = path[2];
-        
-        if (!userId) {
-          console.error('No user ID found in URL');
-          
-          // Try to get userId from localStorage and redirect
-          const storedUserId = localStorage.getItem('userId');
-          if (storedUserId) {
-            console.log('Redirecting to user-specific profile URL...');
-            window.location.href = `/user/${storedUserId}/profile`;
-            return;
-          }
-          
-          // Check if user is logged in by email
-          const userEmail = localStorage.getItem('magicEdenCurrentUser');
-          if (!userEmail) {
-            console.log('Not logged in, redirecting to login');
-            window.location.href = '/login';
-            return;
-          }
-          
-          console.log('Using email-based profile fallback');
-          // Use fallback logic (you'll need to implement this)
-          loadProfileFallback(userEmail);
-          return;
-        }
-        
-        console.log('Fetching user:', userId);
-        
-        // Fetch user data from API
-        const response = await fetch(`/api/user/${userId}`);
-        const data = await response.json();
-        
-        console.log('API response:', data);
-        
-        if (data.success && data.user) {
-          const user = data.user;
-          
-          // Update profile name
-          if (document.getElementById('profileName')) {
-            document.getElementById('profileName').textContent = user.fullName || user.email.split('@')[0];
-          }
-          
-          // Update email
-          if (document.getElementById('profileEmail')) {
-            document.getElementById('profileEmail').textContent = user.email || '';
-          }
-          
-          // Update settings form
-          if (document.getElementById('settingsEmail')) {
-            document.getElementById('settingsEmail').value = user.email || '';
-          }
-          
-          if (document.getElementById('settingsName')) {
-            document.getElementById('settingsName').value = user.fullName || '';
-          }
-          
-          // Update NFT count
-          if (document.getElementById('nftsOwned')) {
-            document.getElementById('nftsOwned').textContent = user.nftCount || '0';
-          }
-          
-          // Update wallet balance
-          if (document.getElementById('walletBalance')) {
-            document.getElementById('walletBalance').textContent = user.balance || '0';
-          }
-          
-          // Update join date
-          if (document.getElementById('joinDate') && user.createdAt) {
-            const date = new Date(user.createdAt);
-            document.getElementById('joinDate').textContent = date.toLocaleDateString();
-          }
-          
-          // Update profile header
-          const profileHeader = document.getElementById('profileHeader');
-          if (profileHeader) {
-            profileHeader.innerHTML = `
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <i class="fas fa-user-circle" style="font-size: 24px;"></i>
-                <span>${user.fullName || user.email.split('@')[0]}</span>
-              </div>
-            `;
-          }
-          
-          console.log('Profile data loaded successfully!');
-          
-        } else {
-          console.error('API returned error:', data);
-          // Fallback to localStorage data
-          const userEmail = localStorage.getItem('magicEdenCurrentUser');
-          if (userEmail) {
-            loadProfileFallback(userEmail);
-          }
-        }
-        
-      } catch (error) {
-        console.error('Error loading profile:', error);
-        // Fallback to localStorage data
-        const userEmail = localStorage.getItem('magicEdenCurrentUser');
-        if (userEmail) {
-          loadProfileFallback(userEmail);
-        }
-      }
-    }
+    <!-- JavaScript Files -->
+    <script src="/js/db.js"></script> 
+    <script src="/js/profile.js"></script>
     
-    // Fallback function when API fails
-    function loadProfileFallback(userEmail) {
-      console.log('Using fallback profile data for:', userEmail);
-      
-      // Update with basic info from localStorage
-      if (document.getElementById('profileName')) {
-        document.getElementById('profileName').textContent = userEmail.split('@')[0];
-      }
-      
-      if (document.getElementById('profileEmail')) {
-        document.getElementById('profileEmail').textContent = userEmail;
-      }
-      
-      if (document.getElementById('settingsEmail')) {
-        document.getElementById('settingsEmail').value = userEmail;
-      }
-      
-      // Update profile header
-      const profileHeader = document.getElementById('profileHeader');
-      if (profileHeader) {
-        profileHeader.innerHTML = `
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <i class="fas fa-user-circle" style="font-size: 24px;"></i>
-            <span>${userEmail.split('@')[0]}</span>
-          </div>
-        `;
-      }
-    }
-    
-    // Tab switching functions
-    function showProfileTab(tabName) {
-      // Hide all tabs
-      document.querySelectorAll('.profile-content').forEach(tab => {
-        tab.classList.remove('active');
-      });
-      
-      // Remove active class from all tab buttons
-      document.querySelectorAll('.profile-tab').forEach(button => {
-        button.classList.remove('active');
-      });
-      
-      // Show selected tab
-      document.getElementById(tabName + 'Tab').classList.add('active');
-      
-      // Activate clicked button
-      event.currentTarget.classList.add('active');
-    }
-    
-    // Modal functions
-    function closeModal(modalId) {
-      document.getElementById(modalId).style.display = 'none';
-    }
-    
-    function openModal(modalId) {
-      document.getElementById(modalId).style.display = 'flex';
-    }
-    
-    // Placeholder functions
-    function editProfile() {
-      showProfileTab('settings');
-    }
-    
-    function createCollection() {
-      alert('Create collection feature coming soon!');
-    }
-    
-    function saveProfile() {
-      const name = document.getElementById('settingsName').value;
-      const bio = document.getElementById('settingsBio').value;
-      
-      // In a real app, you would save this to your backend
-      localStorage.setItem('userFullName', name);
-      localStorage.setItem('userBio', bio);
-      
-      // Update display
-      if (document.getElementById('profileName')) {
-        document.getElementById('profileName').textContent = name || localStorage.getItem('magicEdenCurrentUser').split('@')[0];
-      }
-      
-      alert('Profile saved! (Note: This is a demo. In a real app, data would be saved to the server)');
-    }
-    
-    function resetPassword() {
-      alert('Password reset feature coming soon!');
-    }
-    
-    function confirmAddFunds() {
-      const amount = document.getElementById('fundAmount').value;
-      alert(`Added ${amount} WETH to your wallet! (Demo only)`);
-      closeModal('addFundsModal');
-    }
-    
-    // Load data when page is ready
-    document.addEventListener('DOMContentLoaded', loadProfileData);
-    </script>
-
 </body>
 </html>

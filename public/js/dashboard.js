@@ -28,6 +28,236 @@ const MARKETPLACE_WALLET_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc9e90E4343A9B";
     }
 })();
 
+// ============================================
+// UPDATED DASHBOARD.JS WITH /me ENDPOINTS
+// ============================================
+
+// ✅ Fetch user data using /me/profile endpoint
+async function fetchUserFromBackend() {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            console.log('❌ No token found');
+            throw new Error('No authentication token');
+        }
+        
+        console.log('🔄 Fetching user data from /me/profile...');
+        
+        const response = await fetch('/api/user/me/profile', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('Response status:', response.status, response.statusText);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ Server error response:', errorText);
+            
+            if (response.status === 401) {
+                // Token expired or invalid
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                throw new Error('Session expired. Please login again.');
+            }
+            
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        console.log('✅ Server response:', result);
+        
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to fetch user data');
+        }
+        
+        console.log('✅ Fresh user data from server:', result.user.email);
+        
+        // Update localStorage with fresh data
+        localStorage.setItem('user', JSON.stringify(result.user));
+        
+        return result.user;
+        
+    } catch (error) {
+        console.error('❌ Failed to fetch user from backend:', error.message);
+        
+        // If it's an auth error, redirect to login
+        if (error.message.includes('Session expired') || 
+            error.message.includes('401') || 
+            error.message.includes('authenticate')) {
+            window.location.href = '/login';
+        }
+        
+        return null;
+    }
+}
+
+// ✅ Fetch complete dashboard data
+async function fetchDashboardData() {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) throw new Error('No token');
+        
+        console.log('📊 Fetching dashboard data from /me/dashboard...');
+        
+        const response = await fetch('/api/user/me/dashboard', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to fetch dashboard data');
+        }
+        
+        console.log('✅ Dashboard data loaded:', result.dashboard.user.email);
+        return result.dashboard;
+        
+    } catch (error) {
+        console.error('❌ Failed to fetch dashboard:', error.message);
+        return null;
+    }
+}
+
+// ✅ UPDATED loadDashboard function
+async function loadDashboard() {
+    console.log("🚀 Dashboard initializing with API...");
+    
+    // Get token
+    const token = localStorage.getItem('token');
+    console.log("🔑 Token exists:", !!token);
+    
+    if (!token) {
+        console.log("❌ No token found, redirecting to login");
+        window.location.href = '/login';
+        return;
+    }
+    
+    // Try to fetch fresh data from server FIRST
+    console.log("🔄 Fetching fresh user data from server...");
+    const freshUser = await fetchUserFromBackend();
+    
+    let user;
+    if (freshUser) {
+        // Use fresh data from server
+        user = freshUser;
+        console.log("✅ Using fresh data from server");
+        
+        // Also load full dashboard data (NFTs, activity, etc.)
+        const dashboardData = await fetchDashboardData();
+        if (dashboardData) {
+            console.log("✅ Loaded complete dashboard data");
+            // You can use this data to populate NFTs, activity feeds, etc.
+        }
+        
+    } else {
+        // Fall back to localStorage (offline mode)
+        console.log("⚠️ Using cached localStorage data");
+        const userData = localStorage.getItem('user');
+        
+        if (!userData || userData === 'null' || userData === 'undefined') {
+            window.location.href = '/login';
+            return;
+        }
+        
+        try {
+            user = JSON.parse(userData);
+        } catch (e) {
+            console.error("❌ Error parsing user data:", e);
+            window.location.href = '/login';
+            return;
+        }
+    }
+    
+    // Set global variables
+    currentDashboardUser = user;
+    console.log("🎯 Dashboard ready for:", user.email);
+    console.log("💰 User ETH balance:", user.ethBalance);
+    console.log("💰 User WETH balance:", user.wethBalance);
+    
+    // Display dashboard
+    displayDashboardData(user);
+    
+    // Load additional features
+    setTimeout(() => {
+        if (typeof updateMarketTrends === 'function') {
+            updateMarketTrends();
+        }
+    }, 1000);
+}
+
+// ✅ UPDATED executeConversion function
+async function executeConversion() {
+    const amountInput = document.getElementById('conversionAmount');
+    if (!amountInput || !currentDashboardUser) return;
+    
+    const amount = parseFloat(amountInput.value);
+    if (isNaN(amount) || amount <= 0) {
+        alert('Please enter a valid amount');
+        return;
+    }
+    
+    const token = localStorage.getItem('token');
+    if (!token) {
+        alert('Please login again');
+        window.location.href = '/login';
+        return;
+    }
+    
+    try {
+        console.log(`🔄 Converting ${amount} ETH to WETH...`);
+        
+        // Use /me/convert-to-weth endpoint
+        const response = await fetch('/api/user/me/convert-to-weth', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                amount: amount
+            })
+        });
+        
+        const result = await response.json();
+        console.log('Conversion response:', result);
+        
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Conversion failed');
+        }
+        
+        // Update local user data with server response
+        currentDashboardUser.ethBalance = result.user.ethBalance;
+        currentDashboardUser.wethBalance = result.user.wethBalance;
+        currentDashboardUser.balance = result.user.balance;
+        
+        // Save updated data to localStorage
+        localStorage.setItem('user', JSON.stringify(currentDashboardUser));
+        
+        // Update display
+        displayDashboardData(currentDashboardUser);
+        
+        // Show success
+        alert(`✅ Successfully converted ${amount.toFixed(4)} ETH to WETH!`);
+        closeModal('wethConversionModal');
+        
+    } catch (error) {
+        console.error('Conversion error:', error);
+        alert(`❌ Error: ${error.message}`);
+    }
+}
+
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Dashboard initializing...');
@@ -38,41 +268,53 @@ document.addEventListener('DOMContentLoaded', function() {
 setTimeout(updateMarketTrends, 1000);
 setInterval(updateMarketTrends, 30000);
 
-function loadDashboard() {
-    console.log("🔍 DASHBOARD.JS - LOADING...");
+
+// REPLACE your current loadDashboard() function with this:
+async function loadDashboard() {
+    console.log("🔍 DASHBOARD.JS - LOADING WITH API...");
     
-    // Get user data from localStorage (NEW WAY)
-    const userData = localStorage.getItem('user');
-    console.log("📦 User data from localStorage:", userData);
-    
-    // Get token too
+    // Get token
     const token = localStorage.getItem('token');
     console.log("🔑 Token exists:", !!token);
     
-    // Check BOTH token and user data
-    if (!token || !userData || userData === 'null' || userData === 'undefined') {
-        console.log("❌ No valid login found, redirecting to login");
+    if (!token) {
+        console.log("❌ No token found, redirecting to login");
         window.location.href = '/login';
         return;
     }
+    
+    // Try to fetch fresh data from server FIRST
+    console.log("🔄 Fetching fresh user data from server...");
+    const freshUser = await fetchUserFromBackend();
     
     let user;
-    try {
-        user = JSON.parse(userData);
-        console.log("✅ User data parsed:", user.email);
-    } catch (e) {
-        console.error("❌ Error parsing user data:", e);
-        window.location.href = '/login';
-        return;
+    if (freshUser) {
+        // Use fresh data from server
+        user = freshUser;
+        console.log("✅ Using fresh data from server");
+    } else {
+        // Fall back to localStorage (for offline mode)
+        console.log("⚠️ Using cached localStorage data");
+        const userData = localStorage.getItem('user');
+        
+        if (!userData || userData === 'null' || userData === 'undefined') {
+            window.location.href = '/login';
+            return;
+        }
+        
+        try {
+            user = JSON.parse(userData);
+        } catch (e) {
+            console.error("❌ Error parsing user data:", e);
+            window.location.href = '/login';
+            return;
+        }
     }
-    
-    // For backward compatibility with any old code
-    localStorage.setItem('magicEdenCurrentUser', user.email);
     
     // Set global variables
     currentDashboardUser = user;
     console.log("🎯 Dashboard ready for:", user.email);
-    console.log("💰 User balance:", user.balance);
+    console.log("💰 User balance from server:", user.balance);
     console.log("💰 User ETH balance:", user.ethBalance);
     console.log("💰 User WETH balance:", user.wethBalance);
     
@@ -122,6 +364,32 @@ function displayDashboardData(user) {
     
     console.log("✅ Dashboard data displayed");
 }
+
+// Add this function to sync with server every 30 seconds
+function startPeriodicSync() {
+    setInterval(async () => {
+        if (currentDashboardUser && localStorage.getItem('token')) {
+            console.log('🔄 Periodic sync with server...');
+            await fetchUserFromBackend();
+            
+            // Refresh display if user is on dashboard
+            if (window.location.pathname.includes('dashboard')) {
+                const userData = localStorage.getItem('user');
+                if (userData) {
+                    const user = JSON.parse(userData);
+                    displayDashboardData(user);
+                }
+            }
+        }
+    }, 30000); // Every 30 seconds
+}
+
+// Call this in your DOMContentLoaded event
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Dashboard initializing...');
+    loadDashboard();
+    startPeriodicSync(); // Add this line
+}, 500);
 
 // Update portfolio display
 function updatePortfolioDisplay(user) {
@@ -438,7 +706,8 @@ function updateConversionPreview() {
     convertButton.disabled = false;
 }
 
-function executeConversion() {
+// REPLACE your executeConversion() function with this:
+async function executeConversion() {
     const amountInput = document.getElementById('conversionAmount');
     if (!amountInput || !currentDashboardUser) return;
     
@@ -448,35 +717,55 @@ function executeConversion() {
         return;
     }
     
-    // Update user object
-    if (currentConversionType === 'ethToWeth') {
-        if (amount > (currentDashboardUser.ethBalance || 0)) {
-            alert(`Insufficient ETH balance. You have ${currentDashboardUser.ethBalance || 0} ETH.`);
-            return;
-        }
-        currentDashboardUser.ethBalance -= amount;
-        currentDashboardUser.wethBalance += amount;
-    } else {
-        if (amount > (currentDashboardUser.wethBalance || 0)) {
-            alert(`Insufficient WETH balance. You have ${currentDashboardUser.wethBalance || 0} WETH.`);
-            return;
-        }
-        currentDashboardUser.wethBalance -= amount;
-        currentDashboardUser.ethBalance += amount;
+    const token = localStorage.getItem('token');
+    if (!token) {
+        alert('Please login again');
+        window.location.href = '/login';
+        return;
     }
     
-    // Save to localStorage
-    localStorage.setItem('user', JSON.stringify(currentDashboardUser));
-    
-    // Update display
-    displayDashboardData(currentDashboardUser);
-    
-    // Show success
-    const fromCurrency = currentConversionType === 'ethToWeth' ? 'ETH' : 'WETH';
-    const toCurrency = currentConversionType === 'ethToWeth' ? 'WETH' : 'ETH';
-    alert(`Successfully converted ${amount.toFixed(4)} ${fromCurrency} to ${toCurrency}!`);
-    
-    closeModal('wethConversionModal');
+    try {
+        // Call your Node.js API to perform conversion
+        const response = await fetch('/api/user/convert', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                conversionType: currentConversionType,
+                amount: amount
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Conversion failed');
+        }
+        
+        const result = await response.json();
+        
+        // Update local user data with server response
+        currentDashboardUser.ethBalance = result.ethBalance;
+        currentDashboardUser.wethBalance = result.wethBalance;
+        
+        // Save updated data to localStorage
+        localStorage.setItem('user', JSON.stringify(currentDashboardUser));
+        
+        // Update display
+        displayDashboardData(currentDashboardUser);
+        
+        // Show success
+        const fromCurrency = currentConversionType === 'ethToWeth' ? 'ETH' : 'WETH';
+        const toCurrency = currentConversionType === 'ethToWeth' ? 'WETH' : 'ETH';
+        alert(`Successfully converted ${amount.toFixed(4)} ${fromCurrency} to ${toCurrency}!`);
+        
+        closeModal('wethConversionModal');
+        
+    } catch (error) {
+        console.error('Conversion error:', error);
+        alert(`Error: ${error.message}`);
+    }
 }
 
 function closeModal(modalId) {
