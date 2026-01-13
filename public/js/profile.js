@@ -1,3 +1,6 @@
+// ========== PROFILE.JS - INTEGRATED WITH APP.JS ==========
+// This version uses app.js functions for consistent user loading
+
 // ========== AUTO-REDIRECT TO CORRECT PROFILE URL ==========
 (function checkAndRedirect() {
     console.log('=== AUTO-REDIRECT CHECK ===');
@@ -30,52 +33,183 @@
     }
 })();
 // ========== END AUTO-REDIRECT ==========
-async function fetchEthPrice() {
+
+// ========== APP.JS INTEGRATION FUNCTIONS ==========
+
+// Update profile header using app.js currentUser
+function updateProfileHeaderFromAppJS() {
+    const profileHeader = document.getElementById('profileHeader');
+    if (!profileHeader) return;
+    
+    // Get user from app.js or localStorage
+    const user = window.currentUser || getLocalStorageUser();
+    
+    if (!user) {
+        profileHeader.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-user-circle"></i>
+                <span>Not logged in</span>
+                <a href="/login" class="btn" style="margin-left: 10px;">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </a>
+            </div>
+        `;
+        return;
+    }
+    
+    const fullName = user.fullName || user.name || 'User';
+    const balance = user.balance || user.wethBalance || '0';
+    
+    profileHeader.innerHTML = `
+        <div class="user-info" style="display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-user-circle"></i>
+            <span>${fullName}</span>
+            <span style="color: #888;">•</span>
+            <span style="color: #10b981; font-weight: 600;">${balance} WETH</span>
+            <button class="btn" onclick="logout()" style="margin-left: 10px;">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+        </div>
+    `;
+}
+
+// Get user from localStorage
+function getLocalStorageUser() {
     try {
-        // Try your own backend API first
-        const response = await fetch('/api/eth-price');
-        const data = await response.json();
-        
-        if (data.success) {
-            window.ETH_PRICE = data.price;
-            console.log('✅ ETH price from backend:', window.ETH_PRICE);
-        } else {
-            // Fallback to direct CoinGecko or cached price
-            await fetchEthPriceDirect();
-        }
+        const userStr = localStorage.getItem('user');
+        return userStr ? JSON.parse(userStr) : null;
     } catch (error) {
-        console.warn('Backend ETH price failed, using direct:', error);
-        await fetchEthPriceDirect();
+        console.error('Error parsing localStorage user:', error);
+        return null;
     }
 }
 
-async function fetchEthPriceDirect() {
-    // ... use the error-handling code from Solution 1
-}
-
-// Fetch live ETH price on load
-(async function() {
+// Load user from backend using app.js logic
+async function loadUserFromBackend() {
+    console.log('🔄 Loading user from backend...');
+    
+    // Use app.js loadUserBalance if available
+    if (typeof window.loadUserBalance === 'function') {
+        try {
+            const updatedUser = await window.loadUserBalance();
+            if (updatedUser) {
+                console.log('✅ User loaded via app.js:', updatedUser);
+                window.currentUser = updatedUser;
+                return updatedUser;
+            }
+        } catch (error) {
+            console.error('Failed to load user via app.js:', error);
+        }
+    }
+    
+    // Fallback: Direct API call
     try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-        const data = await response.json();
+        const token = localStorage.getItem('token');
+        const userStr = localStorage.getItem('user');
         
-        if (data.ethereum && data.ethereum.usd) {
-            window.ETH_PRICE = data.ethereum.usd;
-            console.log('✅ Live ETH price loaded:', window.ETH_PRICE);
-            
-            // Update all price displays
-            document.querySelectorAll('[data-eth-price]').forEach(el => {
-                const ethAmount = parseFloat(el.getAttribute('data-eth-amount') || 0);
-                el.textContent = `$${(ethAmount * window.ETH_PRICE).toFixed(2)}`;
-            });
+        if (!token || !userStr) return null;
+        
+        const user = JSON.parse(userStr);
+        const userId = user._id || user.id;
+        
+        if (!userId) return null;
+        
+        const response = await fetch(`/api/user/${userId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.user) {
+                window.currentUser = data.user;
+                localStorage.setItem('user', JSON.stringify(data.user));
+                return data.user;
+            }
         }
     } catch (error) {
-        console.error('Failed to fetch ETH price, using default');
-        window.ETH_PRICE = 2500;
+        console.error('Direct API call failed:', error);
     }
-})();
+    
+    // Last resort: localStorage
+    return getLocalStorageUser();
+}
 
-// ========== ADD AT TOP OF profile.js ==========
+// ========== MAIN PROFILE FUNCTIONS ==========
+
+// Initialize profile page
+async function initializeProfilePage() {
+    console.log('🎯 Profile page initializing...');
+    
+    // Step 1: Update header IMMEDIATELY from localStorage
+    updateProfileHeaderFromAppJS();
+    
+    // Step 2: Load fresh user data from backend
+    const user = await loadUserFromBackend();
+    
+    if (!user) {
+        console.log('❌ Not logged in, redirecting to login');
+        window.location.href = '/login';
+        return;
+    }
+    
+    console.log('✅ Profile user loaded:', user);
+    
+    // Step 3: Display profile data
+    displayProfileData(user);
+    
+    // Step 4: Load NFTs and activity
+    if (typeof db !== 'undefined' && typeof loadUserNFTs === 'function') {
+        loadUserNFTs(user.email);
+    }
+    if (typeof loadUserActivity === 'function') {
+        loadUserActivity(user.email);
+    }
+}
+
+// Display profile data
+function displayProfileData(user) {
+    console.log('Displaying profile data for:', user);
+    
+    if (!user) {
+        console.error('No user data to display');
+        return;
+    }
+    
+    // Basic info
+    document.getElementById('profileName').textContent = user.fullName || user.name || 'User';
+    document.getElementById('profileEmail').textContent = user.email || 'No email';
+    
+    // CRITICAL: Use the same balance field as explore page
+    const balance = user.balance || user.wethBalance || '0';
+    document.getElementById('walletBalance').textContent = balance;
+    
+    // Join date
+    if (user.createdAt) {
+        const joinDate = new Date(user.createdAt);
+        document.getElementById('joinDate').textContent = joinDate.toLocaleDateString();
+    } else {
+        document.getElementById('joinDate').textContent = 'Today';
+    }
+    
+    // Settings form
+    document.getElementById('settingsEmail').value = user.email || '';
+    document.getElementById('settingsName').value = user.fullName || user.name || '';
+    document.getElementById('settingsBio').value = user.bio || '';
+    
+    // Update NFT count
+    updateNFTCount();
+    
+    // Show admin link if user is admin
+    if (user.isAdmin) {
+        document.getElementById('adminLink').style.display = 'block';
+    }
+    
+    // Update header with fresh data
+    updateProfileHeaderFromAppJS();
+}
 
 // Get userId from URL
 function getUserIdFromURL() {
@@ -117,238 +251,72 @@ function getUserIdFromURL() {
 }
 
 // Load profile by user ID
-// In your profile.js, update the loadProfileByUserId function:
 async function loadProfileByUserId(userId) {
     console.log('=== loadProfileByUserId ===');
     console.log('User ID:', userId);
     
-    // First try to get from localStorage
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-        try {
-            const user = JSON.parse(userStr);
-            console.log('Found user in localStorage:', user);
-            
-            // Check if IDs match
-            if (user.id === userId || user._id === userId) {
-                console.log('User ID matches, displaying profile');
-                displayProfileData(user);
-                
-                // Load NFTs and activity if db exists
-                if (typeof db !== 'undefined' && typeof loadUserNFTs === 'function') {
-                    loadUserNFTs(user.email);
-                }
-                if (typeof loadUserActivity === 'function') {
-                    loadUserActivity(user.email);
-                }
-                
-                updateProfileHeader();
-                return;
-            }
-        } catch (error) {
-            console.error('Error parsing localStorage user:', error);
+    // Get fresh user data
+    const user = await loadUserFromBackend();
+    if (user) {
+        displayProfileData(user);
+        
+        // Load NFTs and activity if db exists
+        if (typeof db !== 'undefined' && typeof loadUserNFTs === 'function') {
+            loadUserNFTs(user.email);
         }
+        if (typeof loadUserActivity === 'function') {
+            loadUserActivity(user.email);
+        }
+        
+        return;
     }
     
-    // If localStorage didn't work, try API
-    console.log('Trying API for user ID:', userId);
-    try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            console.log('No token found');
-            fallbackProfile();
-            return;
-        }
-        
-        const response = await fetch(`/api/user/${userId}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        console.log('API Response status:', response.status);
-        
-        if (response.ok) {
-            const data = await response.json();
-            console.log('API Response data:', data);
-            
-            if (data.success && data.user) {
-                displayProfileData(data.user);
-                return;
-            }
-        }
-        
-        // If API failed or returned error
-        console.log('API request failed or returned error');
-        fallbackProfile();
-        
-    } catch (error) {
-        console.error('API fetch error:', error);
-        fallbackProfile();
-    }
+    // If all else fails, fallback
+    fallbackProfile();
 }
 
-// Update fallbackProfile to work without db dependency:
+// Fallback if everything fails
 function fallbackProfile() {
     console.log('=== fallbackProfile ===');
     
-    const userStr = localStorage.getItem('user');
-    if (!userStr) {
+    const user = getLocalStorageUser();
+    if (!user) {
         console.log('No user in localStorage, redirecting to login');
         window.location.href = '/login';
         return;
     }
     
-    try {
-        const user = JSON.parse(userStr);
-        console.log('Using user from localStorage:', user);
-        
-        // Display profile data
-        displayProfileData(user);
-        
-        // Update profile header
-        updateProfileHeader();
-        
-        // Try to load NFTs if db exists
-        if (typeof db !== 'undefined' && typeof loadUserNFTs === 'function') {
-            try {
-                loadUserNFTs(user.email);
-            } catch (error) {
-                console.error('Error loading NFTs:', error);
-            }
-        }
-        
-        // Try to load activity
-        if (typeof loadUserActivity === 'function') {
-            try {
-                loadUserActivity(user.email);
-            } catch (error) {
-                console.error('Error loading activity:', error);
-            }
-        }
-        
-    } catch (error) {
-        console.error('Error in fallbackProfile:', error);
-        window.location.href = '/login';
-    }
-}
-
-// Add the missing editProfile function:
-function editProfile() {
-    console.log('Edit profile clicked');
-    // Make sure showProfileTab function exists
-    if (typeof showProfileTab === 'function') {
-        showProfileTab('settings');
-    } else {
-        console.error('showProfileTab function not found');
-        // Fallback: manually show settings tab
-        document.querySelectorAll('.profile-content').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        document.querySelectorAll('.profile-tab').forEach(button => {
-            button.classList.remove('active');
-        });
-        document.getElementById('settingsTab').classList.add('active');
-    }
-}
-
-// Make editProfile available globally
-window.editProfile = editProfile;
-// Fallback if API fails
-function fallbackProfile() {
-    console.log('=== FALLBACK PROFILE ===');
+    console.log('Using user from localStorage:', user);
     
-    // Get user from localStorage
-    const userStr = localStorage.getItem('user');
-    if (!userStr) {
-        window.location.href = '/login';
-        return;
-    }
+    // Display profile data
+    displayProfileData(user);
     
-    try {
-        const user = JSON.parse(userStr);
-        displayProfileData(user);
-        loadUserNFTs(user.email);
-        loadUserActivity(user.email);
-    } catch (error) {
-        console.error('Error parsing user:', error);
-        window.location.href = '/login';
-    }
-}
-
-// ========== REPLACE YOUR loadProfile() FUNCTION ==========
-function loadProfile() {
-    console.log('Loading profile...');
-    
-    // First check if user is logged in
-    const userData = localStorage.getItem('user');
-    
-    if (!userData) {
-        console.log('❌ Not logged in, redirecting to login');
-        window.location.href = '/login';
-        return;
-    }
-    
-    // Get user ID
-    const userId = getUserIdFromURL();
-    
-    console.log('User ID result:', userId);
-    
-    if (userId === 'current') {
-        // This means we're on generic /profile page
-        console.log('ℹ️ Loading generic profile page');
+    // Try to load NFTs if db exists
+    if (typeof db !== 'undefined' && typeof loadUserNFTs === 'function') {
         try {
-            const user = JSON.parse(userData);
-            displayProfileData(user);
             loadUserNFTs(user.email);
-            loadUserActivity(user.email);
-        } catch (e) {
-            console.error('Error parsing user:', e);
-            fallbackProfile();
+        } catch (error) {
+            console.error('Error loading NFTs:', error);
         }
-    } else if (userId) {
-        console.log('✅ Using user ID:', userId);
-        loadProfileByUserId(userId);
-    } else {
-        console.log('⚠️ No user ID found');
-        fallbackProfile();
-    }
-}
-
-// Display profile data
-function displayProfileData(user) {
-    console.log('Displaying profile for:', user);
-    
-    // Basic info - FIXED: No email fallback
-    document.getElementById('profileName').textContent = user.fullName || user.name;
-    document.getElementById('profileEmail').textContent = user.email;
-    document.getElementById('walletBalance').textContent = user.balance || '0';
-    
-    // Join date
-    if (user.createdAt) {
-        const joinDate = new Date(user.createdAt);
-        document.getElementById('joinDate').textContent = joinDate.toLocaleDateString();
-    } else {
-        document.getElementById('joinDate').textContent = 'Today';
     }
     
-    // Settings form
-    document.getElementById('settingsEmail').value = user.email;
-    document.getElementById('settingsName').value = user.fullName || user.name || '';
-    document.getElementById('settingsBio').value = user.bio || '';
-    
-    // Update NFT count
-    updateNFTCount();
-    
-    // Show admin link if user is admin
-    if (user.isAdmin) {
-        document.getElementById('adminLink').style.display = 'block';
+    // Try to load activity
+    if (typeof loadUserActivity === 'function') {
+        try {
+            loadUserActivity(user.email);
+        } catch (error) {
+            console.error('Error loading activity:', error);
+        }
     }
 }
 
 // Load user's NFTs
 function loadUserNFTs(userEmail) {
+    if (typeof db === 'undefined' || !db.getNFTs) {
+        console.error('db is not available');
+        return;
+    }
+    
     const nfts = db.getNFTs();
     const userNFTs = nfts.filter(nft => nft.owner === userEmail);
     const grid = document.getElementById('userNFTsGrid');
@@ -401,11 +369,10 @@ function loadUserNFTs(userEmail) {
 
 // Update NFT count
 function updateNFTCount() {
-    const userStr = localStorage.getItem('user');
-    if (!userStr) return;
+    const user = getLocalStorageUser();
+    if (!user) return;
     
     try {
-        const user = JSON.parse(userStr);
         const nfts = db.getNFTs();
         const userNFTs = nfts.filter(nft => nft.owner === user.email);
         document.getElementById('nftsOwned').textContent = userNFTs.length;
@@ -464,34 +431,6 @@ function loadUserActivity(userEmail) {
     });
 }
 
-// Update profile header
-function updateProfileHeader() {
-    const profileHeader = document.getElementById('profileHeader');
-    if (!profileHeader) return;
-    
-    const userStr = localStorage.getItem('user');
-    if (!userStr) return;
-    
-    try {
-        const user = JSON.parse(userStr);
-        const fullName = user.fullName || user.name || 'User';
-        
-        profileHeader.innerHTML = `
-            <div class="user-info" style="display: flex; align-items: center; gap: 10px;">
-                <i class="fas fa-user-circle"></i>
-                <span>${fullName}</span>
-                <span style="color: #888;">•</span>
-                <span style="color: #10b981;">${user.balance || '0'} WETH</span>
-                <button class="btn" onclick="logout()" style="margin-left: 10px;">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </button>
-            </div>
-        `;
-    } catch (error) {
-        console.error('Error updating profile header:', error);
-    }
-}
-
 // Tab switching
 function showProfileTab(tab) {
     // Hide all tabs
@@ -502,75 +441,34 @@ function showProfileTab(tab) {
     tabButtons.forEach(t => t.classList.remove('active'));
     
     // Show selected tab
-    document.getElementById(tab + 'Tab').classList.add('active');
-    event.target.classList.add('active');
+    const tabElement = document.getElementById(tab + 'Tab');
+    if (tabElement) {
+        tabElement.classList.add('active');
+    }
+    
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
 }
 
 // Profile actions
 function addFunds() {
-    document.getElementById('addFundsModal').style.display = 'flex';
+    document.getElementById('redirecting toadd eth page').style.display = 'flex';
+    window.location.href = '/add-eth';
 }
 
-function confirmAddFunds() {
-    const amount = parseFloat(document.getElementById('fundAmount').value);
-    
-    if (isNaN(amount) || amount <= 0) {
-        alert('Please enter a valid amount');
-        return;
-    }
-    
-    const userStr = localStorage.getItem('user');
-    if (!userStr) {
-        alert('User not found');
-        return;
-    }
-    
-    try {
-        const user = JSON.parse(userStr);
-        
-        // Update user balance
-        const users = db.getUsers();
-        const userIndex = users.findIndex(u => u.email === user.email);
-        
-        if (userIndex !== -1) {
-            users[userIndex].balance = (users[userIndex].balance || 0) + amount;
-            localStorage.setItem('magicEdenUsers', JSON.stringify(users));
-            
-            // Update localStorage user
-            user.balance = users[userIndex].balance;
-            localStorage.setItem('user', JSON.stringify(user));
-            
-            // Update display
-            document.getElementById('walletBalance').textContent = user.balance;
-            updateProfileHeader();
-            
-            alert(`Successfully added ${amount} WETH to your wallet!`);
-            closeModal('addFundsModal');
-        }
-    } catch (error) {
-        console.error('Error adding funds:', error);
-        alert('Error adding funds');
-    }
+// Edit profile function
+function editProfile() {
+    console.log('Edit profile clicked');
+    showProfileTab('settings');
 }
 
-// ========== UPDATED saveProfile() FUNCTION ==========
+// Save profile
 async function saveProfile() {
     try {
-        // Get user ID from URL or localStorage
-        const path = window.location.pathname.split('/');
-        let userId = path[2];
-        
-        if (!userId) {
-            // Try to get from localStorage
-            const userStr = localStorage.getItem('user');
-            if (userStr) {
-                const user = JSON.parse(userStr);
-                userId = user.id;
-            }
-        }
-        
-        if (!userId) {
-            alert('Cannot save profile: No user ID found');
+        const user = getLocalStorageUser();
+        if (!user) {
+            alert('Cannot save profile: No user found');
             return;
         }
         
@@ -578,7 +476,7 @@ async function saveProfile() {
         const bio = document.getElementById('settingsBio').value.trim();
         
         // Call backend API to update profile
-        const response = await fetch(`/api/user/${userId}/profile`, {
+        const response = await fetch(`/api/user/${user.id}/profile`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -590,17 +488,17 @@ async function saveProfile() {
         const data = await response.json();
         
         if (data.success) {
-            // Update displayed profile name - FIXED: No email fallback
+            // Update displayed profile name
             document.getElementById('profileName').textContent = fullName;
             
             // Update localStorage user data
-            const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+            const currentUser = user;
             currentUser.fullName = fullName;
             currentUser.bio = bio;
             localStorage.setItem('user', JSON.stringify(currentUser));
             
             // Update profile header
-            updateProfileHeader();
+            updateProfileHeaderFromAppJS();
             
             alert('Profile updated successfully!');
         } else {
@@ -612,7 +510,6 @@ async function saveProfile() {
         alert('Failed to save profile. Please try again.');
     }
 }
-// ========== END OF saveProfile() ==========
 
 function resetPassword() {
     const newPassword = prompt('Enter new password (minimum 6 characters):');
@@ -629,11 +526,10 @@ function resetPassword() {
         return;
     }
     
-    const userStr = localStorage.getItem('user');
-    if (!userStr) return;
+    const user = getLocalStorageUser();
+    if (!user) return;
     
     try {
-        const user = JSON.parse(userStr);
         const users = db.getUsers();
         const userIndex = users.findIndex(u => u.email === user.email);
         
@@ -664,14 +560,9 @@ function sellNFT(nftId) {
         localStorage.setItem('magicEdenNFTs', JSON.stringify(nfts));
         
         // Update current user's NFTs
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                loadUserNFTs(user.email);
-            } catch (error) {
-                console.error('Error loading NFTs:', error);
-            }
+        const user = getLocalStorageUser();
+        if (user) {
+            loadUserNFTs(user.email);
         }
         
         alert('NFT listed for sale!');
@@ -704,57 +595,15 @@ function transferNFT(nftId) {
             localStorage.setItem('magicEdenNFTs', JSON.stringify(nfts));
             
             // Update current user's NFTs
-            const userStr = localStorage.getItem('user');
-            if (userStr) {
-                try {
-                    const user = JSON.parse(userStr);
-                    loadUserNFTs(user.email);
-                } catch (error) {
-                    console.error('Error loading NFTs:', error);
-                }
+            const user = getLocalStorageUser();
+            if (user) {
+                loadUserNFTs(user.email);
             }
             
             alert('NFT transferred successfully!');
         }
     }
 }
-
-// In loadUserNFTs function, you can now use:
-function loadUserNFTs(userEmail) {
-    const userNFTs = db.getUserNFTs(userEmail);
-    // ... rest of your code
-}
-
-// In updateNFTCount function:
-function updateNFTCount() {
-    const userStr = localStorage.getItem('user');
-    if (!userStr) return;
-    
-    try {
-        const user = JSON.parse(userStr);
-        const userNFTs = db.getUserNFTs(user.email);
-        document.getElementById('nftsOwned').textContent = userNFTs.length;
-    } catch (error) {
-        console.error('Error updating NFT count:', error);
-    }
-}
-
-// Add this function to your profile.js
-function editProfile() {
-    console.log('Edit profile clicked');
-    showProfileTab('settings');
-}
-
-// Make sure it's available globally
-window.editProfile = editProfile;
-
-function editProfile() {
-    console.log('Edit profile clicked');
-    showProfileTab('settings');
-}
-
-// Make it global
-window.editProfile = editProfile;
 
 // Collection actions
 function createCollection() {
@@ -774,13 +623,95 @@ function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
 }
 
-// Initialize
+// Logout function (integrates with app.js)
+function logout() {
+    console.log('🔒 Logging out...');
+    
+    // Use app.js logout if available
+    if (typeof window.logout === 'function' && window.logout !== logout) {
+        window.logout();
+        return;
+    }
+    
+    // Fallback logout
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+}
+
+// ========== ETH PRICE FUNCTIONS (from app.js) ==========
+
+async function fetchEthPrice() {
+    try {
+        // Try your own backend API first
+        const response = await fetch('/api/eth-price');
+        const data = await response.json();
+        
+        if (data.success) {
+            window.ETH_PRICE = data.price;
+            console.log('✅ ETH price from backend:', window.ETH_PRICE);
+        } else {
+            // Fallback to direct CoinGecko or cached price
+            await fetchEthPriceDirect();
+        }
+    } catch (error) {
+        console.warn('Backend ETH price failed, using direct:', error);
+        await fetchEthPriceDirect();
+    }
+}
+
+async function fetchEthPriceDirect() {
+    try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+        const data = await response.json();
+        
+        if (data.ethereum && data.ethereum.usd) {
+            window.ETH_PRICE = data.ethereum.usd;
+            console.log('✅ Live ETH price loaded:', window.ETH_PRICE);
+        }
+    } catch (error) {
+        console.error('Failed to fetch ETH price, using default');
+        window.ETH_PRICE = 2500;
+    }
+}
+
+// ========== INITIALIZATION ==========
+
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Profile page loaded');
-    loadProfile();
+    console.log('🎮 Profile page DOM loaded');
+    
+    // Initialize profile page
+    initializeProfilePage();
+    
+    // Fetch ETH price
+    if (typeof fetchEthPrice === 'function') {
+        fetchEthPrice();
+    }
 });
 
-// Make functions global
+// ========== APP.JS COMPATIBILITY LAYER ==========
+// This ensures profile.js works even if app.js doesn't load properly
+
+// Create global currentUser if not exists
+if (typeof window.currentUser === 'undefined') {
+    window.currentUser = getLocalStorageUser();
+}
+
+// Create API_BASE_URL if not exists
+if (typeof window.API_BASE_URL === 'undefined') {
+    window.API_BASE_URL = 'http://localhost:5000/api';
+}
+
+// Create minimal loadUserBalance if not exists
+if (typeof window.loadUserBalance === 'undefined') {
+    window.loadUserBalance = async function() {
+        return await loadUserFromBackend();
+    };
+}
+
+// ========== GLOBAL FUNCTION EXPORTS ==========
+
+// Make functions available globally
 window.showProfileTab = showProfileTab;
 window.addFunds = addFunds;
 window.confirmAddFunds = confirmAddFunds;
@@ -791,3 +722,4 @@ window.sellNFT = sellNFT;
 window.transferNFT = transferNFT;
 window.createCollection = createCollection;
 window.closeModal = closeModal;
+window.logout = logout;
