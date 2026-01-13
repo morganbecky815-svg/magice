@@ -872,6 +872,137 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 500);
 });
 
+
+// NFT Creation with Cloudinary
+document.addEventListener('DOMContentLoaded', function() {
+    const createNFTForm = document.getElementById('createNFTForm');
+    const imagePreview = document.getElementById('imagePreview');
+    const imageInput = document.getElementById('image');
+    const createButton = document.getElementById('createNFTBtn');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    
+    if (!createNFTForm) return;
+    
+    // Preview uploaded image
+    if (imageInput && imagePreview) {
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.innerHTML = `
+                        <img src="${e.target.result}" alt="Preview" style="max-width: 300px; border-radius: 8px;">
+                        <p>${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)</p>
+                    `;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+    
+    // Handle form submission
+    createNFTForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (!currentUser) {
+            showNotification('Please login to create NFTs', 'error');
+            window.location.href = '/login';
+            return;
+        }
+        
+        const formData = new FormData(createNFTForm);
+        
+        // Validate
+        const name = formData.get('name');
+        const price = formData.get('price');
+        const imageFile = formData.get('image');
+        
+        if (!name || !price || !imageFile || imageFile.size === 0) {
+            showNotification('Please fill all required fields', 'error');
+            return;
+        }
+        
+        // Show loading
+        if (createButton && loadingSpinner) {
+            createButton.disabled = true;
+            createButton.innerHTML = 'Creating NFT...';
+            loadingSpinner.style.display = 'block';
+        }
+        
+        try {
+            // Get token from localStorage
+            const token = localStorage.getItem('token');
+            if (!token) {
+                throw new Error('Authentication required');
+            }
+            
+            console.log('📤 Uploading NFT to backend...');
+            
+            // Send to backend
+            const response = await fetch(`${API_BASE_URL}/nft/create`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to create NFT');
+            }
+            
+            if (data.success) {
+                showNotification('NFT created successfully!', 'success');
+                console.log('✅ NFT Created:', data.nft);
+                
+                // Reset form
+                createNFTForm.reset();
+                if (imagePreview) {
+                    imagePreview.innerHTML = '<p>No image selected</p>';
+                }
+                
+                // Redirect to explore page after 2 seconds
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+            } else {
+                throw new Error(data.error || 'Failed to create NFT');
+            }
+            
+        } catch (error) {
+            console.error('❌ NFT creation failed:', error);
+            showNotification(error.message || 'Failed to create NFT', 'error');
+        } finally {
+            // Reset button
+            if (createButton && loadingSpinner) {
+                createButton.disabled = false;
+                createButton.innerHTML = 'Create & List NFT';
+                loadingSpinner.style.display = 'none';
+            }
+        }
+    });
+    
+    // Price validation
+    const priceInput = document.getElementById('price');
+    if (priceInput) {
+        priceInput.addEventListener('input', function(e) {
+            let value = parseFloat(e.target.value);
+            if (value < 0) e.target.value = 0;
+            if (value > 1000) e.target.value = 1000;
+        });
+    }
+});
+
+// Make sure we have currentUser and API_BASE_URL
+if (typeof currentUser === 'undefined') {
+    currentUser = JSON.parse(localStorage.getItem('user'));
+}
+
+if (typeof API_BASE_URL === 'undefined') {
+    API_BASE_URL = window.API_BASE_URL || 'http://localhost:5000/api';
+}
 // ============================================
 
 // Make functions available globally

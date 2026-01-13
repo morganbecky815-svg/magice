@@ -1,0 +1,711 @@
+// Magic Eden - Enhanced Explore Functionality
+// EXTENDS app.js - builds on existing functionality
+// ============================================
+
+// GLOBAL VARIABLES FOR EXPLORE PAGE
+let allNFTs = []; // Store all loaded NFTs
+let filteredNFTs = []; // Currently displayed NFTs
+let currentFilter = 'all'; // Current category filter
+let currentSort = 'newest'; // Current sort method
+let currentView = 'grid'; // Current view mode
+let currentPage = 1; // For pagination
+const NFTsPerPage = 12; // NFTs to load per page
+let isLoading = false; // Loading state
+
+// ============================================
+// ENHANCED NFT LOADING (extends loadNFTs from app.js)
+// ============================================
+
+// Enhanced loadNFTs function - replaces the basic one
+async function loadNFTs() {
+    try {
+        console.log('📦 Loading NFTs from backend...');
+        const data = await apiRequest('/nft');
+        
+        // Store all NFTs globally
+        allNFTs = data.nfts || [];
+        
+        // Update stats
+        updateMarketplaceStats(allNFTs);
+        
+        // Display featured NFTs
+        displayFeaturedNFTs(allNFTs);
+        
+        // Display trending NFTs
+        displayTrendingNFTs(allNFTs);
+        
+        // Display newest NFTs
+        displayNewestNFTs(allNFTs);
+        
+        // Display all NFTs with filters
+        filteredNFTs = allNFTs;
+        applyFilters();
+        
+        // Display collections
+        displayCollections(allNFTs);
+        
+        console.log(`✅ Loaded ${allNFTs.length} NFTs`);
+    } catch (error) {
+        console.error('Failed to load NFTs:', error);
+        showNotification('Could not load NFTs', 'error');
+    }
+}
+
+// ============================================
+// FILTER & SORT FUNCTIONS
+// ============================================
+
+// Filter NFTs by category
+function filterNFTs(category, event) {
+    console.log('Filtering NFTs by category:', category);
+    currentFilter = category;
+    currentPage = 1;
+    
+    // Update active filter button
+    if (event && event.target) {
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+    }
+    
+    // Apply filters
+    applyFilters();
+}
+
+// Sort NFTs
+function sortNFTs(sortMethod) {
+    console.log('Sorting NFTs by:', sortMethod);
+    currentSort = sortMethod;
+    applyFilters();
+}
+
+// Change view mode (grid/list)
+function changeView(viewMode, event) {
+    currentView = viewMode;
+    const nftGrid = document.getElementById('nftGrid');
+    const trendingGrid = document.getElementById('trendingGrid');
+    const newestGrid = document.getElementById('newestGrid');
+    
+    if (viewMode === 'list') {
+        nftGrid.classList.add('list-view');
+        if (trendingGrid) trendingGrid.classList.add('list-view');
+        if (newestGrid) newestGrid.classList.add('list-view');
+    } else {
+        nftGrid.classList.remove('list-view');
+        if (trendingGrid) trendingGrid.classList.remove('list-view');
+        if (newestGrid) newestGrid.classList.remove('list-view');
+    }
+    
+    // Update view toggle buttons
+    if (event && event.target) {
+        document.querySelectorAll('.view-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+    }
+    
+    // Re-render current NFTs
+    displayNFTs(filteredNFTs);
+}
+
+// Apply all filters and sorting
+function applyFilters() {
+    let results = [...allNFTs];
+    
+    // Apply category filter
+    if (currentFilter !== 'all') {
+        results = results.filter(nft => {
+            // Try to get category from NFT data
+            const nftCategory = nft.category || 
+                               nft.collectionName?.toLowerCase() || 
+                               'art';
+            return nftCategory.includes(currentFilter);
+        });
+    }
+    
+    // Apply sorting
+    results = sortNFTsArray(results, currentSort);
+    
+    // Update filtered NFTs
+    filteredNFTs = results;
+    
+    // Update results count
+    updateResultsCount(results.length);
+    
+    // Display results
+    displayNFTs(results.slice(0, currentPage * NFTsPerPage));
+    
+    // Show/hide load more button
+    const loadMoreSection = document.getElementById('loadMoreSection');
+    if (loadMoreSection) {
+        if (results.length > currentPage * NFTsPerPage) {
+            loadMoreSection.style.display = 'block';
+        } else {
+            loadMoreSection.style.display = 'none';
+        }
+    }
+    
+    // Show/hide no results message
+    const noResults = document.getElementById('noResults');
+    if (noResults) {
+        if (results.length === 0) {
+            noResults.style.display = 'block';
+        } else {
+            noResults.style.display = 'none';
+        }
+    }
+}
+
+// Sort NFTs array
+function sortNFTsArray(nfts, sortMethod) {
+    return [...nfts].sort((a, b) => {
+        switch(sortMethod) {
+            case 'newest':
+                return new Date(b.createdAt || b.created_at || 0) - new Date(a.createdAt || a.created_at || 0);
+            case 'oldest':
+                return new Date(a.createdAt || a.created_at || 0) - new Date(b.createdAt || b.created_at || 0);
+            case 'price_low':
+                return (a.price || 0) - (b.price || 0);
+            case 'price_high':
+                return (b.price || 0) - (a.price || 0);
+            case 'popular':
+                return (b.likes || 0) - (a.likes || 0);
+            default:
+                return 0;
+        }
+    });
+}
+
+// Update results count display
+function updateResultsCount(count) {
+    const resultsCount = document.getElementById('resultsCount');
+    if (resultsCount) {
+        resultsCount.textContent = count.toLocaleString();
+    }
+}
+
+// ============================================
+// ENHANCED NFT DISPLAY FUNCTIONS
+// ============================================
+
+// Enhanced displayNFTs - replaces basic version
+function displayNFTs(nfts) {
+    const nftGrid = document.getElementById('nftGrid');
+    if (!nftGrid) return;
+    
+    if (nfts.length === 0) {
+        nftGrid.innerHTML = `
+            <div class="no-nfts">
+                <i class="fas fa-search"></i>
+                <h3>No NFTs to display</h3>
+                <p>Try changing your filters or check back later</p>
+            </div>
+        `;
+        return;
+    }
+    
+    nftGrid.innerHTML = nfts.map(nft => createEnhancedNFTCard(nft)).join('');
+}
+
+// Create enhanced NFT card
+function createEnhancedNFTCard(nft) {
+    const price = nft.price || 0;
+    const ethPrice = window.ETH_PRICE || 2500;
+    const priceUSD = (price * ethPrice).toFixed(2);
+    const likes = nft.likes || 0;
+    const views = nft.views || 0;
+    const createdAt = nft.createdAt || nft.created_at || new Date().toISOString();
+    const timeAgo = getTimeAgo(createdAt);
+    
+    return `
+        <div class="nft-card enhanced-card ${currentView === 'list' ? 'list-view' : ''}" 
+             onclick="viewNFTDetails('${nft._id}')">
+            <div class="nft-image-container">
+                <img src="${nft.image || 'https://via.placeholder.com/300x200'}" 
+                     alt="${nft.name}" 
+                     class="nft-image"
+                     loading="lazy">
+                ${nft.isFeatured ? '<span class="featured-badge">Featured</span>' : ''}
+                <button class="like-btn" onclick="event.stopPropagation(); likeNFT('${nft._id}')">
+                    <i class="far fa-heart"></i>
+                </button>
+            </div>
+            
+            <div class="nft-info">
+                <div class="nft-header">
+                    <h3 class="nft-name">${nft.name || 'Unnamed NFT'}</h3>
+                    <span class="nft-category">${nft.category || 'Art'}</span>
+                </div>
+                
+                <p class="nft-description">${(nft.description || '').substring(0, 100)}${nft.description && nft.description.length > 100 ? '...' : ''}</p>
+                
+                <div class="nft-collection">
+                    <div class="collection-info">
+                        <div class="collection-avatar">
+                            ${(nft.collectionName || 'C').charAt(0)}
+                        </div>
+                        <span class="collection-name">${nft.collectionName || 'Collection'}</span>
+                    </div>
+                </div>
+                
+                <div class="nft-stats">
+                    <div class="stat">
+                        <i class="fas fa-heart"></i>
+                        <span>${likes}</span>
+                    </div>
+                    <div class="stat">
+                        <i class="fas fa-eye"></i>
+                        <span>${views}</span>
+                    </div>
+                    <div class="stat">
+                        <i class="fas fa-clock"></i>
+                        <span>${timeAgo}</span>
+                    </div>
+                </div>
+                
+                <div class="nft-price-section">
+                    <div class="price-info">
+                        <div class="price-eth">${price} WETH</div>
+                        <div class="price-usd">$${priceUSD}</div>
+                    </div>
+                    <button class="buy-btn" onclick="event.stopPropagation(); buyNFT('${nft._id}')" 
+                            ${!currentUser ? 'disabled' : ''}>
+                        ${currentUser ? 'Buy Now' : 'Login to Buy'}
+                    </button>
+                </div>
+                
+                <div class="nft-owner">
+                    <span>Owned by:</span>
+                    <span class="owner-name">${nft.owner?.fullName || nft.owner?.email || 'Unknown'}</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Display featured NFTs
+function displayFeaturedNFTs(nfts) {
+    const featuredGrid = document.getElementById('featuredGrid');
+    const featuredSection = document.getElementById('featuredSection');
+    
+    if (!featuredGrid || !featuredSection) return;
+    
+    // Get featured NFTs (first 3 or random)
+    const featuredNFTs = nfts.slice(0, 3);
+    
+    if (featuredNFTs.length === 0) {
+        featuredSection.style.display = 'none';
+        return;
+    }
+    
+    featuredSection.style.display = 'block';
+    featuredGrid.innerHTML = featuredNFTs.map(nft => createFeaturedCard(nft)).join('');
+}
+
+// Create featured card
+function createFeaturedCard(nft) {
+    const price = nft.price || 0;
+    const ethPrice = window.ETH_PRICE || 2500;
+    const priceUSD = (price * ethPrice).toFixed(2);
+    
+    return `
+        <div class="featured-card" onclick="viewNFTDetails('${nft._id}')">
+            <div class="featured-image">
+                <img src="${nft.image || 'https://via.placeholder.com/400x300'}" alt="${nft.name}">
+                <div class="featured-overlay">
+                    <h3>${nft.name || 'Featured NFT'}</h3>
+                    <div class="featured-price">${price} WETH ($${priceUSD})</div>
+                    <button class="btn btn-primary" onclick="event.stopPropagation(); buyNFT('${nft._id}')">
+                        Buy Now
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Display trending NFTs
+function displayTrendingNFTs(nfts) {
+    const trendingGrid = document.getElementById('trendingGrid');
+    if (!trendingGrid) return;
+    
+    // Sort by popularity and take top 6
+    const trending = [...nfts]
+        .sort((a, b) => (b.likes || 0) - (a.likes || 0))
+        .slice(0, 6);
+    
+    trendingGrid.innerHTML = trending.map(nft => createEnhancedNFTCard(nft)).join('');
+}
+
+// Display newest NFTs
+function displayNewestNFTs(nfts) {
+    const newestGrid = document.getElementById('newestGrid');
+    if (!newestGrid) return;
+    
+    // Sort by creation date and take newest 6
+    const newest = [...nfts]
+        .sort((a, b) => new Date(b.createdAt || b.created_at || 0) - new Date(a.createdAt || a.created_at || 0))
+        .slice(0, 6);
+    
+    newestGrid.innerHTML = newest.map(nft => createEnhancedNFTCard(nft)).join('');
+}
+
+// Display collections
+function displayCollections(nfts) {
+    const collectionsGrid = document.getElementById('collectionsGrid');
+    if (!collectionsGrid) return;
+    
+    // Group NFTs by collection
+    const collectionsMap = {};
+    nfts.forEach(nft => {
+        const collectionName = nft.collectionName || 'Unnamed Collection';
+        if (!collectionsMap[collectionName]) {
+            collectionsMap[collectionName] = {
+                name: collectionName,
+                count: 0,
+                totalValue: 0,
+                sampleImage: nft.image
+            };
+        }
+        collectionsMap[collectionName].count++;
+        collectionsMap[collectionName].totalValue += (nft.price || 0);
+    });
+    
+    // Convert to array and sort by count
+    const collections = Object.values(collectionsMap)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 4);
+    
+    // Update collections count
+    const totalCollectionsEl = document.getElementById('totalCollections');
+    if (totalCollectionsEl) {
+        totalCollectionsEl.textContent = Object.keys(collectionsMap).length;
+    }
+    
+    collectionsGrid.innerHTML = collections.map(collection => `
+        <div class="collection-card">
+            <div class="collection-image">
+                <img src="${collection.sampleImage || 'https://via.placeholder.com/200x150'}" 
+                     alt="${collection.name}">
+            </div>
+            <div class="collection-info">
+                <h4>${collection.name}</h4>
+                <div class="collection-stats">
+                    <span><i class="fas fa-image"></i> ${collection.count} items</span>
+                    <span><i class="fas fa-gem"></i> ${collection.totalValue.toFixed(2)} WETH</span>
+                </div>
+                <button class="btn btn-small" onclick="viewCollection('${collection.name}')">
+                    View Collection
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Update marketplace stats
+function updateMarketplaceStats(nfts) {
+    // Update total NFTs
+    const totalNFTsEl = document.getElementById('totalNFTs');
+    if (totalNFTsEl) {
+        totalNFTsEl.textContent = nfts.length;
+    }
+    
+    // Calculate total volume
+    const totalVolume = nfts.reduce((sum, nft) => sum + (nft.price || 0), 0);
+    const totalVolumeEl = document.getElementById('totalVolume');
+    if (totalVolumeEl) {
+        totalVolumeEl.textContent = totalVolume.toFixed(2);
+    }
+    
+    // Get unique owners for user count
+    const uniqueOwners = new Set();
+    nfts.forEach(nft => {
+        if (nft.owner?._id) {
+            uniqueOwners.add(nft.owner._id);
+        } else if (nft.owner?.email) {
+            uniqueOwners.add(nft.owner.email);
+        }
+    });
+    
+    const totalUsersEl = document.getElementById('totalUsers');
+    if (totalUsersEl) {
+        totalUsersEl.textContent = uniqueOwners.size || nfts.length > 0 ? Math.floor(nfts.length * 0.3) : 0;
+    }
+}
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+
+// Get time ago string
+function getTimeAgo(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffMins < 1) {
+        return 'Just now';
+    } else if (diffMins < 60) {
+        return `${diffMins}m ago`;
+    } else if (diffHours < 24) {
+        return `${diffHours}h ago`;
+    } else if (diffDays < 30) {
+        return `${diffDays}d ago`;
+    } else {
+        return date.toLocaleDateString();
+    }
+}
+
+// Load more NFTs (pagination)
+function loadMoreNFTs() {
+    if (isLoading) return;
+    
+    currentPage++;
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    
+    if (loadMoreBtn) {
+        loadMoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        loadMoreBtn.disabled = true;
+    }
+    
+    // Simulate loading
+    setTimeout(() => {
+        const endIndex = currentPage * NFTsPerPage;
+        const nextBatch = filteredNFTs.slice(0, endIndex);
+        
+        displayNFTs(nextBatch);
+        
+        if (loadMoreBtn) {
+            loadMoreBtn.innerHTML = '<i class="fas fa-plus"></i> Load More NFTs';
+            loadMoreBtn.disabled = false;
+        }
+        
+        // Hide button if no more NFTs
+        const loadMoreSection = document.getElementById('loadMoreSection');
+        if (loadMoreSection && endIndex >= filteredNFTs.length) {
+            loadMoreSection.style.display = 'none';
+        }
+    }, 500);
+}
+
+// View NFT details (placeholder)
+function viewNFTDetails(nftId) {
+    console.log('Viewing NFT details:', nftId);
+    showNotification('NFT detail view coming soon!', 'info');
+}
+
+// Like NFT
+async function likeNFT(nftId) {
+    if (!currentUser) {
+        showNotification('Please login to like NFTs', 'error');
+        return;
+    }
+    
+    try {
+        const data = await apiRequest(`/nft/${nftId}/like`, {
+            method: 'POST'
+        });
+        
+        if (data.success) {
+            showNotification('Liked!', 'success');
+            loadNFTs(); // Refresh
+        }
+    } catch (error) {
+        console.error('Like failed:', error);
+    }
+}
+
+// View collection
+function viewCollection(collectionName) {
+    const collectionNFTs = allNFTs.filter(nft => 
+        nft.collectionName === collectionName
+    );
+    
+    filteredNFTs = collectionNFTs;
+    currentFilter = 'all';
+    updateResultsCount(collectionNFTs.length);
+    displayNFTs(collectionNFTs);
+    
+    // Update active filter button
+    const activeFilterBtn = document.querySelector('.filter-btn.active');
+    if (activeFilterBtn) {
+        activeFilterBtn.innerHTML = `<i class="fas fa-layer-group"></i> ${collectionName}`;
+    }
+    
+    scrollToNFTs();
+    showNotification(`Showing ${collectionName} collection`, 'info');
+}
+
+// Search functionality
+function handleSearchKeypress(event) {
+    if (event.key === 'Enter') {
+        performSearch();
+    }
+}
+
+function performSearch() {
+    const searchInput = document.getElementById('globalSearch');
+    if (!searchInput) return;
+    
+    const query = searchInput.value.trim().toLowerCase();
+    
+    if (!query) {
+        applyFilters();
+        return;
+    }
+    
+    const searchResults = allNFTs.filter(nft => {
+        const searchableText = `
+            ${nft.name || ''}
+            ${nft.description || ''}
+            ${nft.collectionName || ''}
+            ${nft.owner?.fullName || ''}
+            ${nft.owner?.email || ''}
+            ${nft.category || ''}
+        `.toLowerCase();
+        
+        return searchableText.includes(query);
+    });
+    
+    filteredNFTs = searchResults;
+    updateResultsCount(searchResults.length);
+    displayNFTs(searchResults);
+    
+    const noResults = document.getElementById('noResults');
+    if (noResults) {
+        if (searchResults.length === 0) {
+            noResults.style.display = 'block';
+            noResults.querySelector('h3').textContent = 'No NFTs Found';
+            noResults.querySelector('p').textContent = `No results for "${query}"`;
+        } else {
+            noResults.style.display = 'none';
+        }
+    }
+}
+
+// Advanced filters
+function toggleAdvancedFilters() {
+    const filterOptions = document.getElementById('filterOptions');
+    if (filterOptions) {
+        filterOptions.style.display = filterOptions.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+function applyAdvancedFilters() {
+    const minPrice = parseFloat(document.getElementById('minPrice')?.value) || 0;
+    const maxPrice = parseFloat(document.getElementById('maxPrice')?.value) || Infinity;
+    
+    let results = [...allNFTs];
+    
+    // Filter by price range
+    results = results.filter(nft => {
+        const price = nft.price || 0;
+        return price >= minPrice && price <= maxPrice;
+    });
+    
+    // Apply current category filter
+    if (currentFilter !== 'all') {
+        results = results.filter(nft => {
+            const nftCategory = nft.category || 'art';
+            return nftCategory.includes(currentFilter);
+        });
+    }
+    
+    // Apply sorting
+    results = sortNFTsArray(results, currentSort);
+    
+    // Update and display
+    filteredNFTs = results;
+    updateResultsCount(results.length);
+    displayNFTs(results);
+}
+
+function resetFilters() {
+    // Reset filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    const firstBtn = document.querySelector('.filter-btn');
+    if (firstBtn) {
+        firstBtn.classList.add('active');
+    }
+    
+    // Reset sort select
+    const sortSelect = document.getElementById('sortSelect');
+    if (sortSelect) {
+        sortSelect.value = 'newest';
+    }
+    
+    // Reset advanced filters
+    const minPriceInput = document.getElementById('minPrice');
+    const maxPriceInput = document.getElementById('maxPrice');
+    if (minPriceInput) minPriceInput.value = '';
+    if (maxPriceInput) maxPriceInput.value = '';
+    
+    // Reset state
+    currentFilter = 'all';
+    currentSort = 'newest';
+    currentPage = 1;
+    currentView = 'grid';
+    
+    // Reset view buttons
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    const gridViewBtn = document.querySelector('.view-btn');
+    if (gridViewBtn) {
+        gridViewBtn.classList.add('active');
+    }
+    
+    // Show all NFTs
+    applyFilters();
+}
+
+function scrollToNFTs() {
+    const nftSection = document.querySelector('.marketplace-section');
+    if (nftSection) {
+        nftSection.scrollIntoView({ behavior: 'smooth' });
+    }
+}
+
+// ============================================
+// INITIALIZATION
+// ============================================
+
+// Initialize enhanced explore functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Override the basic loadNFTs with enhanced version
+    // This happens automatically since we define it above
+    
+    // If on homepage, setup enhanced features
+    if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+        console.log('🎮 Enhanced Explore initialized');
+        
+        // Hide basic loading message
+        setTimeout(() => {
+            const basicLoading = document.querySelector('.nft-grid .loading');
+            if (basicLoading) {
+                basicLoading.style.display = 'none';
+            }
+        }, 1000);
+    }
+});
+
+// Make functions available globally
+window.filterNFTs = filterNFTs;
+window.sortNFTs = sortNFTs;
+window.changeView = changeView;
+window.loadMoreNFTs = loadMoreNFTs;
+window.performSearch = performSearch;
+window.handleSearchKeypress = handleSearchKeypress;
+window.toggleAdvancedFilters = toggleAdvancedFilters;
+window.applyAdvancedFilters = applyAdvancedFilters;
+window.resetFilters = resetFilters;
+window.scrollToNFTs = scrollToNFTs;
+window.viewNFTDetails = viewNFTDetails;
+window.likeNFT = likeNFT;
+window.viewCollection = viewCollection;

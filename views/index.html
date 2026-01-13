@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Magic Eden | NFT Marketplace</title>
     <link rel="stylesheet" href="/css/style.css">
+    <!-- NEW: Add explore.css for enhanced features -->
+    <link rel="stylesheet" href="/css/explore.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -18,16 +20,28 @@
                 </div>
                 
                 <div class="nav-center">
-                    <a href="/" class="nav-link active">Explore</a>
-                    <a href="/dashboard" class="nav-link" onclick="navigateToDashboard(); return false;">Dashboard</a>
-                    <a href="/profile" class="nav-link" onclick="navigateToProfile(); return false;">Profile</a>
-                    <a href="/create-nft" class="nav-link">Create</a>
+                    <a href="/" class="nav-link active">
+                        <i class="fas fa-compass"></i> Explore
+                    </a>
+                    <a href="/dashboard" class="nav-link" onclick="navigateToDashboard(); return false;">
+                        <i class="fas fa-chart-line"></i> Dashboard
+                    </a>
+                    <a href="/profile" class="nav-link" onclick="navigateToProfile(); return false;">
+                        <i class="fas fa-user"></i> Profile
+                    </a>
+                    <a href="/create-nft" class="nav-link">
+                        <i class="fas fa-plus-circle"></i> Create
+                    </a>
                 </div>
                 
                 <div class="nav-right">
                     <div class="search-box">
                         <i class="fas fa-search"></i>
-                        <input type="text" placeholder="Search NFTs...">
+                        <input type="text" id="globalSearch" 
+                               placeholder="Search NFTs,Collections,creators..." 
+                               onkeypress="handleSearchKeypress(event)">
+                           
+                        </button>
                     </div>
                     
                     <!-- Dynamic Login/User Area -->
@@ -57,17 +71,18 @@
     <!-- Main Content -->
     <main class="main">
         <div class="container">
+            <!-- Hero Banner -->
             <section class="hero">
                 <h1>Discover & Collect Extraordinary NFTs</h1>
-                <p>Buy, sell, and discover exclusive digital assets</p>
-                <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
-                    <button class="btn btn-large" onclick="window.location.href='/register'">
-                        <i class="fas fa-user-plus"></i>
-                        Get Started Free
+                <p>Buy, sell, and discover exclusive digital assets on the largest NFT marketplace</p>
+                <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px; flex-wrap: wrap;">
+                    <button class="btn btn-large" onclick="window.location.href='/create-nft'">
+                        <i class="fas fa-plus-circle"></i>
+                        Create NFT
                     </button>
                     <button class="btn btn-large" onclick="scrollToNFTs()">
                         <i class="fas fa-rocket"></i>
-                        Explore NFTs
+                        Explore Now
                     </button>
                 </div>
             </section>
@@ -86,22 +101,155 @@
                     <span class="stat-value" id="totalVolume">0</span>
                     <span class="stat-label">WETH Volume</span>
                 </div>
+                <div class="stat">
+                    <span class="stat-value" id="totalCollections">0</span>
+                    <span class="stat-label">Collections</span>
+                </div>
             </div>
 
-            <!-- Filters -->
-            <div class="filters">
-                <button class="filter-btn active" onclick="filterNFTs('all')">All</button>
-                <button class="filter-btn" onclick="filterNFTs('art')">Art</button>
-                <button class="filter-btn" onclick="filterNFTs('pfp')">PFPs</button>
-                <button class="filter-btn" onclick="filterNFTs('gaming')">Gaming</button>
-                <button class="filter-btn" onclick="filterNFTs('photography')">Photography</button>
+            <!-- Featured NFTs Section -->
+            <section class="featured-section" id="featuredSection" style="display: none;">
+                <div class="section-header">
+                    <h2><i class="fas fa-star"></i> Featured NFTs</h2>
+                    <p>Curated selection of exceptional digital art</p>
+                </div>
+                <div class="featured-grid" id="featuredGrid">
+                    <!-- Featured NFTs will be loaded here -->
+                </div>
+            </section>
+
+            <!-- Enhanced Explore Controls -->
+            <div class="explore-controls">
+                <!-- Category Filters -->
+                <div class="category-filters">
+                    <button class="filter-btn active" onclick="filterNFTs('all', event)">
+                        <i class="fas fa-th-large"></i> All NFTs
+                    </button>
+                    <button class="filter-btn" onclick="filterNFTs('art', event)">
+                        <i class="fas fa-palette"></i> Art
+                    </button>
+                    <button class="filter-btn" onclick="filterNFTs('pfp', event)">
+                        <i class="fas fa-user-circle"></i> PFPs
+                    </button>
+                    <button class="filter-btn" onclick="filterNFTs('gaming', event)">
+                        <i class="fas fa-gamepad"></i> Gaming
+                    </button>
+                    <button class="filter-btn" onclick="filterNFTs('photography', event)">
+                        <i class="fas fa-camera"></i> Photography
+                    </button>
+                    <button class="filter-btn" onclick="filterNFTs('collectibles', event)">
+                        <i class="fas fa-cube"></i> Collectibles
+                    </button>
+                    <button class="filter-btn" onclick="filterNFTs('3d', event)">
+                        <i class="fas fa-cube"></i> 3D Art
+                    </button>
+                </div>
+                
+                <!-- Sorting Options -->
+                <div class="sort-options">
+                    <select id="sortSelect" class="sort-select" onchange="sortNFTs(this.value)">
+                        <option value="newest">Newest</option>
+                        <option value="oldest">Oldest</option>
+                        <option value="price_low">Price: Low to High</option>
+                        <option value="price_high">Price: High to Low</option>
+                        <option value="popular">Most Popular</option>
+                    </select>
+                    
+                    <div class="view-toggle">
+                        <button class="view-btn active" onclick="changeView('grid', event)">
+                            <i class="fas fa-th-large"></i>
+                        </button>
+                        <button class="view-btn" onclick="changeView('list', event)">
+                            <i class="fas fa-list"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            <!-- NFT Grid -->
-            <div class="nft-grid" id="nftGrid">
-                <!-- NFTs will be loaded here -->
-                <div class="loading">Loading NFTs...</div>
-            </div>
+            <!-- Trending NFTs Section -->
+            <section class="category-section" id="trendingSection">
+                <div class="section-header">
+                    <h2><i class="fas fa-fire"></i> Trending Now</h2>
+                    <a href="#" class="see-all" onclick="filterNFTs('trending'); return false;">See all</a>
+                </div>
+                <div class="nft-grid trending-grid" id="trendingGrid">
+                    <!-- Trending NFTs will load here -->
+                </div>
+            </section>
+
+            <!-- Newest NFTs Section -->
+            <section class="category-section" id="newestSection">
+                <div class="section-header">
+                    <h2><i class="fas fa-bolt"></i> Newly Listed</h2>
+                    <a href="#" class="see-all" onclick="filterNFTs('newest'); return false;">See all</a>
+                </div>
+                <div class="nft-grid newest-grid" id="newestGrid">
+                    <!-- Newest NFTs will load here -->
+                </div>
+            </section>
+
+            <!-- Main NFT Grid Section -->
+            <section class="marketplace-section">
+                <div class="section-header">
+                    <h2>All NFTs Marketplace</h2>
+                    <div class="results-info">
+                        Showing <span id="resultsCount">0</span> NFTs
+                    </div>
+                </div>
+                
+                <!-- Advanced Filters -->
+                <div class="advanced-filters">
+                    <button class="filter-toggle" onclick="toggleAdvancedFilters()">
+                        <i class="fas fa-filter"></i> Advanced Filters
+                    </button>
+                    <div class="filter-options" id="filterOptions" style="display: none;">
+                        <div class="filter-group">
+                            <label>Price Range (WETH)</label>
+                            <div class="price-range">
+                                <input type="number" id="minPrice" placeholder="Min" min="0" step="0.01">
+                                <span>to</span>
+                                <input type="number" id="maxPrice" placeholder="Max" min="0" step="0.01">
+                            </div>
+                        </div>
+                        <button class="btn btn-small" onclick="applyAdvancedFilters()">Apply Filters</button>
+                        <button class="btn btn-small" onclick="resetFilters()">Reset</button>
+                    </div>
+                </div>
+                
+                <!-- Main NFT Grid -->
+                <div class="nft-grid enhanced-grid" id="nftGrid">
+                    <div class="loading-spinner">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Loading NFTs...</p>
+                    </div>
+                </div>
+                
+                <!-- Load More Button -->
+                <div class="load-more-section" id="loadMoreSection" style="display: none;">
+                    <button class="btn btn-large" onclick="loadMoreNFTs()" id="loadMoreBtn">
+                        <i class="fas fa-plus"></i> Load More NFTs
+                    </button>
+                </div>
+                
+                <!-- No Results Message -->
+                <div class="no-results" id="noResults" style="display: none;">
+                    <i class="fas fa-search"></i>
+                    <h3>No NFTs Found</h3>
+                    <p>Try adjusting your filters or search terms</p>
+                    <button class="btn" onclick="resetFilters()">Reset All Filters</button>
+                </div>
+            </section>
+            
+            <!-- Collections Section -->
+            <section class="collections-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-layer-group"></i> Top Collections</h2>
+                    <a href="#" class="see-all">View all collections</a>
+                </div>
+                <div class="collections-grid" id="collectionsGrid">
+                    <!-- Collections will load here -->
+                </div>
+            </section>
         </div>
     </main>
 
@@ -115,10 +263,29 @@
                         <span>Magic Eden</span>
                     </div>
                     <p>© 2024 Magic Eden. All rights reserved.</p>
+                    <p class="footer-subtext">The premier NFT marketplace on Ethereum</p>
                 </div>
                 <div class="footer-section">
+                    <h4>Marketplace</h4>
+                    <a href="/">Explore NFTs</a>
+                    <a href="/dashboard">Dashboard</a>
+                    <a href="/create-nft">Create NFT</a>
+                    <a href="/profile">My Profile</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Resources</h4>
                     <a href="#" onclick="showSupportModal()"><i class="fas fa-headset"></i> Support</a>
+                    <a href="#" onclick="showAboutModal()">About</a>
                     <a href="/admin" id="adminLink" style="display:none"><i class="fas fa-cog"></i> Admin</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Connect</h4>
+                    <div class="social-links">
+                        <a href="#"><i class="fab fa-twitter"></i></a>
+                        <a href="#"><i class="fab fa-discord"></i></a>
+                        <a href="#"><i class="fab fa-telegram"></i></a>
+                        <a href="#"><i class="fab fa-github"></i></a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -127,71 +294,23 @@
     <!-- Support Modal -->
     <div class="modal" id="supportModal" style="display: none;">
         <div class="modal-content">
-            <h3>Contact Support</h3>
-            <textarea id="supportMessage" placeholder="Describe your issue..."></textarea>
-            <button class="btn btn-primary" onclick="submitSupportTicket()">Submit Ticket</button>
-            <button class="btn" onclick="closeModal('supportModal')">Cancel</button>
+            <div class="modal-header">
+                <h3><i class="fas fa-headset"></i> Contact Support</h3>
+                <button class="close-modal" onclick="closeModal('supportModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <textarea id="supportMessage" placeholder="Describe your issue or question..."></textarea>
+                <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="submitSupportTicket()">Submit Ticket</button>
+                    <button class="btn" onclick="closeModal('supportModal')">Cancel</button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Load app.js first -->
+    <!-- Load app.js first (your existing code) -->
     <script src="/js/app.js"></script>
-    
-    <!-- Navigation and UI Scripts -->
-    
-    <!-- NFT Grid Section -->
-<section class="marketplace-section">
-    <div class="container">
-        <h2 style="margin-bottom: 30px;">Explore NFTs</h2>
-        <div id="nftGrid" class="nft-grid"></div>
-    </div>
-</section>
-
-<!-- Add CSS for the grid -->
-<style>
-.nft-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 20px;
-    margin: 30px 0;
-}
-
-.nft-card {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
-    overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: transform 0.3s ease;
-}
-
-.nft-card:hover {
-    transform: translateY(-5px);
-    border-color: #6c63ff;
-}
-
-.nft-card img {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
-}
-
-.nft-info {
-    padding: 15px;
-}
-
-.nft-info h3 {
-    margin-bottom: 8px;
-    color: #ffffff;
-}
-
-.nft-info p {
-    color: #b0b0d0;
-    margin-bottom: 5px;
-    font-size: 14px;
-}
-</style>
-
-<!-- Load the JavaScript -->
-<script src="/js/app.js"></script>
+    <!-- NEW: Load explore.js for enhanced features -->
+    <script src="/js/explore.js"></script>
 </body>
 </html>
