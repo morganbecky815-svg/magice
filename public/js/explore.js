@@ -2,7 +2,225 @@
 // EXTENDS app.js - builds on existing functionality
 // ============================================
 
+// ============================================
+// WETH BALANCE FIX FOR EXPLORE PAGE
+// ============================================
+
+// Load and display WETH balance on Explore page
+async function loadExploreWethBalance() {
+    console.log('🏠 Explore Page: Loading WETH balance...');
+    
+    try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const token = localStorage.getItem('token');
+        
+        if (!user || !user._id || !token) {
+            console.log('Explore Page: User not logged in');
+            hideExploreWethBalance();
+            return;
+        }
+        
+        console.log('Explore Page: User ID:', user._id);
+        
+        // Fetch FRESH balance from API (not from cache)
+        const response = await fetch(`${window.API_BASE_URL || 'http://localhost:5000/api'}/user/${user._id}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            cache: 'no-cache' // IMPORTANT: Don't use cache
+        });
+        
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.user) {
+            const balance = data.user.wethBalance || data.user.balance || 0;
+            console.log('✅ Explore Page: Got fresh balance:', balance);
+            
+            // Update localStorage with fresh data
+            const updatedUser = { ...user, ...data.user };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            
+            // Update the UI immediately
+            updateExploreWethDisplay(balance);
+            
+            return balance;
+        }
+        
+    } catch (error) {
+        console.error('❌ Explore Page: Failed to load WETH balance:', error);
+        
+        // Fallback: Use cached data
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const cachedBalance = user.wethBalance || user.balance || 0;
+        
+        if (cachedBalance > 0) {
+            console.log('Using cached balance:', cachedBalance);
+            updateExploreWethDisplay(cachedBalance);
+        }
+    }
+    return 0;
+}
+
+// Update WETH balance display on Explore page
+function updateExploreWethDisplay(balance) {
+    const balanceAmount = parseFloat(balance).toFixed(4);
+    console.log('Updating Explore page WETH display:', balanceAmount);
+    
+    // 1. Update the navigation bar balance
+    const userInfo = document.getElementById('userInfo');
+    if (userInfo) {
+        // Look for existing balance display
+        const balanceElements = userInfo.querySelectorAll('span');
+        let balanceUpdated = false;
+        
+        balanceElements.forEach(element => {
+            if (element.textContent.includes('WETH') || element.style.backgroundColor === '#4CAF50') {
+                element.textContent = `${balanceAmount} WETH`;
+                balanceUpdated = true;
+                console.log('Updated existing nav balance:', balanceAmount);
+            }
+        });
+        
+        // If no existing balance element, check if app.js will create one
+        if (!balanceUpdated) {
+            console.log('No existing balance element found, app.js should create one');
+        }
+    }
+    
+    // 2. Update stats bar balance (add if doesn't exist)
+    addWethToExploreStatsBar(balanceAmount);
+    
+    // 3. Update any floating balance widget
+    updateFloatingBalanceWidget(balanceAmount);
+}
+
+// Add WETH balance to stats bar
+function addWethToExploreStatsBar(balanceAmount = '0.0000') {
+    const statsBar = document.querySelector('.stats-bar');
+    if (!statsBar) return;
+    
+    // Check if WETH balance already exists
+    let wethStat = document.getElementById('wethStat');
+    
+    if (!wethStat) {
+        // Create new WETH stat element
+        wethStat = document.createElement('div');
+        wethStat.className = 'stat';
+        wethStat.id = 'wethStat';
+        wethStat.innerHTML = `
+            <span class="stat-value" id="myWethBalance">${balanceAmount}</span>
+            <span class="stat-label">Your WETH</span>
+        `;
+        statsBar.appendChild(wethStat);
+        
+        // Add CSS for the WETH stat
+        if (!document.querySelector('#wethStatStyle')) {
+            const style = document.createElement('style');
+            style.id = 'wethStatStyle';
+            style.textContent = `
+                #wethStat {
+                    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(59, 130, 246, 0.15));
+                    border: 1px solid rgba(16, 185, 129, 0.3);
+                    border-radius: 8px;
+                    padding: 10px 15px;
+                }
+                #wethStat .stat-value {
+                    color: #10b981;
+                    font-weight: 700;
+                    font-size: 1.2em;
+                }
+                #wethStat .stat-label {
+                    color: #059669;
+                    font-weight: 600;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        console.log('Added WETH to stats bar:', balanceAmount);
+    } else {
+        // Update existing stat
+        const balanceSpan = document.getElementById('myWethBalance');
+        if (balanceSpan) {
+            balanceSpan.textContent = balanceAmount;
+            console.log('Updated stats bar WETH:', balanceAmount);
+        }
+    }
+}
+
+// Create floating balance widget
+function updateFloatingBalanceWidget(balanceAmount) {
+    // Check if floating widget already exists
+    let floatingBalance = document.getElementById('floatingBalance');
+    
+    if (!floatingBalance && parseFloat(balanceAmount) > 0) {
+        // Create floating widget
+        floatingBalance = document.createElement('div');
+        floatingBalance.id = 'floatingBalance';
+        floatingBalance.className = 'floating-balance';
+        floatingBalance.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            padding: 15px;
+            min-width: 200px;
+            border: 1px solid #e5e7eb;
+            z-index: 1000;
+        `;
+        
+        floatingBalance.innerHTML = `
+            <div class="balance-header">
+                <i class="fas fa-wallet"></i>
+                <span>Available Balance</span>
+            </div>
+            <div class="balance-amount" id="floatingWethBalance">
+                ${balanceAmount} WETH
+            </div>
+            <div class="balance-actions">
+                <button class="btn btn-small" onclick="window.location.href='/dashboard'">
+                    Dashboard
+                </button>
+                <button class="btn btn-small btn-primary" onclick="window.location.href='/add-eth'">
+                    Add Funds
+                </button>
+            </div>
+        `;
+        
+        document.body.appendChild(floatingBalance);
+        console.log('Created floating balance widget:', balanceAmount);
+    } else if (floatingBalance) {
+        // Update existing widget
+        const balanceDisplay = document.getElementById('floatingWethBalance');
+        if (balanceDisplay) {
+            balanceDisplay.textContent = `${balanceAmount} WETH`;
+        }
+    }
+}
+
+// Hide WETH balance when user is logged out
+function hideExploreWethBalance() {
+    const wethStat = document.getElementById('wethStat');
+    if (wethStat) {
+        wethStat.style.display = 'none';
+    }
+    
+    const floatingBalance = document.getElementById('floatingBalance');
+    if (floatingBalance) {
+        floatingBalance.style.display = 'none';
+    }
+}
+
+// ============================================
 // GLOBAL VARIABLES FOR EXPLORE PAGE
+// ============================================
 let allNFTs = []; // Store all loaded NFTs
 let filteredNFTs = []; // Currently displayed NFTs
 let currentFilter = 'all'; // Current category filter
@@ -678,12 +896,41 @@ function scrollToNFTs() {
 
 // Initialize enhanced explore functionality
 document.addEventListener('DOMContentLoaded', function() {
-    // Override the basic loadNFTs with enhanced version
-    // This happens automatically since we define it above
-    
     // If on homepage, setup enhanced features
     if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
         console.log('🎮 Enhanced Explore initialized');
+        
+        // ============================================
+        // FIX: SETUP WETH BALANCE FOR EXPLORE PAGE
+        // ============================================
+        
+        // Check if user is logged in
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const token = localStorage.getItem('token');
+        
+        if (user && user._id && token) {
+            console.log('Explore Page: User is logged in, ID:', user._id);
+            
+            // Load WETH balance immediately
+            setTimeout(() => {
+                loadExploreWethBalance();
+            }, 500);
+            
+            // Load again after 2 seconds to ensure it's fresh
+            setTimeout(() => {
+                loadExploreWethBalance();
+            }, 2000);
+            
+            // Set up periodic balance refresh (every 30 seconds)
+            setInterval(() => {
+                loadExploreWethBalance();
+            }, 30000);
+        } else {
+            console.log('Explore Page: User not logged in');
+            hideExploreWethBalance();
+        }
+        
+        // ============================================
         
         // Hide basic loading message
         setTimeout(() => {
@@ -709,3 +956,10 @@ window.scrollToNFTs = scrollToNFTs;
 window.viewNFTDetails = viewNFTDetails;
 window.likeNFT = likeNFT;
 window.viewCollection = viewCollection;
+
+// ============================================
+// EXPORT WETH FUNCTIONS
+// ============================================
+window.loadExploreWethBalance = loadExploreWethBalance;
+window.updateExploreWethDisplay = updateExploreWethDisplay;
+window.hideExploreWethBalance = hideExploreWethBalance;
