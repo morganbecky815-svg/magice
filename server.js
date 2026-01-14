@@ -6,11 +6,13 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
-const { auth } = require('./middleware/auth'); // Your auth middleware
+const axios = require('axios');
+const Redis = require('redis');
+const { auth } = require('./middleware/auth');
 const userRoutes = require('./routes/user');
 
 // ========================
-// CLOUDINARY IMPORTS (ADDED)
+// CLOUDINARY IMPORTS
 // ========================
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
@@ -22,7 +24,88 @@ const fs = require('fs');
 dotenv.config();
 
 // ========================
-// CLOUDINARY CONFIGURATION (ADDED)
+// INITIALIZE EXPRESS APP
+// ========================
+const app = express();
+
+// ========================
+// WINDOWS REDIS CONNECTION (FIXED)
+// ========================
+let redisClient = null;
+let redisReady = false;
+
+async function initWindowsRedis() {
+    console.log('🔧 Setting up Redis for Windows...');
+    
+    try {
+        // Windows Redis connection
+        redisClient = Redis.createClient({
+            socket: {
+                host: '127.0.0.1',
+                port: 6379,
+                connectTimeout: 10000,
+                reconnectStrategy: (retries) => {
+                    console.log(`Redis reconnection attempt ${retries}`);
+                    if (retries > 3) {
+                        console.log('❌ Max Redis retries reached');
+                        return new Error('Too many retries');
+                    }
+                    return Math.min(retries * 100, 1000);
+                }
+            }
+        });
+        
+        // Error handling
+        redisClient.on('error', (err) => {
+            console.log('⚠️ Redis Error:', err.message);
+            redisReady = false;
+        });
+        
+        redisClient.on('connect', () => {
+            console.log('🔌 Redis connecting...');
+        });
+        
+        redisClient.on('ready', () => {
+            console.log('✅ Redis connected and ready!');
+            redisReady = true;
+        });
+        
+        // Connect with timeout
+        await Promise.race([
+            redisClient.connect(),
+            new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Redis connection timeout')), 5000)
+            )
+        ]);
+        
+        // Test connection
+        await redisClient.set('windows-test', 'connected-' + Date.now());
+        const testResult = await redisClient.get('windows-test');
+        console.log(`🧪 Redis test successful: ${testResult}`);
+        
+        redisReady = true;
+        
+    } catch (error) {
+        console.log(`❌ Redis initialization failed: ${error.message}`);
+        console.log('\n📋 Windows Redis Troubleshooting:');
+        console.log('1. Open Command Prompt AS ADMINISTRATOR');
+        console.log('2. Run: net start Redis');
+        console.log('3. If service not found, run:');
+        console.log('   cd "C:\\Program Files\\Redis"');
+        console.log('   redis-server --service-install redis.windows.conf');
+        console.log('   redis-server --service-start');
+        console.log('4. Test manually: redis-cli ping');
+        
+        redisClient = null;
+        redisReady = false;
+    }
+}
+
+// Initialize Redis
+initWindowsRedis();
+
+// ========================
+// CLOUDINARY CONFIGURATION
 // ========================
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -38,7 +121,151 @@ console.log('🔧 Cloudinary Status:', {
 });
 
 // ========================
-// MULTER CONFIGURATION (for file uploads) (ADDED)
+// ========================
+// ========================
+// ETH PRICE ENDPOINT (WITH AXIOS)
+// ========================
+app.get('/api/eth-price', async (req, res) => {
+  console.log('🌐 ETH price request received');
+  
+  try {
+    let cachedPrice = null;
+    let cachedTime = null;
+    
+    // Try Redis cache if available
+    if (redisReady && redisClient) {
+      try {
+        cachedPrice = await redisClient.get('eth:price');
+        cachedTime = await redisClient.get('eth:price:time');
+        console.log('📦 Redis cache:', cachedPrice ? 'HIT' : 'MISS');
+      } catch (redisErr) {
+        console.log('⚠️ Redis cache error:', redisErr.message);
+      }
+    }
+    
+    const now = Date.now();
+    const CACHE_DURATION = 60000; // 1 minute
+    
+    // Return cached if fresh
+    if (cachedPrice && cachedTime && 
+        (now - parseInt(cachedTime)) < CACHE_DURATION) {
+      return res.json({
+        success: true,
+        price: parseFloat(cachedPrice),
+        cached: true,
+        timestamp: cachedTime,
+        source: 'redis-cache'
+      });
+    }
+    
+    // Fetch fresh from CoinGecko using AXIOS
+    console.log('🔄 Fetching fresh ETH price from CoinGecko (axios)...');
+    
+    try {
+      const response = await axios.get(
+        'https://api.coingecko.com/api/v3/simple/price',
+        {
+          params: {
+            ids: 'ethereum',
+            vs_currencies: 'usd'
+          },
+          headers: {
+            'User-Agent': 'MagicEden-NFT-Marketplace/1.0',
+            'Accept': 'application/json'
+          },
+          timeout: 10000 // 10 second timeout
+        }
+      );
+      
+      const data = response.data;
+      const price = data.ethereum?.usd || 2500;
+      console.log('✅ CoinGecko response:', price);
+      
+      // Update Redis cache if available
+      if (redisReady && redisClient) {
+        try {
+          await redisClient.set('eth:price', price.toString());
+          await redisClient.set('eth:price:time', now.toString());
+          console.log('💾 Price saved to Redis cache');
+        } catch (setErr) {
+          console.log('⚠️ Could not save to Redis:', setErr.message);
+        }
+      }
+      
+      // Return fresh price
+      return res.json({
+        success: true,
+        price: price,
+        cached: false,
+        timestamp: now,
+        source: 'coingecko-fresh'
+      });
+      
+    } catch (axiosError) {
+      console.error('❌ Axios CoinGecko error:', axiosError.message);
+      
+      // If we have stale cache, use it
+      if (cachedPrice) {
+        console.log('⚠️ Using stale cache due to CoinGecko error');
+        return res.json({
+          success: true,
+          price: parseFloat(cachedPrice),
+          cached: true,
+          stale: true,
+          timestamp: cachedTime,
+          source: 'stale-cache-error'
+        });
+      }
+      
+      throw new Error(`CoinGecko API error: ${axiosError.message}`);
+    }
+    
+  } catch (error) {
+    console.error('❌ ETH price endpoint error:', error.message);
+    
+    // Final fallback
+    return res.json({
+      success: false,
+      price: 2500,
+      cached: false,
+      error: true,
+      message: 'Using default price',
+      timestamp: Date.now()
+    });
+  }
+});
+// ========================
+// ========================
+// MULTIPLE CRYPTOCURRENCY PRICES ENDPOINT (AXIOS)
+// ========================
+app.get('/api/crypto-prices', async (req, res) => {
+  try {
+    const ids = req.query.ids || 'ethereum,solana';
+    
+    const response = await axios.get(
+      'https://api.coingecko.com/api/v3/simple/price',
+      {
+        params: {
+          ids: ids,
+          vs_currencies: 'usd'
+        }
+      }
+    );
+    
+    res.json(response.data);
+    
+  } catch (error) {
+    console.error('Crypto prices error:', error.message);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch prices',
+      message: error.message 
+    });
+  }
+});
+
+// ========================
+// MULTER CONFIGURATION (for file uploads)
 // ========================
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -68,11 +295,6 @@ const upload = multer({
     cb(new Error('Only image files are allowed!'));
   }
 });
-
-// ========================
-// CREATE EXPRESS APP
-// ========================
-const app = express();
 
 // ========================
 // MIDDLEWARE
@@ -124,7 +346,7 @@ app.get('/api/test', (req, res) => {
 });
 
 // ========================
-// CLOUDINARY TEST ENDPOINT (ADDED)
+// CLOUDINARY TEST ENDPOINT
 // ========================
 app.get('/api/test-cloudinary', async (req, res) => {
   try {
@@ -154,7 +376,7 @@ app.get('/api/test-cloudinary', async (req, res) => {
 // ========================
 const authRoutes = require('./routes/auth');
 const nftRoutes = require('./routes/nft');
-const User = require('./models/User'); // Your User model
+const User = require('./models/User');
 
 // ========================
 // REAL NFT CREATION API (with Cloudinary)
@@ -281,42 +503,6 @@ app.get('/activity', (req, res) => {
 });
 
 // ========================
-// REAL API: GET USER BY ID
-// ========================
-//app.get('/api/user/:userId', auth, async (req, res) => {
-  //  try {
-    //    const user = await User.findById(req.params.userId).select('-password');
-      //  
-        //if (!user) {
-          //  return res.status(404).json({ error: 'User not found' });
-      //  }
-        
-      //  res.json({
-        //    success: true,
-          //  user: {
-            //    _id: user._id,
-              //  email: user.email,
-                //fullName: user.fullName,
-         //       bio: user.bio,
-           //     balance: user.balance,
-             //   ethBalance: user.ethBalance,
-               // wethBalance: user.wethBalance,
-    //       //     profileImage: user.profileImage,
-               // isAdmin: user.isAdmin,
-                //createdAt: user.createdAt,
-                //nftCount: user.nftCount,
-               // totalVolume: user.totalVolume,
-                //twitter: user.twitter,
-               // website: user.website
-          //  }
-       // });
-   // } catch (error) {
-     //   console.error('Get user error:', error);
-       // res.status(500).json({ error: 'Failed to fetch user' });
-   // }
-//});
-
-// ========================
 // REAL API: UPDATE USER PROFILE
 // ========================
 app.put('/api/user/:userId/profile', auth, async (req, res) => {
@@ -389,31 +575,6 @@ app.get('/api/user/:userId/nfts', auth, async (req, res) => {
     }
 });
 
-// Add this to your server.js (backend)
-app.get('/api/eth-price', async (req, res) => {
-  try {
-      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-      const data = await response.json();
-      
-      // Cache for 5 minutes
-      res.set('Cache-Control', 'public, max-age=300');
-      
-      res.json({
-          success: true,
-          price: data.ethereum?.usd || 2500,
-          timestamp: Date.now()
-      });
-  } catch (error) {
-      console.error('ETH price fetch error:', error);
-      res.json({
-          success: false,
-          price: 2500,
-          error: error.message,
-          timestamp: Date.now()
-      });
-  }
-});
-
 // ========================
 // DATABASE CONNECTION
 // ========================
@@ -428,40 +589,13 @@ mongoose.connect(MONGODB_URI)
         console.log('⚠️ App will continue without database');
     });
 
-// ========================
-// ERROR HANDLING
-// ========================
-app.use((err, req, res, next) => {
-    console.error('❌ Server Error:', err.stack);
-    res.status(err.status || 500).json({ 
-        error: 'Something went wrong!',
-        message: err.message 
-    });
-});
-
-
 // USER ROUTES
 // ========================
 app.use('/api/user', userRoutes);
 
 // ========================
+// TEST USER ROUTES ENDPOINT
 // ========================
-// 404 HANDLER
-// ========================
-// At the end of your server.js, replace the 404 handler with:
-app.use('*', (req, res) => {
-  res.status(404).sendFile(path.join(__dirname, 'views', '404.html'), function(err) {
-      if (err) {
-          // If 404.html doesn't exist, send a simple JSON response
-          res.status(404).json({ 
-              error: 'Route not found',
-              message: `Cannot GET ${req.originalUrl}`,
-              timestamp: new Date().toISOString()
-          });
-      }
-  });
-});
-// Add this test route
 app.get('/api/test-user-routes', async (req, res) => {
   try {
       // Try to get user routes
@@ -491,6 +625,34 @@ app.get('/api/test-user-routes', async (req, res) => {
       });
   }
 });
+
+// ========================
+// ERROR HANDLING
+// ========================
+app.use((err, req, res, next) => {
+    console.error('❌ Server Error:', err.stack);
+    res.status(err.status || 500).json({ 
+        error: 'Something went wrong!',
+        message: err.message 
+    });
+});
+
+// ========================
+// 404 HANDLER
+// ========================
+app.use('*', (req, res) => {
+  res.status(404).sendFile(path.join(__dirname, 'views', '404.html'), function(err) {
+      if (err) {
+          // If 404.html doesn't exist, send a simple JSON response
+          res.status(404).json({ 
+              error: 'Route not found',
+              message: `Cannot GET ${req.originalUrl}`,
+              timestamp: new Date().toISOString()
+          });
+      }
+  });
+});
+
 // ========================
 // START SERVER
 // ========================
@@ -498,9 +660,11 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     console.log(`✅ REAL API Endpoints:`);
-    console.log(`   • GET  /api/user/:userId - Get user data`);
+    console.log(`   • GET  /api/eth-price - Get ETH price with Redis cache`);
+    console.log(`   • GET  /api/crypto-prices - Get multiple crypto prices`);
     console.log(`   • PUT  /api/user/:userId/profile - Update profile`);
     console.log(`   • GET  /api/user/:userId/nfts - Get user's NFTs`);
     console.log(`🔗 Cloudinary Test: http://localhost:${PORT}/api/test-cloudinary`);
+    console.log(`🔗 ETH Price Test: http://localhost:${PORT}/api/eth-price`);
     console.log(`🔗 Profile Example: http://localhost:${PORT}/user/123/profile`);
 });

@@ -1,65 +1,67 @@
 // Magic Eden Marketplace - Frontend JavaScript
 // CONNECTS TO YOUR BACKEND SERVER
-// AuthManager - Add this to app.js
-// Fetch live ETH price on load
-(async function() {
+
+// ============================================
+// GLOBAL VARIABLES
+// ============================================
+if (typeof window.API_BASE_URL === 'undefined') {
+    window.API_BASE_URL = 'http://localhost:5000/api';
+}
+
+if (typeof window.currentUser === 'undefined') {
+    window.currentUser = null;
+}
+
+if (typeof window.userToken === 'undefined') {
+    window.userToken = null;
+}
+
+// Now use them (don't redeclare with var/let/const)
+let API_BASE_URL = window.API_BASE_URL;
+let currentUser = window.currentUser;
+let userToken = window.userToken;
+
+// ============================================
+// ETH PRICE FROM BACKEND (NEW VERSION)
+// ============================================
+
+// Get ETH price from YOUR backend (not CoinGecko directly)
+async function getEthPriceFromBackend() {
     try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+        console.log('🔄 Fetching ETH price from backend...');
+        
+        const response = await fetch('/api/eth-price');
+        if (!response.ok) {
+            throw new Error(`Backend error: ${response.status}`);
+        }
+        
         const data = await response.json();
         
-        if (data.ethereum && data.ethereum.usd) {
-            window.ETH_PRICE = data.ethereum.usd;
-            console.log('✅ Live ETH price loaded:', window.ETH_PRICE);
-            
-            // Update all price displays
-            document.querySelectorAll('[data-eth-price]').forEach(el => {
-                const ethAmount = parseFloat(el.getAttribute('data-eth-amount') || 0);
-                el.textContent = `$${(ethAmount * window.ETH_PRICE).toFixed(2)}`;
-            });
+        if (data.success === false) {
+            console.warn('ETH price fetch failed, using default');
+            window.ETH_PRICE = 2500;
+            return 2500;
         }
+        
+        window.ETH_PRICE = data.price;
+        console.log('✅ ETH price loaded:', window.ETH_PRICE);
+        
+        // Update all price displays
+        updateAllEthPriceDisplays();
+        
+        return data.price;
+        
     } catch (error) {
-        console.error('Failed to fetch ETH price, using default');
+        console.error('Failed to fetch ETH price:', error);
         window.ETH_PRICE = 2500;
-    }
-})();
-
-// ============================================
-// ADDED: ETH PRICE REFRESH FUNCTIONALITY
-// ============================================
-// Refresh ETH price periodically
-function startEthPriceUpdates() {
-    // Initial fetch
-    setTimeout(() => {
-        const refreshBtn = document.getElementById('refreshEthPrice');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', refreshEthPrice);
-        }
-    }, 1000);
-    
-    // Update every 60 seconds
-    setInterval(refreshEthPrice, 60000);
-}
-
-async function refreshEthPrice() {
-    try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-        const data = await response.json();
-        
-        if (data.ethereum && data.ethereum.usd) {
-            window.ETH_PRICE = data.ethereum.usd;
-            console.log('✅ ETH price refreshed:', window.ETH_PRICE);
-            
-            // Update all price displays using the new function
-            updateAllEthPriceDisplays();
-        }
-    } catch (error) {
-        console.error('Failed to refresh ETH price');
+        updateAllEthPriceDisplays();
+        return 2500;
     }
 }
 
-// Update all ETH price displays across the site
+// Update all ETH price displays
 function updateAllEthPriceDisplays() {
-    const ethPrice = window.ETH_PRICE || localStorage.getItem('currentEthPrice') || 2500;
+    const ethPrice = window.ETH_PRICE || 2500;
     
     console.log('🔄 Updating all ETH price displays:', ethPrice);
     
@@ -106,21 +108,40 @@ function updateAllEthPriceDisplays() {
     }
 }
 
-// Start global ETH price updates for all pages
-function startGlobalEthPriceUpdates() {
-    // Initial fetch
-    fetchAndStoreEthPrice();
+// ============================================
+// INITIALIZATION
+// ============================================
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎮 Magic Eden Frontend initialized');
     
-    // Update every 60 seconds
-    setInterval(fetchAndStoreEthPrice, 60000);
+    // Check if user is logged in
+    checkAuthStatus();
     
-    // Also update when user returns to tab
-    document.addEventListener('visibilitychange', function() {
-        if (!document.hidden) {
-            fetchAndStoreEthPrice();
-        }
-    });
-}
+    // Test backend connection
+    testBackendConnection();
+    
+    // Load ETH price from backend (SINGLE CALL)
+    getEthPriceFromBackend();
+    
+    // Load NFTs if on homepage
+    if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+        loadNFTs();
+    }
+    
+    // Initialize balance loading
+    if (currentUser && currentUser._id) {
+        // Load user balance
+        loadUserBalance();
+    }
+    
+    // Initialize balance pages
+    setupBalancePages();
+});
+
+// ============================================
+// AUTH MANAGER
 // ============================================
 
 if (!window.AuthManager) {
@@ -144,76 +165,6 @@ if (!window.AuthManager) {
         }
     };
 }
-
-// Add this to app.js (after AuthManager)
-if (!window.db) {
-    window.db = {
-        getUsers: function() {
-            const usersJSON = localStorage.getItem('magicEdenUsers');
-            return usersJSON ? JSON.parse(usersJSON) : [];
-        },
-        
-        fixUserData: function(email) {
-            console.log('fixUserData called for:', email);
-            // Implementation...
-        }
-    };
-}
-
-// Define API_BASE_URL - use var to avoid duplicate declaration errors
-if (typeof window.API_BASE_URL === 'undefined') {
-    window.API_BASE_URL = 'http://localhost:5000/api';
-}
-
-// Define currentUser - use var to avoid duplicate declaration errors  
-if (typeof window.currentUser === 'undefined') {
-    window.currentUser = null;
-}
-
-// Define userToken - use var to avoid duplicate declaration errors
-if (typeof window.userToken === 'undefined') {
-    window.userToken = null;
-}
-
-// Now use them (don't redeclare with var/let/const)
-API_BASE_URL = window.API_BASE_URL;
-currentUser = window.currentUser;
-userToken = window.userToken;
-
- //API_BASE_URL = 'http://localhost:5000/api';
- //currentUser = null;
-// userToken = null;
-
-// Initialize when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🎮 Magic Eden Frontend initialized');
-    
-    // Check if user is logged in
-    checkAuthStatus();
-    
-    // Test backend connection
-    testBackendConnection();
-    
-    // Start global ETH price updates (for all pages)
-    startGlobalEthPriceUpdates();
-    
-    // Load NFTs if on homepage
-    if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
-        loadNFTs();
-    }
-    
-    // ============================================
-    // ADDED: Initialize balance loading
-    // ============================================
-    if (currentUser && currentUser._id) {
-        // Load user balance
-        loadUserBalance();
-    }
-    
-    // Start ETH price updates
-    startEthPriceUpdates();
-    // ============================================
-});
 
 // ========================
 // BACKEND API FUNCTIONS
@@ -339,13 +290,10 @@ async function login(email, password) {
             // Update UI
             updateAuthUI();
             
-            // ============================================
-            // ADDED: Load user balance after login
-            // ============================================
+            // Load user balance after login
             if (currentUser._id) {
                 await loadUserBalance();
             }
-            // ============================================
             
             // Show success message
             showNotification('Login successful!', 'success');
@@ -381,13 +329,10 @@ async function register(email, password, fullName = '') {
             // Update UI
             updateAuthUI();
             
-            // ============================================
-            // ADDED: Load user balance after registration
-            // ============================================
+            // Load user balance after registration
             if (currentUser._id) {
                 await loadUserBalance();
             }
-            // ============================================
             
             // Show success message
             showNotification('Registration successful!', 'success');
@@ -490,11 +435,8 @@ async function buyNFT(nftId) {
                 currentUser = data.user;
                 updateAuthUI();
                 
-                // ============================================
-                // ADDED: Also update balance displays
-                // ============================================
+                // Also update balance displays
                 updateAllBalanceDisplays();
-                // ============================================
             }
             
             // Reload NFTs
@@ -561,40 +503,13 @@ function setupEventListeners() {
             await login(email, password);
         });
     }
-    
-    // FIXED Registration handler
-//const registerForm = document.getElementById('registerForm');
-//if (registerForm) {
-  //registerForm.addEventListener('submit', async function(e) {
-   // e.preventDefault();
-    
-    // Check if elements exist before reading values
-   // const emailInput = document.getElementById('email');
-   // const passwordInput = document.getElementById('password');
-   // const fullNameInput = document.getElementById('fullName');
-    
-   // if (!emailInput || !passwordInput) {
-   //   console.error('Registration form elements missing');
-   //   showNotification('Form error: Missing required fields', 'error');
-   //   return;
-   // }
-    
-   // const email = emailInput.value;
-    //const password = passwordInput.value;
-   // const fullName = fullNameInput ? fullNameInput.value : '';
-    
-   // await register(email, password, fullName);
-  //});
-  //}
-   }
-
+}
 
 // Initialize the setup
 setupEventListeners();
 
-
 // ============================================
-// ADDED: USER BALANCE FUNCTIONS
+// USER BALANCE FUNCTIONS
 // ============================================
 
 // Load user balance from backend
@@ -639,7 +554,6 @@ async function loadUserBalance() {
         }
     } catch (error) {
         console.error('Failed to load user balance:', error);
-        // Don't show error notification here - it might be expected
     }
     return null;
 }
@@ -781,28 +695,6 @@ async function convertToWETH(amount) {
     return null;
 }
 
-// Fetch and store live ETH price globally
-async function fetchAndStoreEthPrice() {
-    try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-        const data = await response.json();
-        
-        if (data.ethereum && data.ethereum.usd) {
-            window.ETH_PRICE = data.ethereum.usd;
-            localStorage.setItem('currentEthPrice', window.ETH_PRICE);
-            console.log('✅ Live ETH price stored:', window.ETH_PRICE);
-            
-            // Update ALL price displays across the site
-            updateAllEthPriceDisplays();
-            
-            return window.ETH_PRICE;
-        }
-    } catch (error) {
-        console.error('Failed to fetch ETH price:', error);
-    }
-    return window.ETH_PRICE || 2500;
-}
-
 // Page-specific setup for ETH/WETH pages
 function setupBalancePages() {
     // Add ETH page handler
@@ -854,24 +746,6 @@ function setupBalancePages() {
         });
     }
 }
-
-// Initialize balance pages when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    // Small delay to ensure everything is loaded
-    setTimeout(() => {
-        setupBalancePages();
-        
-        // If on balance-related pages, load balance immediately
-        if (window.location.pathname.includes('add-eth') || 
-            window.location.pathname.includes('convert-weth') ||
-            window.location.pathname.includes('dashboard')) {
-            if (currentUser && currentUser._id) {
-                loadUserBalance();
-            }
-        }
-    }, 500);
-});
-
 
 // NFT Creation with Cloudinary
 document.addEventListener('DOMContentLoaded', function() {
@@ -1003,24 +877,20 @@ if (typeof currentUser === 'undefined') {
 if (typeof API_BASE_URL === 'undefined') {
     API_BASE_URL = window.API_BASE_URL || 'http://localhost:5000/api';
 }
+
+// ============================================
+// EXPORT FUNCTIONS TO GLOBAL SCOPE
 // ============================================
 
-// Make functions available globally
 window.login = login;
 window.register = register;
 window.logout = logout;
 window.buyNFT = buyNFT;
 window.loadNFTs = loadNFTs;
 window.showNotification = showNotification;
-
-
-// ============================================
-// ADDED: Export new balance functions to global scope
-// ============================================
+window.getEthPriceFromBackend = getEthPriceFromBackend;
+window.updateAllEthPriceDisplays = updateAllEthPriceDisplays;
 window.loadUserBalance = loadUserBalance;
 window.addETH = addETH;
 window.convertToWETH = convertToWETH;
 window.updateAllBalanceDisplays = updateAllBalanceDisplays;
-window.refreshEthPrice = refreshEthPrice;
-window.updateAllEthPriceDisplays = updateAllEthPriceDisplays;
-// ============================================
