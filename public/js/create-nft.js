@@ -463,13 +463,8 @@ function setupFormValidation() {
     const form = document.getElementById('nftCreationForm');
     if (!form) return;
     
-    // Validate on form submit
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        if (validateForm()) {
-            mintNFT();
-        }
-    });
+    // ⚠️ REMOVED: Old form submit handler
+    // The new form handler will be added separately at the end
     
     // Validate terms checkbox
     const termsCheckbox = document.getElementById('agreeTerms');
@@ -600,7 +595,7 @@ function validateNumberField(e) {
 
 function validateForm() {
     if (isMintingInProgress) {
-        showError("Minting is already in progress. Please wait...");
+        showError("Form submission is already in progress. Please wait...");
         return false;
     }
     
@@ -782,204 +777,6 @@ document.addEventListener('keydown', function(e) {
         closeModal('previewModal');
     }
 });
-
-// Mint NFT Function
-async function mintNFT() {
-    if (!validateForm()) return;
-    
-    if (isMintingInProgress) {
-        showError("Minting is already in progress. Please wait...");
-        return;
-    }
-    
-    isMintingInProgress = true;
-    
-    const createBtn = document.getElementById('createBtn');
-    const originalHTML = createBtn.innerHTML;
-    
-    // Disable button and show loading
-    createBtn.disabled = true;
-    createBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Minting NFT...';
-    
-    // Show minting modal
-    showMintingModal();
-    
-    try {
-        // Gather form data
-        const nftData = {
-            name: document.getElementById('nftName').value,
-            description: document.getElementById('nftDescription').value,
-            external_url: document.getElementById('nftExternalUrl').value || '',
-            price: parseFloat(document.getElementById('nftPrice').value),
-            royalty: parseFloat(document.getElementById('royaltyPercentage').value),
-            collection: document.getElementById('collectionSelect').value,
-            collection_name: document.getElementById('collectionSelect').value === '' 
-                ? document.getElementById('collectionName').value 
-                : document.getElementById('collectionSelect').options[document.getElementById('collectionSelect').selectedIndex].text,
-            file: currentFile,
-            timestamp: new Date().toISOString(),
-            creator: AuthManager.getCurrentUser()?.username || 'Anonymous'
-        };
-        
-        console.log('📦 NFT Data to mint:', nftData);
-        
-        // Simulate API call with progress updates
-        await simulateMintingProcess();
-        
-        // Save NFT to localStorage (simulating database)
-        saveNFTToStorage(nftData);
-        
-        // Update user balance (deduct minting fee)
-        updateUserBalance(0.1);
-        
-        // Success
-        showSuccess('🎉 NFT successfully minted and listed!');
-        
-        // Hide minting modal
-        hideMintingModal();
-        
-        // Redirect to dashboard after a delay
-        setTimeout(() => {
-            window.location.href = '/dashboard';
-        }, 2000);
-        
-    } catch (error) {
-        console.error('❌ Minting error:', error);
-        showError('Failed to mint NFT. Please try again.');
-        
-        // Hide minting modal
-        hideMintingModal();
-        
-        // Reset button
-        createBtn.disabled = false;
-        createBtn.innerHTML = originalHTML;
-        
-    } finally {
-        isMintingInProgress = false;
-        updateCreateButton();
-    }
-}
-
-async function simulateMintingProcess() {
-    const steps = [
-        { text: "Preparing artwork...", duration: 1000 },
-        { text: "Uploading to IPFS...", duration: 1500 },
-        { text: "Creating metadata...", duration: 800 },
-        { text: "Initializing smart contract...", duration: 1200 },
-        { text: "Confirming transaction...", duration: 2000 },
-        { text: "Listing on marketplace...", duration: 1000 }
-    ];
-    
-    for (let i = 0; i < steps.length; i++) {
-        updateMintingProgress(i + 1, steps.length, steps[i].text);
-        await new Promise(resolve => setTimeout(resolve, steps[i].duration));
-    }
-}
-
-function updateMintingProgress(current, total, text) {
-    const progressBar = document.getElementById('mintingProgress');
-    const progressText = document.getElementById('mintingProgressText');
-    const progressPercent = Math.round((current / total) * 100);
-    
-    if (progressBar) {
-        progressBar.style.width = `${progressPercent}%`;
-        progressBar.textContent = `${progressPercent}%`;
-    }
-    
-    if (progressText) {
-        progressText.textContent = text;
-    }
-}
-
-function showMintingModal() {
-    const modalHTML = `
-        <div id="mintingModal" class="modal">
-            <div class="modal-content minting-modal">
-                <div class="modal-header">
-                    <h3><i class="fas fa-spinner fa-spin"></i> Minting NFT</h3>
-                </div>
-                <div class="modal-body">
-                    <p>Please wait while we create your NFT on the blockchain...</p>
-                    
-                    <div class="minting-progress">
-                        <div class="progress-bar">
-                            <div id="mintingProgress" class="progress-fill" style="width: 0%">0%</div>
-                        </div>
-                        <div id="mintingProgressText" class="progress-text">Initializing...</div>
-                    </div>
-                    
-                    <div class="minting-note">
-                        <i class="fas fa-info-circle"></i>
-                        <p>Do not close this window while minting is in progress. Transaction may take a few minutes.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Add minting modal styles
-    addMintingModalStyles();
-    
-    // Insert modal
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-    document.getElementById('mintingModal').style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-}
-
-function hideMintingModal() {
-    const modal = document.getElementById('mintingModal');
-    if (modal) {
-        modal.remove();
-        document.body.style.overflow = 'auto';
-    }
-}
-
-function saveNFTToStorage(nftData) {
-    try {
-        // Get existing NFTs or initialize array
-        const existingNFTs = JSON.parse(localStorage.getItem('userNFTs') || '[]');
-        
-        // Create NFT object
-        const nft = {
-            id: 'nft-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
-            ...nftData,
-            created_at: new Date().toISOString(),
-            status: 'listed',
-            views: 0,
-            likes: 0,
-            file_size: nftData.file.size,
-            file_type: nftData.file.type
-        };
-        
-        // Remove file from data (can't store in localStorage)
-        delete nft.file;
-        
-        // Add to array
-        existingNFTs.push(nft);
-        
-        // Save back to localStorage
-        localStorage.setItem('userNFTs', JSON.stringify(existingNFTs));
-        
-        console.log('💾 NFT saved to storage:', nft.id);
-        
-    } catch (error) {
-        console.error('❌ Error saving NFT to storage:', error);
-        throw error;
-    }
-}
-
-function updateUserBalance(amount) {
-    try {
-        const user = AuthManager.getCurrentUser();
-        if (user) {
-            user.balance = Math.max(0, (user.balance || 0) - amount);
-            AuthManager.saveUser(user);
-            console.log(`💰 Updated user balance: ${user.balance.toFixed(4)} ETH`);
-        }
-    } catch (error) {
-        console.error('❌ Error updating user balance:', error);
-    }
-}
 
 // Notification Functions
 function showError(message) {
@@ -1271,106 +1068,6 @@ function addPreviewStyles() {
     document.head.appendChild(style);
 }
 
-function addMintingModalStyles() {
-    if (document.getElementById('minting-styles')) return;
-    
-    const style = document.createElement('style');
-    style.id = 'minting-styles';
-    style.textContent = `
-        .minting-modal {
-            max-width: 500px;
-            background: white;
-            border-radius: 20px;
-            overflow: hidden;
-        }
-        
-        .minting-modal .modal-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 1.5rem 2rem;
-            text-align: center;
-        }
-        
-        .minting-modal .modal-header h3 {
-            margin: 0;
-            font-size: 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.8rem;
-        }
-        
-        .minting-modal .modal-body {
-            padding: 2rem;
-            text-align: center;
-        }
-        
-        .minting-modal .modal-body p {
-            color: #666;
-            margin-bottom: 2rem;
-            font-size: 1.1rem;
-        }
-        
-        .minting-progress {
-            margin: 2rem 0;
-        }
-        
-        .progress-bar {
-            height: 12px;
-            background: #e2e8f0;
-            border-radius: 6px;
-            overflow: hidden;
-            margin-bottom: 1rem;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            border-radius: 6px;
-            transition: width 0.5s ease;
-            color: white;
-            font-size: 0.8rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-        }
-        
-        .progress-text {
-            color: #667eea;
-            font-weight: 500;
-            font-size: 0.9rem;
-            margin-top: 0.5rem;
-        }
-        
-        .minting-note {
-            display: flex;
-            align-items: flex-start;
-            gap: 1rem;
-            padding: 1rem;
-            background: #fef3c7;
-            border-radius: 10px;
-            border-left: 4px solid #f59e0b;
-            margin-top: 2rem;
-            text-align: left;
-        }
-        
-        .minting-note i {
-            color: #f59e0b;
-            font-size: 1.2rem;
-            margin-top: 0.2rem;
-        }
-        
-        .minting-note p {
-            color: #92400e;
-            margin: 0;
-            font-size: 0.9rem;
-            line-height: 1.5;
-        }
-    `;
-    document.head.appendChild(style);
-}
-
 // Add spinner styles for loading states
 function addSpinnerStyles() {
     if (document.getElementById('spinner-styles')) return;
@@ -1530,73 +1227,270 @@ function checkBalanceSufficiency(balance) {
     updateCreateButton();
 }
 
-// NFT Creation with Cloudinary
-document.addEventListener('DOMContentLoaded', function() {
-    const createNFTForm = document.getElementById('createNFTForm');
-    const imagePreview = document.getElementById('imagePreview');
-    const imageInput = document.getElementById('image');
-    const createButton = document.getElementById('createNFTBtn');
-    const loadingSpinner = document.getElementById('loadingSpinner');
+console.log("✅ NFT Creation script loaded successfully");
+
+// ========================
+// DEBUG FUNCTION - Add this to see what's wrong
+// ========================
+function debugFormValidation() {
+    console.log('🔍 DEBUGGING FORM VALIDATION:');
     
-    if (!createNFTForm) return;
+    // Check all required fields
+    const requiredFields = document.querySelectorAll('input[required], textarea[required], select[required]');
+    console.log(`Found ${requiredFields.length} required fields`);
     
-    // Preview uploaded image
-    if (imageInput && imagePreview) {
-        imageInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    imagePreview.innerHTML = `
-                        <img src="${e.target.result}" alt="Preview" style="max-width: 300px; border-radius: 8px;">
-                        <p>${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)</p>
-                    `;
-                };
-                reader.readAsDataURL(file);
-            }
-        });
+    requiredFields.forEach((field, index) => {
+        const id = field.id || field.name;
+        const value = field.value;
+        const isFilled = !!value.trim();
+        
+        console.log(`${index + 1}. ${id}: "${value}" - ${isFilled ? '✅ Filled' : '❌ EMPTY'}`);
+    });
+    
+    // Check file upload
+    console.log(`📁 File uploaded: ${currentFile ? '✅ Yes - ' + currentFile.name : '❌ No'}`);
+    
+    // Check balance
+    console.log(`💰 Balance sufficient: ${isBalanceSufficient ? '✅ Yes' : '❌ No'}`);
+    
+    // Check terms
+    const termsChecked = document.getElementById('agreeTerms')?.checked;
+    console.log(`📝 Terms agreed: ${termsChecked ? '✅ Yes' : '❌ No'}`);
+}
+
+// Update the validateForm function to call debug
+function validateForm() {
+    console.log('🔄 Validating form...');
+    
+    if (isMintingInProgress) {
+        showError("Form submission is already in progress. Please wait...");
+        return false;
     }
     
-    // Handle form submission
-    createNFTForm.addEventListener('submit', async function(e) {
+    const form = document.getElementById('nftCreationForm');
+    let isValid = true;
+    
+    // Debug: Show what's wrong
+    debugFormValidation();
+    
+    // Check required fields
+    const requiredInputs = form.querySelectorAll('input[required], textarea[required], select[required]');
+    requiredInputs.forEach(input => {
+        if (!input.value.trim()) {
+            console.log(`❌ Required field empty: ${input.id || input.name}`);
+            isValid = false;
+        }
+    });
+    
+    // Check file upload
+    if (!currentFile) {
+        console.log('❌ No file uploaded');
+        showError('Please upload an artwork file');
+        isValid = false;
+    }
+    
+    // Check NFT name
+    const nftName = document.getElementById('nftName').value;
+    if (nftName && nftName.length < 3) {
+        console.log('❌ NFT name too short');
+        showError('NFT name must be at least 3 characters long');
+        isValid = false;
+    }
+    
+    // Check price
+    const price = parseFloat(document.getElementById('nftPrice').value);
+    if (price < 0.01) {
+        console.log('❌ Price too low');
+        showError('Minimum price is 0.01 WETH');
+        isValid = false;
+    }
+    
+    // Check terms agreement
+    if (!document.getElementById('agreeTerms').checked) {
+        console.log('❌ Terms not agreed');
+        showError('You must agree to the terms and conditions');
+        isValid = false;
+    }
+    
+    // Check balance
+    if (!isBalanceSufficient) {
+        console.log('❌ Insufficient balance');
+        showError('Insufficient ETH balance to mint NFT');
+        isValid = false;
+    }
+    
+    console.log(`✅ Form validation result: ${isValid ? 'PASS' : 'FAIL'}`);
+    return isValid;
+}
+
+// ========================
+// SINGLE FORM SUBMISSION HANDLER
+// ========================
+// ========================
+// DEBUG: Check which fields are missing
+// ========================
+function checkRequiredFields() {
+    console.log('🔍 CHECKING REQUIRED FIELDS:');
+    
+    const requiredFields = [
+        { id: 'nftName', name: 'NFT Name' },
+        { id: 'nftPrice', name: 'NFT Price' },
+        { id: 'agreeTerms', name: 'Terms Agreement', type: 'checkbox' }
+    ];
+    
+    let allValid = true;
+    
+    requiredFields.forEach(field => {
+        const element = document.getElementById(field.id);
+        if (element) {
+            let isValid = true;
+            let value = '';
+            
+            if (field.type === 'checkbox') {
+                value = element.checked ? 'Checked' : 'Unchecked';
+                isValid = element.checked;
+            } else {
+                value = element.value;
+                isValid = element.value.trim() !== '';
+            }
+            
+            console.log(`${field.name}: "${value}" - ${isValid ? '✅' : '❌'}`);
+            
+            if (!isValid) {
+                allValid = false;
+                console.log(`❌ MISSING: ${field.name}`);
+            }
+        } else {
+            console.log(`❌ Element not found: ${field.id}`);
+            allValid = false;
+        }
+    });
+    
+    // Check file
+    console.log(`File uploaded: ${currentFile ? '✅ ' + currentFile.name : '❌ No file'}`);
+    if (!currentFile) {
+        allValid = false;
+        console.log('❌ MISSING: Image file');
+    }
+    
+    // Check collection
+    const collectionSelect = document.getElementById('collectionSelect');
+    if (collectionSelect) {
+        if (collectionSelect.value === '') {
+            // Creating new collection
+            const collectionName = document.getElementById('collectionName');
+            if (collectionName) {
+                const hasCollectionName = collectionName.value.trim() !== '';
+                console.log(`New Collection Name: "${collectionName.value}" - ${hasCollectionName ? '✅' : '❌'}`);
+                if (!hasCollectionName) {
+                    allValid = false;
+                    console.log('❌ MISSING: Collection name (when creating new collection)');
+                }
+            }
+        } else {
+            console.log(`Collection selected: "${collectionSelect.options[collectionSelect.selectedIndex].text}" ✅`);
+        }
+    }
+    
+    console.log(`All fields valid: ${allValid ? '✅ YES' : '❌ NO'}`);
+    return allValid;
+}
+// FORM SUBMISSION HANDLER (FIXED)
+// ========================
+
+// Handle form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('nftCreationForm');
+    if (!form) return;
+    
+    form.addEventListener('submit', async function(e) {
         e.preventDefault();
         
-        if (!currentUser) {
-            showNotification('Please login to create NFTs', 'error');
-            window.location.href = '/login';
+        console.log('📝 Form submission started...');
+        
+        // Debug: Check what's missing
+        if (!checkRequiredFields()) {
+            showError('Please fill all required fields correctly');
             return;
         }
         
-        const formData = new FormData(createNFTForm);
-        
-        // Validate
-        const name = formData.get('name');
-        const price = formData.get('price');
-        const imageFile = formData.get('image');
-        
-        if (!name || !price || !imageFile || imageFile.size === 0) {
-            showNotification('Please fill all required fields', 'error');
-            return;
-        }
-        
-        // Show loading
-        if (createButton && loadingSpinner) {
-            createButton.disabled = true;
-            createButton.innerHTML = 'Creating NFT...';
-            loadingSpinner.style.display = 'block';
-        }
+        // Get button and show loading
+        const createBtn = document.getElementById('createBtn');
+        const originalBtnText = createBtn.innerHTML;
+        createBtn.disabled = true;
+        createBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating NFT...';
         
         try {
+            // Get form data
+            const formData = new FormData();
+            
+            // Add all form fields
+            const nftName = document.getElementById('nftName').value;
+            const nftDescription = document.getElementById('nftDescription').value;
+            const nftPrice = document.getElementById('nftPrice').value;
+            const royalty = document.getElementById('royaltyPercentage').value;
+            const externalUrl = document.getElementById('nftExternalUrl').value;
+            
+            console.log('Form values:', {
+                name: nftName,
+                price: nftPrice,
+                royalty: royalty,
+                hasDescription: !!nftDescription,
+                hasExternalUrl: !!externalUrl
+            });
+            
+            // Validate required fields
+            if (!nftName || !nftName.trim()) {
+                throw new Error('NFT name is required');
+            }
+            
+            if (!nftPrice || parseFloat(nftPrice) < 0.01) {
+                throw new Error('Price must be at least 0.01 WETH');
+            }
+            
+            if (!currentFile) {
+                throw new Error('Please upload an image');
+            }
+            
+            // Add form data
+            formData.append('name', nftName);
+            formData.append('description', nftDescription || '');
+            formData.append('price', nftPrice);
+            formData.append('royalty', royalty || '5');
+            formData.append('external_url', externalUrl || '');
+            
+            // Collection
+            const collectionSelect = document.getElementById('collectionSelect');
+            let collectionName = 'Unnamed Collection';
+            
+            if (collectionSelect) {
+                if (collectionSelect.value === '') {
+                    // Creating new collection
+                    const newCollectionName = document.getElementById('collectionName').value;
+                    collectionName = newCollectionName || 'My Collection';
+                } else {
+                    // Using existing collection
+                    collectionName = collectionSelect.options[collectionSelect.selectedIndex].text;
+                }
+            }
+            
+            formData.append('collection_name', collectionName);
+            formData.append('category', 'art');
+            
+            // Add image file
+            formData.append('image', currentFile);
+            
             // Get token from localStorage
             const token = localStorage.getItem('token');
             if (!token) {
-                throw new Error('Authentication required');
+                throw new Error('Please login to create NFTs');
             }
             
-            console.log('📤 Uploading NFT to backend...');
+            console.log('📤 Sending to backend...');
+            console.log('Collection name:', collectionName);
             
             // Send to backend
-            const response = await fetch(`${API_BASE_URL}/nft/create`, {
+            const response = await fetch('http://localhost:5000/api/nft/create', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -1604,26 +1498,39 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: formData
             });
             
-            const data = await response.json();
+            console.log('📥 Response status:', response.status);
+            
+            // Try to parse response
+            let data;
+            try {
+                const text = await response.text();
+                console.log('Response text:', text);
+                data = JSON.parse(text);
+            } catch (parseError) {
+                console.error('Failed to parse response:', parseError);
+                throw new Error('Invalid server response');
+            }
             
             if (!response.ok) {
-                throw new Error(data.error || 'Failed to create NFT');
+                throw new Error(data.error || `Server error: ${response.status}`);
             }
             
             if (data.success) {
-                showNotification('NFT created successfully!', 'success');
-                console.log('✅ NFT Created:', data.nft);
+                // Success!
+                console.log('✅ NFT created successfully:', data.nft);
+                
+                // Show success message
+                showNotification('🎉 NFT created and listed successfully!', 'success');
                 
                 // Reset form
-                createNFTForm.reset();
-                if (imagePreview) {
-                    imagePreview.innerHTML = '<p>No image selected</p>';
-                }
+                form.reset();
+                removePreview();
                 
-                // Redirect to explore page after 2 seconds
+                // Redirect to marketplace after 3 seconds
                 setTimeout(() => {
                     window.location.href = '/';
-                }, 2000);
+                }, 3000);
+                
             } else {
                 throw new Error(data.error || 'Failed to create NFT');
             }
@@ -1631,34 +1538,10 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('❌ NFT creation failed:', error);
             showNotification(error.message || 'Failed to create NFT', 'error');
-        } finally {
-            // Reset button
-            if (createButton && loadingSpinner) {
-                createButton.disabled = false;
-                createButton.innerHTML = 'Create & List NFT';
-                loadingSpinner.style.display = 'none';
-            }
+            
+            // Re-enable button
+            createBtn.disabled = false;
+            createBtn.innerHTML = originalBtnText;
         }
     });
-    
-    // Price validation
-    const priceInput = document.getElementById('price');
-    if (priceInput) {
-        priceInput.addEventListener('input', function(e) {
-            let value = parseFloat(e.target.value);
-            if (value < 0) e.target.value = 0;
-            if (value > 1000) e.target.value = 1000;
-        });
-    }
 });
-
-// Make sure we have currentUser and API_BASE_URL
-if (typeof currentUser === 'undefined') {
-    currentUser = JSON.parse(localStorage.getItem('user'));
-}
-
-if (typeof API_BASE_URL === 'undefined') {
-    API_BASE_URL = window.API_BASE_URL || 'http://localhost:5000/api';
-}
-
-console.log("✅ NFT Creation script loaded successfully");
