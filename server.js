@@ -156,6 +156,98 @@ const authRoutes = require('./routes/auth');
 const nftRoutes = require('./routes/nft');
 const User = require('./models/User'); // Your User model
 
+// ========================
+// REAL NFT CREATION API (with Cloudinary)
+// ========================
+app.post('/api/nft/create', auth, upload.single('image'), async (req, res) => {
+  try {
+      console.log('📤 NFT Creation Request:', req.body);
+      console.log('📁 File received:', req.file);
+      
+      if (!req.file) {
+          return res.status(400).json({ 
+              success: false, 
+              error: 'No image file provided' 
+          });
+      }
+      
+      // Upload to Cloudinary
+      console.log('☁️ Uploading to Cloudinary...');
+      const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
+          folder: 'magic-eden-nfts',
+          resource_type: 'auto'
+      });
+      
+      console.log('✅ Cloudinary upload successful:', cloudinaryResult.url);
+      
+      // Clean up local file
+      fs.unlinkSync(req.file.path);
+      
+      // Get user from request (added by auth middleware)
+      const user = req.user;
+      
+      // Create NFT in database
+      const NFT = require('./models/NFT');
+      const nft = new NFT({
+          name: req.body.name,
+          collectionName: req.body.collection_name || 'Unnamed Collection',
+          price: parseFloat(req.body.price),
+          category: req.body.category || 'art',
+          image: cloudinaryResult.secure_url,
+          owner: user._id,
+          description: req.body.description || '',
+          externalUrl: req.body.external_url || '',
+          royalty: parseFloat(req.body.royalty) || 5,
+          cloudinaryId: cloudinaryResult.public_id,
+          metadata: {
+              format: cloudinaryResult.format,
+              width: cloudinaryResult.width,
+              height: cloudinaryResult.height,
+              bytes: cloudinaryResult.bytes
+          }
+      });
+      
+      // Generate token ID
+      nft.tokenId = `NFT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      await nft.save();
+      
+      // Update user's NFT count
+      await User.findByIdAndUpdate(user._id, {
+          $inc: { nftCount: 1 }
+      });
+      
+      console.log('✅ NFT saved to database:', nft._id);
+      
+      res.json({
+          success: true,
+          message: 'NFT created successfully!',
+          nft: {
+              _id: nft._id,
+              name: nft.name,
+              price: nft.price,
+              image: nft.image,
+              collectionName: nft.collectionName,
+              tokenId: nft.tokenId,
+              createdAt: nft.createdAt
+          }
+      });
+      
+  } catch (error) {
+      console.error('❌ NFT creation error:', error);
+      
+      // Clean up file if exists
+      if (req.file && fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+      }
+      
+      res.status(500).json({ 
+          success: false, 
+          error: error.message || 'Failed to create NFT' 
+      });
+  }
+});
+
 // Register page route
 app.get("/register", (req, res) => {
   res.sendFile(path.join(__dirname, "views", "register.html"));
