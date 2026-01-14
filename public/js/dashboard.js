@@ -7,26 +7,14 @@ let currentConversionType = 'ethToWeth';
 let ETH_PRICE = window.ETH_PRICE || localStorage.getItem('currentEthPrice') ||2500; // Default price
 const MARKETPLACE_WALLET_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc9e90E4343A9B";
 
-// Fetch live ETH price on load
-(async function() {
-    try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-        const data = await response.json();
-        
-        if (data.ethereum && data.ethereum.usd) {
-            ETH_PRICE = data.ethereum.usd;
-            console.log('✅ Live ETH price loaded:', ETH_PRICE);
-            
-            // Update all price displays
-            document.querySelectorAll('[data-eth-price]').forEach(el => {
-                const ethAmount = parseFloat(el.getAttribute('data-eth-amount') || 0);
-                el.textContent = `$${(ethAmount * ETH_PRICE).toFixed(2)}`;
-            });
-        }
-    } catch (error) {
-        console.error('Failed to fetch ETH price, using default');
+// Replace direct CoinGecko calls with:
+async function updateEthDisplay() {
+    if (window.ethPriceService) {
+      const price = await window.ethPriceService.getPrice();
+      // Update your display
+      document.getElementById('ethPrice').textContent = `$${price}`;
     }
-})();
+  }
 
 // ============================================
 // UPDATED DASHBOARD.JS WITH /me ENDPOINTS

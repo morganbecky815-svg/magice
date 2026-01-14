@@ -659,21 +659,14 @@ async function fetchEthPrice() {
         await fetchEthPriceDirect();
     }
 }
-
-async function fetchEthPriceDirect() {
-    try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-        const data = await response.json();
-        
-        if (data.ethereum && data.ethereum.usd) {
-            window.ETH_PRICE = data.ethereum.usd;
-            console.log('✅ Live ETH price loaded:', window.ETH_PRICE);
-        }
-    } catch (error) {
-        console.error('Failed to fetch ETH price, using default');
-        window.ETH_PRICE = 2500;
+// Replace direct CoinGecko calls with:
+async function updateEthDisplay() {
+    if (window.ethPriceService) {
+      const price = await window.ethPriceService.getPrice();
+      // Update your display
+      document.getElementById('ethPrice').textContent = `$${price}`;
     }
-}
+  }
 
 // ========== INITIALIZATION ==========
 
