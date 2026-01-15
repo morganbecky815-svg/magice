@@ -10,14 +10,17 @@ const axios = require('axios');
 const Redis = require('redis');
 const { auth } = require('./middleware/auth');
 const userRoutes = require('./routes/user');
-const ActivityLogger = require('./utils/activityLogger');
+const collectionRoutes = require('./routes/collection');
 
-// ========================
-// CLOUDINARY IMPORTS
-// ========================
+// Cloudinary imports
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
 const fs = require('fs');
+
+// Model imports
+const User = require('./models/User');
+const Activity = require('./models/Activity');
+const ActivityLogger = require('./utils/activityLogger');
 
 // ========================
 // LOAD ENVIRONMENT VARIABLES
@@ -30,7 +33,7 @@ dotenv.config();
 const app = express();
 
 // ========================
-// WINDOWS REDIS CONNECTION (FIXED)
+// WINDOWS REDIS CONNECTION
 // ========================
 let redisClient = null;
 let redisReady = false;
@@ -39,7 +42,6 @@ async function initWindowsRedis() {
     console.log('🔧 Setting up Redis for Windows...');
     
     try {
-        // Windows Redis connection
         redisClient = Redis.createClient({
             socket: {
                 host: '127.0.0.1',
@@ -56,7 +58,6 @@ async function initWindowsRedis() {
             }
         });
         
-        // Error handling
         redisClient.on('error', (err) => {
             console.log('⚠️ Redis Error:', err.message);
             redisReady = false;
@@ -71,7 +72,6 @@ async function initWindowsRedis() {
             redisReady = true;
         });
         
-        // Connect with timeout
         await Promise.race([
             redisClient.connect(),
             new Promise((_, reject) => 
@@ -79,7 +79,6 @@ async function initWindowsRedis() {
             )
         ]);
         
-        // Test connection
         await redisClient.set('windows-test', 'connected-' + Date.now());
         const testResult = await redisClient.get('windows-test');
         console.log(`🧪 Redis test successful: ${testResult}`);
@@ -102,7 +101,6 @@ async function initWindowsRedis() {
     }
 }
 
-// Initialize Redis
 initWindowsRedis();
 
 // ========================
@@ -114,7 +112,6 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Log Cloudinary status
 console.log('🔧 Cloudinary Status:', {
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? '✅ Configured' : '❌ Missing',
   api_key: process.env.CLOUDINARY_API_KEY ? '✅ Configured' : '❌ Missing',
@@ -122,9 +119,198 @@ console.log('🔧 Cloudinary Status:', {
 });
 
 // ========================
+// MULTER CONFIGURATION
 // ========================
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = 'uploads/';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: function (req, file, cb) {
+    const filetypes = /jpeg|jpg|png|gif|webp/;
+    const mimetype = filetypes.test(file.mimetype);
+    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    }
+    cb(new Error('Only image files are allowed!'));
+  }
+});
+
 // ========================
-// ETH PRICE ENDPOINT (WITH AXIOS)
+// MIDDLEWARE
+// ========================
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'views')));
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ========================
+// HELPER FUNCTIONS
+// ========================
+function getActivityIcon(type) {
+    const icons = {
+        'nft_created': '🖼️',
+        'nft_purchased': '🛒',
+        'nft_sold': '💰',
+        'nft_transferred': '🔄',
+        'bid_placed': '🎯',
+        'bid_accepted': '✅',
+        'funds_added': '➕',
+        'login': '🔐',
+        'profile_updated': '👤'
+    };
+    return icons[type] || '📌';
+}
+
+// ========================
+// HTML PAGE ROUTES
+// ========================
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'index.html'));
+});
+
+app.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'dashboard.html'));
+});
+
+app.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'login.html'));
+});
+
+app.get('/profile', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'profile.html'));
+});
+
+app.get('/user/:userId/profile', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'profile.html'));
+});
+
+app.get('/add-eth', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'add-eth.html'));
+});
+
+app.get('/convert-weth', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'convert-weth.html'));
+});
+
+app.get('/create-nft', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'create-nft.html'));
+});
+
+app.get('/activity', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'activity.html'));
+});
+
+app.get("/register", (req, res) => {
+    res.sendFile(path.join(__dirname, "views", "register.html"));
+});
+
+app.get("/user/:userId/register", (req, res) => {
+    res.sendFile(path.join(__dirname, "views", "register.html"));
+});
+
+app.get('/create-collection', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'create-collection.html'));
+});
+
+app.get('/collection/:collectionId', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'collection.html'));
+});
+
+app.get('/nft/:nftId', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'nft-detail.html'));
+});
+
+// ========================
+// API ROUTES
+// ========================
+const authRoutes = require('./routes/auth');
+const nftRoutes = require('./routes/nft');
+
+// Register API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/nft', nftRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/collection', collectionRoutes);
+
+// ========================
+// API TEST ROUTES
+// ========================
+app.get('/api/test', (req, res) => {
+    res.json({ 
+        success: true, 
+        message: 'API is working',
+        timestamp: new Date().toISOString()
+    });
+});
+
+app.get('/api/test-cloudinary', async (req, res) => {
+  try {
+    const result = await cloudinary.api.ping();
+    
+    res.json({
+      success: true,
+      message: 'Cloudinary is working!',
+      cloudinary: result,
+      config: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY ? '***' + process.env.CLOUDINARY_API_KEY.slice(-4) : 'Missing',
+        api_secret: process.env.CLOUDINARY_API_SECRET ? '***' + process.env.CLOUDINARY_API_SECRET.slice(-4) : 'Missing'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Cloudinary configuration error'
+    });
+  }
+});
+
+app.get('/api/test-user-routes', async (req, res) => {
+  try {
+      const user = require('./routes/user');
+      const routes = [];
+      user.stack.forEach((layer) => {
+          if (layer.route) {
+              routes.push({
+                  path: `/api/user${layer.route.path}`,
+                  methods: Object.keys(layer.route.methods)
+              });
+          }
+      });
+      
+      res.json({
+          success: true,
+          message: 'Available user routes:',
+          routes: routes,
+          total: routes.length
+      });
+      
+  } catch (error) {
+      res.json({
+          success: false,
+          error: error.message
+      });
+  }
+});
+
+// ========================
+// ETH PRICE ENDPOINT
 // ========================
 app.get('/api/eth-price', async (req, res) => {
   console.log('🌐 ETH price request received');
@@ -133,7 +319,6 @@ app.get('/api/eth-price', async (req, res) => {
     let cachedPrice = null;
     let cachedTime = null;
     
-    // Try Redis cache if available
     if (redisReady && redisClient) {
       try {
         cachedPrice = await redisClient.get('eth:price');
@@ -145,11 +330,9 @@ app.get('/api/eth-price', async (req, res) => {
     }
     
     const now = Date.now();
-    const CACHE_DURATION = 60000; // 1 minute
+    const CACHE_DURATION = 60000;
     
-    // Return cached if fresh
-    if (cachedPrice && cachedTime && 
-        (now - parseInt(cachedTime)) < CACHE_DURATION) {
+    if (cachedPrice && cachedTime && (now - parseInt(cachedTime)) < CACHE_DURATION) {
       return res.json({
         success: true,
         price: parseFloat(cachedPrice),
@@ -159,8 +342,7 @@ app.get('/api/eth-price', async (req, res) => {
       });
     }
     
-    // Fetch fresh from CoinGecko using AXIOS
-    console.log('🔄 Fetching fresh ETH price from CoinGecko (axios)...');
+    console.log('🔄 Fetching fresh ETH price from CoinGecko...');
     
     try {
       const response = await axios.get(
@@ -174,7 +356,7 @@ app.get('/api/eth-price', async (req, res) => {
             'User-Agent': 'MagicEden-NFT-Marketplace/1.0',
             'Accept': 'application/json'
           },
-          timeout: 10000 // 10 second timeout
+          timeout: 10000
         }
       );
       
@@ -182,7 +364,6 @@ app.get('/api/eth-price', async (req, res) => {
       const price = data.ethereum?.usd || 2500;
       console.log('✅ CoinGecko response:', price);
       
-      // Update Redis cache if available
       if (redisReady && redisClient) {
         try {
           await redisClient.set('eth:price', price.toString());
@@ -193,7 +374,6 @@ app.get('/api/eth-price', async (req, res) => {
         }
       }
       
-      // Return fresh price
       return res.json({
         success: true,
         price: price,
@@ -205,7 +385,6 @@ app.get('/api/eth-price', async (req, res) => {
     } catch (axiosError) {
       console.error('❌ Axios CoinGecko error:', axiosError.message);
       
-      // If we have stale cache, use it
       if (cachedPrice) {
         console.log('⚠️ Using stale cache due to CoinGecko error');
         return res.json({
@@ -224,7 +403,6 @@ app.get('/api/eth-price', async (req, res) => {
   } catch (error) {
     console.error('❌ ETH price endpoint error:', error.message);
     
-    // Final fallback
     return res.json({
       success: false,
       price: 2500,
@@ -235,9 +413,9 @@ app.get('/api/eth-price', async (req, res) => {
     });
   }
 });
+
 // ========================
-// ========================
-// MULTIPLE CRYPTOCURRENCY PRICES ENDPOINT (AXIOS)
+// CRYPTO PRICES ENDPOINT
 // ========================
 app.get('/api/crypto-prices', async (req, res) => {
   try {
@@ -268,18 +446,15 @@ app.get('/api/crypto-prices', async (req, res) => {
 // ========================
 // MARKETPLACE ACTIVITY ENDPOINT
 // ========================
-
 app.get('/api/activity/marketplace', async (req, res) => {
   try {
       console.log('📊 Marketplace activity request');
       
-      // Try to get Activity model
       let Activity;
       try {
           Activity = require('./models/Activity');
       } catch (error) {
           console.log('Activity model not available yet');
-          // Return empty array if Activity model doesn't exist
           return res.json({
               success: true,
               count: 0,
@@ -287,7 +462,6 @@ app.get('/api/activity/marketplace', async (req, res) => {
           });
       }
       
-      // Get all activities, populate user info, limit to 100
       const activities = await Activity.find({})
           .populate('userId', 'email fullName')
           .sort({ createdAt: -1 })
@@ -295,7 +469,6 @@ app.get('/api/activity/marketplace', async (req, res) => {
       
       console.log(`✅ Found ${activities.length} marketplace activities`);
       
-      // Format activities for frontend
       const formattedActivities = activities.map(activity => ({
           _id: activity._id,
           type: activity.type,
@@ -329,82 +502,12 @@ app.get('/api/activity/marketplace', async (req, res) => {
 });
 
 // ========================
-// MULTER CONFIGURATION (for file uploads)
+// USER ACTIVITY ENDPOINT (FIXED)
 // ========================
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = 'uploads/';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({ 
-  storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-  fileFilter: function (req, file, cb) {
-    const filetypes = /jpeg|jpg|png|gif|webp/;
-    const mimetype = filetypes.test(file.mimetype);
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-    
-    if (mimetype && extname) {
-      return cb(null, true);
-    }
-    cb(new Error('Only image files are allowed!'));
-  }
-});
-
-// ========================
-// MIDDLEWARE
-// ========================
-app.use(cors());
-app.use(express.json());
-
-// ========================
-// SERVE STATIC FILES
-// ========================
-app.use(express.static(path.join(__dirname, 'views')));
-app.use(express.static(path.join(__dirname, 'public')));
-
-// ========================
-// HTML PAGE ROUTES
-// ========================
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'index.html'));
-});
-
-app.get('/dashboard', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'dashboard.html'));
-});
-
-app.get('/login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'login.html'));
-});
-
-app.get('/profile', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'profile.html'));
-});
-
-// ========================
-// USER PROFILE ROUTES WITH ID
-// ========================
-app.get('/user/:userId/profile', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'profile.html'));
-});
-
-// ========== ADD THIS TO YOUR server.js ==========
-// Add it with your other user routes, around line 250-300
-
-// Get user's activity
 app.get('/api/user/:userId/activity', auth, async (req, res) => {
   try {
-      // Check if user is accessing their own activity
+      console.log('📊 Activity request for user:', req.params.userId);
+      
       if (req.user._id.toString() !== req.params.userId) {
           return res.status(403).json({ 
               success: false,
@@ -412,69 +515,51 @@ app.get('/api/user/:userId/activity', auth, async (req, res) => {
           });
       }
       
-      // For now, return empty array since you don't have activity data yet
-      // When you implement activity logging, this will return real data
+      const activities = await Activity.find({ userId: req.params.userId })
+          .sort({ createdAt: -1 })
+          .limit(50)
+          .populate('userId', 'email fullName profileImage');
+      
+      console.log(`✅ Found ${activities.length} activities for user`);
+      
+      const formattedActivities = activities.map(activity => ({
+          _id: activity._id,
+          type: activity.type,
+          title: activity.title,
+          description: activity.description,
+          amount: activity.amount,
+          currency: activity.currency,
+          createdAt: activity.createdAt,
+          icon: getActivityIcon(activity.type),
+          user: activity.userId ? {
+              _id: activity.userId._id,
+              email: activity.userId.email,
+              fullName: activity.userId.fullName,
+              profileImage: activity.userId.profileImage
+          } : null,
+          metadata: activity.metadata,
+          relatedId: activity.relatedId,
+          relatedType: activity.relatedType
+      }));
+      
       res.json({
           success: true,
-          count: 0,
-          activities: []
+          count: formattedActivities.length,
+          activities: formattedActivities
       });
       
   } catch (error) {
-      console.error('Error fetching activity:', error);
+      console.error('❌ Error fetching activity:', error);
       res.status(500).json({ 
           success: false,
-          error: 'Failed to fetch activity' 
+          error: 'Failed to fetch activity',
+          message: error.message 
       });
   }
 });
 
 // ========================
-// API TEST ROUTES
-// ========================
-app.get('/api/test', (req, res) => {
-    res.json({ 
-        success: true, 
-        message: 'API is working',
-        timestamp: new Date().toISOString()
-    });
-});
-
-// ========================
-// CLOUDINARY TEST ENDPOINT
-// ========================
-app.get('/api/test-cloudinary', async (req, res) => {
-  try {
-    const result = await cloudinary.api.ping();
-    
-    res.json({
-      success: true,
-      message: 'Cloudinary is working!',
-      cloudinary: result,
-      config: {
-        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-        api_key: process.env.CLOUDINARY_API_KEY ? '***' + process.env.CLOUDINARY_API_KEY.slice(-4) : 'Missing',
-        api_secret: process.env.CLOUDINARY_API_SECRET ? '***' + process.env.CLOUDINARY_API_SECRET.slice(-4) : 'Missing'
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'Cloudinary configuration error'
-    });
-  }
-});
-
-// ========================
-// API ROUTES
-// ========================
-const authRoutes = require('./routes/auth');
-const nftRoutes = require('./routes/nft');
-const User = require('./models/User');
-
-// ========================
-// REAL NFT CREATION API (with Cloudinary)
+// NFT CREATION ENDPOINT (WITH ACTIVITY LOGGING)
 // ========================
 app.post('/api/nft/create', auth, upload.single('image'), async (req, res) => {
   try {
@@ -488,7 +573,6 @@ app.post('/api/nft/create', auth, upload.single('image'), async (req, res) => {
           });
       }
       
-      // Upload to Cloudinary
       console.log('☁️ Uploading to Cloudinary...');
       const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
           folder: 'magic-eden-nfts',
@@ -497,13 +581,10 @@ app.post('/api/nft/create', auth, upload.single('image'), async (req, res) => {
       
       console.log('✅ Cloudinary upload successful:', cloudinaryResult.url);
       
-      // Clean up local file
       fs.unlinkSync(req.file.path);
       
-      // Get user from request (added by auth middleware)
       const user = req.user;
       
-      // Create NFT in database
       const NFT = require('./models/NFT');
       const nft = new NFT({
           name: req.body.name,
@@ -524,19 +605,23 @@ app.post('/api/nft/create', auth, upload.single('image'), async (req, res) => {
           }
       });
       
-      // Generate token ID
       nft.tokenId = `NFT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
       await nft.save();
-      // Log the activity
-        await ActivityLogger.logNFTCreation(
-       user._id,
-       nft._id,
-       nft.name,
-       nft.price
-       );
       
-      // Update user's NFT count
+      // Log activity for NFT creation
+      try {
+          await ActivityLogger.logNFTCreation(
+              user._id,
+              nft._id,
+              nft.name,
+              nft.price
+          );
+          console.log('📝 Activity logged for NFT creation');
+      } catch (activityError) {
+          console.log('⚠️ Could not log activity:', activityError.message);
+      }
+      
       await User.findByIdAndUpdate(user._id, {
           $inc: { nftCount: 1 }
       });
@@ -560,7 +645,6 @@ app.post('/api/nft/create', auth, upload.single('image'), async (req, res) => {
   } catch (error) {
       console.error('❌ NFT creation error:', error);
       
-      // Clean up file if exists
       if (req.file && fs.existsSync(req.file.path)) {
           fs.unlinkSync(req.file.path);
       }
@@ -572,44 +656,11 @@ app.post('/api/nft/create', auth, upload.single('image'), async (req, res) => {
   }
 });
 
-// Register page route
-app.get("/register", (req, res) => {
-  res.sendFile(path.join(__dirname, "views", "register.html"));
-});
-
-// User-specific register route (optional)
-app.get("/user/:userId/register", (req, res) => {
-  res.sendFile(path.join(__dirname, "views", "register.html"));
-});
-
-app.use('/api/auth', authRoutes);
-app.use('/api/nft', nftRoutes);
-
 // ========================
-// PAGE ROUTES
-// ========================
-app.get('/add-eth', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'add-eth.html'));
-});
-
-app.get('/convert-weth', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'convert-weth.html'));
-});
-
-app.get('/create-nft', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'create-nft.html'));
-});
-
-app.get('/activity', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'activity.html'));
-});
-
-// ========================
-// REAL API: UPDATE USER PROFILE
+// UPDATE USER PROFILE (WITH ACTIVITY LOGGING)
 // ========================
 app.put('/api/user/:userId/profile', auth, async (req, res) => {
     try {
-        // Check if user is updating their own profile
         if (req.user._id.toString() !== req.params.userId) {
             return res.status(403).json({ error: 'Not authorized to update this profile' });
         }
@@ -622,13 +673,34 @@ app.put('/api/user/:userId/profile', auth, async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
         
-        // Update fields if provided
-        if (fullName !== undefined) user.fullName = fullName;
-        if (bio !== undefined) user.bio = bio;
-        if (twitter !== undefined) user.twitter = twitter;
-        if (website !== undefined) user.website = website;
+        const updates = {};
+        if (fullName !== undefined && fullName !== user.fullName) {
+            updates.fullName = fullName;
+            user.fullName = fullName;
+        }
+        if (bio !== undefined && bio !== user.bio) {
+            updates.bio = bio;
+            user.bio = bio;
+        }
+        if (twitter !== undefined && twitter !== user.twitter) {
+            updates.twitter = twitter;
+            user.twitter = twitter;
+        }
+        if (website !== undefined && website !== user.website) {
+            updates.website = website;
+            user.website = website;
+        }
         
         await user.save();
+        
+        if (Object.keys(updates).length > 0) {
+            try {
+                await ActivityLogger.logProfileUpdate(user._id, updates);
+                console.log('📝 Activity logged for profile update');
+            } catch (activityError) {
+                console.log('⚠️ Could not log profile update activity:', activityError.message);
+            }
+        }
         
         res.json({
             success: true,
@@ -650,7 +722,7 @@ app.put('/api/user/:userId/profile', auth, async (req, res) => {
 });
 
 // ========================
-// REAL API: GET USER'S NFTS
+// GET USER'S NFTS
 // ========================
 app.get('/api/user/:userId/nfts', auth, async (req, res) => {
     try {
@@ -678,40 +750,104 @@ app.get('/api/user/:userId/nfts', auth, async (req, res) => {
 });
 
 // ========================
-// REAL ACTIVITY ENDPOINT
+// ADD FUNDS ENDPOINT (WITH ACTIVITY LOGGING)
 // ========================
+app.post('/api/user/:userId/add-funds', auth, async (req, res) => {
+    try {
+        const { amount } = req.body;
+        const userId = req.params.userId;
+        
+        if (req.user._id.toString() !== userId) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+        
+        const user = await User.findByIdAndUpdate(
+            userId,
+            { 
+                $inc: { 
+                    balance: amount,
+                    wethBalance: amount 
+                } 
+            },
+            { new: true }
+        );
+        
+        try {
+            await ActivityLogger.logFundsAdded(userId, amount);
+            console.log('📝 Activity logged for funds added');
+        } catch (activityError) {
+            console.log('⚠️ Could not log funds activity:', activityError.message);
+        }
+        
+        res.json({
+            success: true,
+            message: `Added ${amount} WETH to your wallet`,
+            newBalance: user.balance
+        });
+        
+    } catch (error) {
+        console.error('Add funds error:', error);
+        res.status(500).json({ error: 'Failed to add funds' });
+    }
+});
 
-app.get('/api/user/:userId/activity', auth, async (req, res) => {
-  try {
-      console.log('📊 Activity request for user:', req.params.userId);
-      
-      // Check if user is accessing their own activity
-      if (req.user._id.toString() !== req.params.userId) {
-          return res.status(403).json({ 
-              success: false,
-              error: 'Not authorized to view this activity' 
-          });
-      }
-      
-      // Get activities using ActivityLogger
-      const activities = await ActivityLogger.getUserActivities(req.params.userId, 50);
-      
-      console.log(`✅ Found ${activities.length} activities for user`);
-      
-      res.json({
-          success: true,
-          count: activities.length,
-          activities: activities
-      });
-      
-  } catch (error) {
-      console.error('❌ Error fetching activity:', error);
-      res.status(500).json({ 
-          success: false,
-          error: 'Failed to fetch activity',
-          message: error.message 
-      });
-  }
+// ========================
+// TEST ROUTE FOR SAMPLE ACTIVITIES
+// ========================
+app.post('/api/test/add-sample-activities/:userId', auth, async (req, res) => {
+    try {
+        if (req.user._id.toString() !== req.params.userId) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+        
+        const userId = req.params.userId;
+        const sampleActivities = [
+            {
+                userId,
+                type: 'login',
+                title: 'User Login',
+                description: 'Logged into your account',
+                createdAt: new Date(Date.now() - 3600000)
+            },
+            {
+                userId,
+                type: 'nft_created',
+                title: 'NFT Created',
+                description: 'Created "Crypto Punk #123"',
+                amount: 2.5,
+                currency: 'WETH',
+                createdAt: new Date(Date.now() - 7200000)
+            },
+            {
+                userId,
+                type: 'funds_added',
+                title: 'Funds Added',
+                description: 'Added 10 WETH to wallet',
+                amount: 10,
+                currency: 'WETH',
+                createdAt: new Date(Date.now() - 10800000)
+            },
+            {
+                userId,
+                type: 'profile_updated',
+                title: 'Profile Updated',
+                description: 'Updated your profile information',
+                createdAt: new Date(Date.now() - 14400000)
+            }
+        ];
+        
+        await Activity.insertMany(sampleActivities);
+        
+        res.json({
+            success: true,
+            message: 'Added 4 sample activities',
+            count: sampleActivities.length
+        });
+        
+    } catch (error) {
+        console.error('Sample activities error:', error);
+        res.status(500).json({ error: 'Failed to add sample activities' });
+    }
 });
 
 // ========================
@@ -727,43 +863,6 @@ mongoose.connect(MONGODB_URI)
         console.log('⚠️ MongoDB Connection Note:', err.message);
         console.log('⚠️ App will continue without database');
     });
-
-// USER ROUTES
-// ========================
-app.use('/api/user', userRoutes);
-
-// ========================
-// TEST USER ROUTES ENDPOINT
-// ========================
-app.get('/api/test-user-routes', async (req, res) => {
-  try {
-      // Try to get user routes
-      const user = require('./routes/user');
-      
-      const routes = [];
-      user.stack.forEach((layer) => {
-          if (layer.route) {
-              routes.push({
-                  path: `/api/user${layer.route.path}`,
-                  methods: Object.keys(layer.route.methods)
-              });
-          }
-      });
-      
-      res.json({
-          success: true,
-          message: 'Available user routes:',
-          routes: routes,
-          total: routes.length
-      });
-      
-  } catch (error) {
-      res.json({
-          success: false,
-          error: error.message
-      });
-  }
-});
 
 // ========================
 // ERROR HANDLING
@@ -782,7 +881,6 @@ app.use((err, req, res, next) => {
 app.use('*', (req, res) => {
   res.status(404).sendFile(path.join(__dirname, 'views', '404.html'), function(err) {
       if (err) {
-          // If 404.html doesn't exist, send a simple JSON response
           res.status(404).json({ 
               error: 'Route not found',
               message: `Cannot GET ${req.originalUrl}`,
@@ -799,11 +897,10 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     console.log(`✅ REAL API Endpoints:`);
-    console.log(`   • GET  /api/eth-price - Get ETH price with Redis cache`);
-    console.log(`   • GET  /api/crypto-prices - Get multiple crypto prices`);
-    console.log(`   • PUT  /api/user/:userId/profile - Update profile`);
-    console.log(`   • GET  /api/user/:userId/nfts - Get user's NFTs`);
-    console.log(`🔗 Cloudinary Test: http://localhost:${PORT}/api/test-cloudinary`);
-    console.log(`🔗 ETH Price Test: http://localhost:${PORT}/api/eth-price`);
-    console.log(`🔗 Profile Example: http://localhost:${PORT}/user/123/profile`);
+    console.log(`   • GET  /api/user/:userId/activity - Get user activity (FIXED)`);
+    console.log(`   • POST /api/nft/create - Create NFT with activity logging`);
+    console.log(`   • PUT  /api/user/:userId/profile - Update profile with activity`);
+    console.log(`   • POST /api/user/:userId/add-funds - Add funds with activity`);
+    console.log(`🔗 Activity Page: http://localhost:${PORT}/activity`);
+    console.log(`🔗 Test Activity: http://localhost:${PORT}/api/test/add-sample-activities/:userId`);
 });

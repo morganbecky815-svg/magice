@@ -710,10 +710,10 @@ function loadMoreNFTs() {
     }, 500);
 }
 
-// View NFT details (placeholder)
+// View NFT details - OPEN NFT DETAIL PAGE
 function viewNFTDetails(nftId) {
-    console.log('Viewing NFT details:', nftId);
-    showNotification('NFT detail view coming soon!', 'info');
+    console.log('Opening NFT details:', nftId);
+    window.location.href = `/nft/${nftId}`;
 }
 
 // Like NFT

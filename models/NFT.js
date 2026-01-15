@@ -1,6 +1,12 @@
+const { ref } = require('joi');
 const mongoose = require('mongoose');
 
 const nftSchema = new mongoose.Schema({
+    collection: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Collection',
+        default: null
+    },
     name: {
         type: String,
         required: true,

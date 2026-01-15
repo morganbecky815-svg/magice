@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Collection - Magic Eden</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/create-collection.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="main-nav">
+        <div class="nav-container">
+            <a href="/" class="logo">
+                <i class="fas fa-gem"></i>
+                <span>Magic Eden</span>
+            </a>
+            <div class="nav-links">
+                <a href="/" class="nav-link">
+                    <i class="fas fa-home"></i> Home
+                </a>
+                <a href="/profile" class="nav-link">
+                    <i class="fas fa-user"></i> Profile
+                </a>
+                <a href="/create-nft" class="nav-link">
+                    <i class="fas fa-plus"></i> Create NFT
+                </a>
+                <a href="/activity" class="nav-link">
+                    <i class="fas fa-history"></i> Activity
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <button class="btn back-btn" onclick="window.location.href='/profile'">
+            <i class="fas fa-arrow-left"></i> Back to Profile
+        </button>
+
+        <div class="form-container">
+            <div class="form-header">
+                <h1>Create New Collection</h1>
+                <p>Organize your NFTs into collections to showcase them better. Collections help users discover related NFTs and improve your profile's organization.</p>
+            </div>
+
+            <!-- Messages -->
+            <div class="message success" id="successMessage">
+                <i class="fas fa-check-circle"></i> Collection created successfully! Redirecting to your profile...
+            </div>
+
+            <div class="message error" id="errorMessage">
+                <i class="fas fa-exclamation-circle"></i> <span id="errorText">Error message here</span>
+            </div>
+
+            <div class="message loading" id="loadingMessage">
+                <i class="fas fa-spinner fa-spin"></i> Creating your collection...
+            </div>
+
+            <form id="createCollectionForm">
+                <!-- Featured Image -->
+                <div class="form-group">
+                    <label class="form-label required">Featured Image</label>
+                    <div class="image-upload-box" onclick="document.getElementById('featuredImage').click()">
+                        <i class="fas fa-image"></i>
+                        <p>Click to upload featured image</p>
+                        <span class="image-upload-info">Recommended: 500x500px, PNG or JPG, max 5MB</span>
+                        <img id="featuredPreview" class="image-preview" alt="Featured Preview">
+                        <input type="file" id="featuredImage" accept="image/*" style="display: none;" onchange="previewImage(this, 'featuredPreview')">
+                    </div>
+                    <div class="error-message" id="featuredError">Featured image is required</div>
+                </div>
+
+                <!-- Collection Name -->
+                <div class="form-group">
+                    <label for="name" class="form-label required">Collection Name</label>
+                    <input type="text" id="name" class="form-input" placeholder="Enter a unique name for your collection" required maxlength="100">
+                    <div class="error-message" id="nameError">Collection name is required</div>
+                </div>
+
+                <!-- Description -->
+                <div class="form-group">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea id="description" class="form-textarea" placeholder="Describe your collection... What makes it special? What's the story or theme?"></textarea>
+                </div>
+
+                <!-- Category & Website -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="category" class="form-label">Category</label>
+                        <select id="category" class="form-select">
+                            <option value="art">Art</option>
+                            <option value="photography">Photography</option>
+                            <option value="gaming">Gaming</option>
+                            <option value="music">Music</option>
+                            <option value="collectibles">Collectibles</option>
+                            <option value="sports">Sports</option>
+                            <option value="pfp">Profile Pictures</option>
+                            <option value="utility">Utility</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="website" class="form-label">Website URL (Optional)</label>
+                        <input type="url" id="website" class="form-input" placeholder="https://yourwebsite.com">
+                    </div>
+                </div>
+
+                <!-- Social Links -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="twitter" class="form-label">Twitter Handle (Optional)</label>
+                        <input type="text" id="twitter" class="form-input" placeholder="@yourusername">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="discord" class="form-label">Discord Link (Optional)</label>
+                        <input type="url" id="discord" class="form-input" placeholder="https://discord.gg/invite">
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <i class="fas fa-plus-circle"></i> Create Collection
+                </button>
+            </form>
+
+            <!-- Preview Section -->
+            <div class="preview-section">
+                <h3>Preview</h3>
+                <div class="collection-preview" id="collectionPreview">
+                    <div class="preview-title" id="previewTitle">Collection Name</div>
+                    <div class="preview-description" id="previewDescription">Collection description will appear here...</div>
+                    <div class="preview-meta">
+                        <span id="previewCategory">Category: Art</span>
+                        <span id="previewCount">NFTs: 0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+        <div class="nav-container">
+            <p>© 2024 Magic Eden. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Check if user is logged in
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Please login to create a collection');
+                window.location.href = '/login';
+                return;
+            }
+
+            // Setup form validation
+            setupFormValidation();
+        });
+
+        // Form validation setup
+        function setupFormValidation() {
+            const nameInput = document.getElementById('name');
+            const descriptionInput = document.getElementById('description');
+            
+            // Real-time preview updates
+            nameInput.addEventListener('input', updatePreview);
+            descriptionInput.addEventListener('input', updatePreview);
+            document.getElementById('category').addEventListener('change', updatePreview);
+        }
+
+        // Update preview
+        function updatePreview() {
+            const name = document.getElementById('name').value || 'Collection Name';
+            const description = document.getElementById('description').value || 'Collection description will appear here...';
+            const category = document.getElementById('category').value;
+            
+            document.getElementById('previewTitle').textContent = name;
+            document.getElementById('previewDescription').textContent = description;
+            document.getElementById('previewCategory').textContent = 'Category: ' + category.charAt(0).toUpperCase() + category.slice(1);
+        }
+
+        // Show/hide messages
+        function showMessage(type, text = '') {
+            // Hide all messages first
+            document.querySelectorAll('.message').forEach(msg => {
+                msg.style.display = 'none';
+            });
+            
+            // Show the requested message
+            if (type === 'success') {
+                const successMsg = document.getElementById('successMessage');
+                successMsg.style.display = 'block';
+            } else if (type === 'error') {
+                const errorMsg = document.getElementById('errorMessage');
+                const errorText = document.getElementById('errorText');
+                errorText.textContent = text;
+                errorMsg.style.display = 'block';
+            } else if (type === 'loading') {
+                const loadingMsg = document.getElementById('loadingMessage');
+                loadingMsg.style.display = 'block';
+            }
+        }
+
+        // Show error under specific field
+        function showFieldError(fieldId, message) {
+            const errorElement = document.getElementById(fieldId + 'Error');
+            if (errorElement) {
+                errorElement.textContent = message;
+                errorElement.style.display = 'block';
+            }
+        }
+
+        // Hide field error
+        function hideFieldError(fieldId) {
+            const errorElement = document.getElementById(fieldId + 'Error');
+            if (errorElement) {
+                errorElement.style.display = 'none';
+            }
+        }
+
+        // Image preview
+        function previewImage(input, previewId) {
+            const file = input.files[0];
+            const preview = document.getElementById(previewId);
+            
+            if (file) {
+                // Check file size (5MB max)
+                if (file.size > 5 * 1024 * 1024) {
+                    showMessage('error', 'File size must be less than 5MB');
+                    input.value = '';
+                    return;
+                }
+                
+                // Check file type
+                if (!file.type.match('image.*')) {
+                    showMessage('error', 'Please select an image file (PNG, JPG, JPEG, GIF)');
+                    input.value = '';
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+                
+                // Clear any featured image error
+                hideFieldError('featured');
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('createCollectionForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Get form values
+            const name = document.getElementById('name').value.trim();
+            const description = document.getElementById('description').value.trim();
+            const category = document.getElementById('category').value;
+            const website = document.getElementById('website').value.trim();
+            const twitter = document.getElementById('twitter').value.trim();
+            const discord = document.getElementById('discord').value.trim();
+            const featuredImage = document.getElementById('featuredImage').files[0];
+            
+            // Validation
+            let isValid = true;
+            
+            // Clear previous errors
+            hideFieldError('name');
+            hideFieldError('featured');
+            showMessage('error', '');
+            
+            // Validate name
+            if (!name) {
+                showFieldError('name', 'Collection name is required');
+                isValid = false;
+            }
+            
+            // Validate featured image
+            if (!featuredImage) {
+                showFieldError('featured', 'Featured image is required');
+                isValid = false;
+            }
+            
+            if (!isValid) {
+                showMessage('error', 'Please fix the errors above');
+                return;
+            }
+            
+            // Show loading
+            showMessage('loading');
+            document.getElementById('submitBtn').disabled = true;
+            
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('Not authenticated. Please login again.');
+                }
+                
+                // Create FormData
+                const formData = new FormData();
+                formData.append('name', name);
+                formData.append('description', description);
+                formData.append('category', category);
+                if (website) formData.append('website', website);
+                if (twitter) formData.append('twitter', twitter);
+                if (discord) formData.append('discord', discord);
+                formData.append('featuredImage', featuredImage);
+                
+                // Send request
+                const response = await fetch('/api/collections/create', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Success
+                    showMessage('success');
+                    
+                    // Update localStorage user data if needed
+                    const userStr = localStorage.getItem('user');
+                    if (userStr) {
+                        const user = JSON.parse(userStr);
+                        // You might want to update user collections count here
+                        localStorage.setItem('user', JSON.stringify(user));
+                    }
+                    
+                    // Redirect after 2 seconds
+                    setTimeout(() => {
+                        window.location.href = '/profile';
+                    }, 2000);
+                    
+                } else {
+                    throw new Error(data.error || 'Failed to create collection');
+                }
+                
+            } catch (error) {
+                console.error('Error creating collection:', error);
+                
+                // Handle specific errors
+                let errorMessage = error.message;
+                if (error.message.includes('Failed to fetch')) {
+                    errorMessage = 'Collections API is not available. Please make sure:\n\n1. The server is running\n2. Collection routes are set up\n3. You have the Collection model';
+                }
+                
+                showMessage('error', errorMessage);
+                document.getElementById('submitBtn').disabled = false;
+            }
+        });
+
+        // Make functions available globally
+        window.previewImage = previewImage;
+        window.updatePreview = updatePreview;
+    </script>
+</body>
+</html>
