@@ -371,7 +371,106 @@ function showEmptyActivity(container) {
         </div>
     `;
 }
+async function loadUserCollections(userId) {
+    console.log('📦 Loading collections for user:', userId);
+    
+    const collectionsGrid = document.getElementById('collectionsGrid');
+    if (!collectionsGrid) return;
+    
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            collectionsGrid.innerHTML = '<div class="empty-state">Please login to view collections</div>';
+            return;
+        }
+        
+        // Fetch collections from API
+        const response = await fetch(`/api/collections/user/${userId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('Collections response status:', response.status);
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Collections data:', data);
+            
+            if (data.success && data.collections && data.collections.length > 0) {
+                displayCollections(collectionsGrid, data.collections);
+            } else {
+                showEmptyCollections(collectionsGrid);
+            }
+        } else if (response.status === 404) {
+            console.log('Collections endpoint not found - you need to implement collections API');
+            showCollectionsNotSetup(collectionsGrid);
+        } else {
+            showEmptyCollections(collectionsGrid);
+        }
+        
+    } catch (error) {
+        console.error('Error loading collections:', error);
+        showCollectionsNotSetup(collectionsGrid);
+    }
+}
 
+function showCollectionsNotSetup(container) {
+    container.innerHTML = `
+        <div class="empty-state">
+            <i class="fas fa-layer-group"></i>
+            <h3>Collections Feature Not Setup</h3>
+            <p>To use collections, you need to:</p>
+            <ol style="text-align: left; max-width: 400px; margin: 20px auto;">
+                <li>Create Collection model</li>
+                <li>Create collection routes</li>
+                <li>Add collection API to server.js</li>
+            </ol>
+            <p>Check the console for details.</p>
+        </div>
+    `;
+}
+
+function displayCollections(container, collections) {
+    container.innerHTML = '';
+    
+    collections.forEach(collection => {
+        const card = document.createElement('div');
+        card.className = 'collection-card';
+        
+        // Format date
+        const createdDate = new Date(collection.createdAt).toLocaleDateString();
+        
+        card.innerHTML = `
+            <img src="${collection.featuredImage || '/images/default-collection.png'}" 
+                 alt="${collection.name}" 
+                 class="collection-image"
+                 onerror="this.src='/images/default-collection.png'">
+            <div class="collection-info">
+                <h3>${collection.name}</h3>
+                <p class="collection-description">${collection.description || 'No description'}</p>
+                <div class="collection-stats">
+                    <span class="stat"><i class="fas fa-gem"></i> ${collection.nftCount || 0} NFTs</span>
+                    <span class="stat"><i class="fas fa-tag"></i> ${collection.category || 'Art'}</span>
+                </div>
+                <div class="collection-meta">
+                    <small>Created: ${createdDate}</small>
+                </div>
+                <div class="collection-actions">
+                    <button class="btn btn-primary" onclick="viewCollection('${collection._id}')">
+                        View Collection
+                    </button>
+                    <button class="btn" onclick="editCollection('${collection._id}')">
+                        Edit
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        container.appendChild(card);
+    });
+}
 // ========== SETTINGS FUNCTIONS ==========
 
 function loadUserSettings(user) {

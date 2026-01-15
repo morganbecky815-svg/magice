@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFT Details - Magic Eden</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/nft-detail.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="main-nav">
+        <div class="nav-container">
+            <a href="/" class="logo">
+                <i class="fas fa-gem"></i>
+                <span>Magic Eden</span>
+            </a>
+            <div class="nav-links">
+                <a href="/" class="nav-link">
+                    <i class="fas fa-home"></i> Marketplace
+                </a>
+                <a href="/profile" class="nav-link">
+                    <i class="fas fa-user"></i> Profile
+                </a>
+                <a href="/create-nft" class="nav-link">
+                    <i class="fas fa-plus"></i> Create NFT
+                </a>
+                <a href="/activity" class="nav-link">
+                    <i class="fas fa-history"></i> Activity
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="nft-detail-main">
+        <div class="container">
+            <!-- Back Button -->
+            <button class="btn back-btn" onclick="window.history.back()">
+                <i class="fas fa-arrow-left"></i> Back
+            </button>
+
+            <!-- Loading State -->
+            <div class="loading" id="loading">
+                <i class="fas fa-spinner fa-spin"></i> Loading NFT details...
+            </div>
+
+            <!-- Error State -->
+            <div class="error-state" id="errorState">
+                <i class="fas fa-exclamation-circle"></i>
+                <h3>NFT Not Found</h3>
+                <p>The NFT you're looking for doesn't exist or has been removed.</p>
+                <a href="/" class="btn btn-primary">
+                    <i class="fas fa-store"></i> Browse Marketplace
+                </a>
+            </div>
+
+            <!-- NFT Content -->
+            <div class="nft-content" id="nftContent" style="display: none;">
+                <div class="nft-detail-container">
+                    <!-- Left Column: NFT Image & Actions -->
+                    <div class="nft-image-section">
+                        <div class="nft-image-container">
+                            <img id="nftImage" alt="NFT Image" class="nft-main-image">
+                        </div>
+                        
+                        <div class="nft-actions">
+                            <button class="btn btn-primary" id="buyBtn">
+                                <i class="fas fa-shopping-cart"></i> Buy Now
+                            </button>
+                            <button class="btn" id="makeOfferBtn">
+                                <i class="fas fa-tag"></i> Make Offer
+                            </button>
+                            <button class="btn" id="shareBtn">
+                                <i class="fas fa-share"></i> Share
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: NFT Details -->
+                    <div class="nft-info-section">
+                        <!-- NFT Header -->
+                        <div class="nft-header">
+                            <div class="nft-collection-info" id="collectionInfo">
+                                <i class="fas fa-layer-group"></i>
+                                <span id="collectionName">Loading collection...</span>
+                            </div>
+                            <h1 id="nftName">NFT Name</h1>
+                            <div class="nft-owner" id="ownerInfo">
+                                <i class="fas fa-user"></i>
+                                <span>Owned by <strong id="ownerName">Loading...</strong></span>
+                            </div>
+                        </div>
+
+                        <!-- Price Section -->
+                        <div class="price-section">
+                            <div class="current-price">
+                                <span class="price-label">Current Price</span>
+                                <div class="price-amount">
+                                    <span id="nftPrice">0.00</span>
+                                    <span class="currency">WETH</span>
+                                </div>
+                                <div class="usd-price" id="usdPrice">$0.00</div>
+                            </div>
+                            
+                            <div class="price-history">
+                                <h4><i class="fas fa-chart-line"></i> Price History</h4>
+                                <div class="history-placeholder" id="priceHistory">
+                                    <p>No price history available</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- NFT Details -->
+                        <div class="details-section">
+                            <h3><i class="fas fa-info-circle"></i> Details</h3>
+                            <div class="details-grid">
+                                <div class="detail-item">
+                                    <span class="detail-label">Token ID</span>
+                                    <span class="detail-value" id="tokenId">#0000</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Category</span>
+                                    <span class="detail-value" id="nftCategory">Art</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Royalty</span>
+                                    <span class="detail-value" id="royalty">5%</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Created</span>
+                                    <span class="detail-value" id="createdAt">Date</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Last Updated</span>
+                                    <span class="detail-value" id="updatedAt">Date</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="description-section">
+                            <h3><i class="fas fa-align-left"></i> Description</h3>
+                            <p id="nftDescription">No description provided.</p>
+                        </div>
+
+                        <!-- Properties/Traits -->
+                        <div class="properties-section">
+                            <h3><i class="fas fa-sliders-h"></i> Properties</h3>
+                            <div class="properties-grid" id="propertiesGrid">
+                                <!-- Will be populated by JavaScript -->
+                            </div>
+                        </div>
+
+                        <!-- Activity -->
+                        <div class="activity-section">
+                            <h3><i class="fas fa-history"></i> Recent Activity</h3>
+                            <div class="activity-list" id="activityList">
+                                <div class="activity-placeholder">
+                                    <i class="fas fa-history"></i>
+                                    <p>No activity yet</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+        <div class="container">
+            <p>© 2024 Magic Eden. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="/js/nft-detail.js"></script>
+</body>
+</html>

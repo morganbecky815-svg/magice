@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collection - Magic Eden</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/collection.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="main-nav">
+        <div class="nav-container">
+            <a href="/" class="logo">
+                <i class="fas fa-gem"></i>
+                <span>Magic Eden</span>
+            </a>
+            <div class="nav-links">
+                <a href="/" class="nav-link">
+                    <i class="fas fa-home"></i> Home
+                </a>
+                <a href="/profile" class="nav-link">
+                    <i class="fas fa-user"></i> Profile
+                </a>
+                <a href="/create-nft" class="nav-link">
+                    <i class="fas fa-plus"></i> Create NFT
+                </a>
+                <a href="/create-collection" class="nav-link">
+                    <i class="fas fa-layer-group"></i> Create Collection
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="collection-main">
+        <div class="container">
+            <!-- Back Button -->
+            <button class="btn back-btn" onclick="window.history.back()">
+                <i class="fas fa-arrow-left"></i> Back
+            </button>
+
+            <!-- Loading State -->
+            <div class="loading" id="loading">
+                <i class="fas fa-spinner fa-spin"></i> Loading collection...
+            </div>
+
+            <!-- Error State -->
+            <div class="error-state" id="errorState">
+                <i class="fas fa-exclamation-circle"></i>
+                <h3>Collection Not Found</h3>
+                <p>The collection you're looking for doesn't exist or you don't have permission to view it.</p>
+                <a href="/profile" class="btn btn-primary">
+                    <i class="fas fa-user"></i> Go to Profile
+                </a>
+            </div>
+
+            <!-- Collection Content -->
+            <div class="collection-content" id="collectionContent" style="display: none;">
+                <!-- Collection Header -->
+                <div class="collection-header">
+                    <div class="collection-banner" id="collectionBanner">
+                        <img id="bannerImage" alt="Collection Banner">
+                    </div>
+                    
+                    <div class="collection-info-header">
+                        <div class="collection-avatar">
+                            <img id="featuredImage" alt="Collection Featured Image">
+                        </div>
+                        <div class="collection-title-section">
+                            <h1 id="collectionName">Collection Name</h1>
+                            <div class="collection-creator" id="creatorInfo">
+                                <i class="fas fa-user"></i>
+                                <span>Loading creator...</span>
+                            </div>
+                            <div class="collection-stats">
+                                <div class="stat">
+                                    <i class="fas fa-gem"></i>
+                                    <span id="nftCount">0 NFTs</span>
+                                </div>
+                                <div class="stat">
+                                    <i class="fas fa-tag"></i>
+                                    <span id="category">Category</span>
+                                </div>
+                                <div class="stat">
+                                    <i class="fas fa-calendar"></i>
+                                    <span id="createdAt">Created Date</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="collection-actions">
+                            <button class="btn btn-primary" id="addNFTBtn">
+                                <i class="fas fa-plus"></i> Add NFT
+                            </button>
+                            <button class="btn" id="editCollectionBtn">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Collection Description -->
+                <div class="collection-description-section">
+                    <h3>About This Collection</h3>
+                    <p id="collectionDescription">Loading description...</p>
+                    
+                    <!-- Social Links -->
+                    <div class="social-links" id="socialLinks">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Collection NFTs -->
+                <div class="collection-nfts-section">
+                    <div class="section-header">
+                        <h3>NFTs in this Collection</h3>
+                        <span class="nft-count" id="totalNFTs">0 NFTs</span>
+                    </div>
+                    
+                    <div class="nfts-grid" id="nftsGrid">
+                        <div class="empty-state">
+                            <i class="fas fa-gem"></i>
+                            <h4>No NFTs Yet</h4>
+                            <p>This collection doesn't have any NFTs yet.</p>
+                            <button class="btn btn-primary" id="addFirstNFTBtn">
+                                <i class="fas fa-plus"></i> Add First NFT
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+        <div class="container">
+            <p>© 2024 Magic Eden. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Add NFT Modal -->
+    <div class="modal" id="addNFTModal">
+        <div class="modal-content">
+            <h3><i class="fas fa-plus"></i> Add NFT to Collection</h3>
+            <p>Select an NFT from your collection to add to this collection</p>
+            <div class="nft-selector" id="nftSelector">
+                <!-- Will be populated with user's NFTs -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/js/collection.js"></script>
+</body>
+</html>
