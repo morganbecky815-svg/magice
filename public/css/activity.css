@@ -1,0 +1,408 @@
+/* css/activity.css - DARK THEME VERSION */
+.activity-page {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    background: #121212; /* DARK BACKGROUND */
+    min-height: 100vh;
+}
+
+.activity-header {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #333; /* Darker border */
+}
+
+.activity-header h1 {
+    color: white; /* White text */
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.activity-header p {
+    color: #aaa; /* Light gray */
+    font-size: 16px;
+}
+
+.activity-filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 8px 16px;
+    background: #2a2a2a; /* Dark button */
+    border: 1px solid #444;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s;
+    color: #ddd;
+}
+
+.filter-btn:hover,
+.filter-btn.active {
+    background: #8a2be2;
+    color: white;
+    border-color: #8a2be2;
+}
+
+.activity-feed {
+    background: #1a1a1a; /* Dark feed background */
+    border-radius: 12px;
+    border: 1px solid #333;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.activity-item {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #333;
+    transition: background 0.2s;
+}
+
+.activity-item:hover {
+    background: #222;
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.activity-content {
+    flex: 1;
+}
+
+.activity-title {
+    font-weight: 600;
+    color: white; /* White title */
+    margin-bottom: 4px;
+    font-size: 16px;
+}
+
+.activity-description {
+    color: #aaa; /* Light gray description */
+    margin-bottom: 4px;
+    font-size: 14px;
+}
+
+.activity-meta {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-size: 13px;
+    color: #888;
+}
+
+.activity-user {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #ddd;
+}
+
+.activity-amount {
+    font-weight: 600;
+    margin-left: auto;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 14px;
+    min-width: 80px;
+    text-align: right;
+}
+
+.activity-amount.positive {
+    background: #4CAF5020;
+    color: #4CAF50;
+}
+
+.activity-amount.negative {
+    background: #f4433620;
+    color: #f44336;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #888;
+}
+
+.empty-state i {
+    font-size: 64px;
+    margin-bottom: 20px;
+    color: #444;
+}
+
+.empty-state h3 {
+    margin-bottom: 10px;
+    color: #ddd;
+    font-size: 20px;
+}
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: #888;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #333;
+    border-top: 3px solid #8a2be2;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Activity page user info styles - RIGHT ALIGNED */
+.activity-user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: nowrap;
+    justify-content: flex-end; /* RIGHT ALIGN */
+}
+
+.activity-user-info .user-avatar {
+    font-size: 24px;
+    color: #8a2be2;
+}
+
+.activity-user-info .user-name {
+    font-weight: 500;
+    color: white;
+    white-space: nowrap;
+}
+
+.activity-user-info .user-balance {
+    background: #4CAF50;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.activity-user-info .logout-btn {
+    background: #8a2be2;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.activity-user-info .logout-btn:hover {
+    background: #7b1fa2;
+}
+
+.activity-user-info .login-btn {
+    background: #8a2be2;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.activity-user-info .login-btn:hover {
+    background: #7b1fa2;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .activity-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .activity-icon {
+        margin-bottom: 10px;
+    }
+    
+    .activity-amount {
+        margin-left: 0;
+        margin-top: 10px;
+        align-self: flex-end;
+    }
+    
+    .activity-meta {
+        flex-wrap: wrap;
+    }
+    
+    .activity-user-info {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+}
+
+/* Add to activity.css */
+
+/* Center the activity feed */
+.activity-feed {
+    background: #1a1a1a;
+    border-radius: 12px;
+    border: 1px solid #333;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    margin: 0 auto; /* Center the feed */
+    max-width: 800px; /* Limit width */
+}
+
+/* Center activity items content */
+.activity-item {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #333;
+    transition: background 0.2s;
+    justify-content: center; /* Center items horizontally */
+}
+
+/* Center activity icon */
+.activity-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+/* Center activity content */
+.activity-content {
+    flex: 1;
+    text-align: left; /* Keep text left aligned */
+    max-width: 600px; /* Limit content width */
+}
+
+/* Center activity meta */
+.activity-meta {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-size: 13px;
+    color: #888;
+    justify-content: flex-start; /* Align to left within centered container */
+}
+
+/* Center the whole activity page */
+.activity-page {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Center everything horizontally */
+    justify-content: flex-start;
+    min-height: 100vh;
+    background: #121212;
+}
+
+/* Center activity header */
+.activity-header {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #333;
+    text-align: center; /* Center header text */
+    width: 100%;
+    max-width: 800px; /* Match feed width */
+}
+
+.activity-header h1 {
+    color: white;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Center the icon and text */
+    gap: 10px;
+}
+
+.activity-header p {
+    color: #aaa;
+    font-size: 16px;
+    text-align: center;
+}
+
+/* Center activity filters */
+.activity-filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    justify-content: center; /* Center filter buttons */
+    width: 100%;
+    max-width: 800px;
+}
+
+/* Center empty states */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #888;
+    width: 100%;
+}
+
+.empty-state i {
+    font-size: 64px;
+    margin-bottom: 20px;
+    color: #444;
+    display: block;
+}
+
+.empty-state h3 {
+    margin-bottom: 10px;
+    color: #ddd;
+    font-size: 20px;
+}
+
+/* Center loading spinner */
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: #888;
+    width: 100%;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #333;
+    border-top: 3px solid #8a2be2;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px; /* Center the spinner */
+}

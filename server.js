@@ -10,6 +10,7 @@ const axios = require('axios');
 const Redis = require('redis');
 const { auth } = require('./middleware/auth');
 const userRoutes = require('./routes/user');
+const ActivityLogger = require('./utils/activityLogger');
 
 // ========================
 // CLOUDINARY IMPORTS
@@ -265,6 +266,69 @@ app.get('/api/crypto-prices', async (req, res) => {
 });
 
 // ========================
+// MARKETPLACE ACTIVITY ENDPOINT
+// ========================
+
+app.get('/api/activity/marketplace', async (req, res) => {
+  try {
+      console.log('📊 Marketplace activity request');
+      
+      // Try to get Activity model
+      let Activity;
+      try {
+          Activity = require('./models/Activity');
+      } catch (error) {
+          console.log('Activity model not available yet');
+          // Return empty array if Activity model doesn't exist
+          return res.json({
+              success: true,
+              count: 0,
+              activities: []
+          });
+      }
+      
+      // Get all activities, populate user info, limit to 100
+      const activities = await Activity.find({})
+          .populate('userId', 'email fullName')
+          .sort({ createdAt: -1 })
+          .limit(100);
+      
+      console.log(`✅ Found ${activities.length} marketplace activities`);
+      
+      // Format activities for frontend
+      const formattedActivities = activities.map(activity => ({
+          _id: activity._id,
+          type: activity.type,
+          title: activity.title,
+          description: activity.description,
+          amount: activity.amount,
+          currency: activity.currency,
+          createdAt: activity.createdAt,
+          user: activity.userId ? {
+              _id: activity.userId._id,
+              email: activity.userId.email,
+              fullName: activity.userId.fullName
+          } : null,
+          metadata: activity.metadata
+      }));
+      
+      res.json({
+          success: true,
+          count: formattedActivities.length,
+          activities: formattedActivities
+      });
+      
+  } catch (error) {
+      console.error('❌ Error fetching marketplace activity:', error);
+      res.status(500).json({
+          success: false,
+          error: 'Failed to fetch marketplace activity',
+          message: error.message
+      });
+  }
+});
+
+// ========================
 // MULTER CONFIGURATION (for file uploads)
 // ========================
 const storage = multer.diskStorage({
@@ -332,6 +396,37 @@ app.get('/profile', (req, res) => {
 // ========================
 app.get('/user/:userId/profile', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'profile.html'));
+});
+
+// ========== ADD THIS TO YOUR server.js ==========
+// Add it with your other user routes, around line 250-300
+
+// Get user's activity
+app.get('/api/user/:userId/activity', auth, async (req, res) => {
+  try {
+      // Check if user is accessing their own activity
+      if (req.user._id.toString() !== req.params.userId) {
+          return res.status(403).json({ 
+              success: false,
+              error: 'Not authorized to view this activity' 
+          });
+      }
+      
+      // For now, return empty array since you don't have activity data yet
+      // When you implement activity logging, this will return real data
+      res.json({
+          success: true,
+          count: 0,
+          activities: []
+      });
+      
+  } catch (error) {
+      console.error('Error fetching activity:', error);
+      res.status(500).json({ 
+          success: false,
+          error: 'Failed to fetch activity' 
+      });
+  }
 });
 
 // ========================
@@ -433,6 +528,13 @@ app.post('/api/nft/create', auth, upload.single('image'), async (req, res) => {
       nft.tokenId = `NFT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
       await nft.save();
+      // Log the activity
+        await ActivityLogger.logNFTCreation(
+       user._id,
+       nft._id,
+       nft.name,
+       nft.price
+       );
       
       // Update user's NFT count
       await User.findByIdAndUpdate(user._id, {
@@ -573,6 +675,43 @@ app.get('/api/user/:userId/nfts', auth, async (req, res) => {
         console.error('Get user NFTs error:', error);
         res.status(500).json({ error: 'Failed to fetch NFTs' });
     }
+});
+
+// ========================
+// REAL ACTIVITY ENDPOINT
+// ========================
+
+app.get('/api/user/:userId/activity', auth, async (req, res) => {
+  try {
+      console.log('📊 Activity request for user:', req.params.userId);
+      
+      // Check if user is accessing their own activity
+      if (req.user._id.toString() !== req.params.userId) {
+          return res.status(403).json({ 
+              success: false,
+              error: 'Not authorized to view this activity' 
+          });
+      }
+      
+      // Get activities using ActivityLogger
+      const activities = await ActivityLogger.getUserActivities(req.params.userId, 50);
+      
+      console.log(`✅ Found ${activities.length} activities for user`);
+      
+      res.json({
+          success: true,
+          count: activities.length,
+          activities: activities
+      });
+      
+  } catch (error) {
+      console.error('❌ Error fetching activity:', error);
+      res.status(500).json({ 
+          success: false,
+          error: 'Failed to fetch activity',
+          message: error.message 
+      });
+  }
 });
 
 // ========================
