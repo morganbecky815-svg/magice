@@ -1,0 +1,65 @@
+<!-- activity.html - CORRECTED NAVIGATION -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activity - Magic Eden Marketplace</title>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/activity.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body style="background: #121212;"> <!-- DARK BACKGROUND -->
+    <!-- Top Navigation -->
+    <nav class="top-nav" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; background: #1a1a1a; color: white;">
+        <div style="display: flex; align-items: center; gap: 30px;">
+            <a href="/" style="color: white; text-decoration: none; font-weight: bold; font-size: 20px;">
+                <i class="fas fa-gem" style="color: #8a2be2; margin-right: 8px;"></i>
+                Magic Eden
+            </a>
+            <a href="/" style="color: white; text-decoration: none;">Marketplace</a>
+            <a href="/profile" style="color: white; text-decoration: none;">My Profile</a>
+            <a href="/activity" style="color: white; text-decoration: none; font-weight: 600;">Activity</a>
+        </div>
+        
+        <!-- USER INFO ON RIGHT -->
+        <div id="userInfo" style="display: flex; align-items: center; justify-content: flex-end; min-width: 400px;">
+            <!-- Will be filled by activity.js -->
+            <div class="loading" style="color: white;">Loading user...</div>
+        </div>
+    </nav>
+
+    <!-- Activity Page Content -->
+   <!-- Change this part in activity.html -->
+<div class="activity-header">
+    <h1>
+        <i class="fas fa-history"></i>
+        Your Activity
+    </h1>
+    <p>Your recent purchases, sales, and account activity</p>
+</div>
+
+<!-- Change filter buttons -->
+<div class="activity-filters">
+    <button class="filter-btn active" data-type="all">All Activity</button>
+    <button class="filter-btn" data-type="nft_purchased">Purchases</button>
+    <button class="filter-btn" data-type="nft_sold">Sales</button>
+    <button class="filter-btn" data-type="nft_created">NFT Creations</button>
+    <button class="filter-btn" data-type="login">Logins</button>
+</div>
+        
+        <!-- Activity Feed -->
+        <div class="activity-feed" id="activityFeed">
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                <p>Loading marketplace activity...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="/js/activity.js"></script>
+</body>
+</html>
