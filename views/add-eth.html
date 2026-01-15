@@ -8,55 +8,33 @@
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="../css/add-eth.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-   <!-- Add this EXACTLY as shown -->
-   <script src="../js/auth-manager.js"></script>
-   <script>
+    <script src="../js/auth-manager.js"></script>
+    <script>
     console.log("🔍 ADD-ETH PAGE - ENHANCED AUTH CHECK");
     
-    // Wait a bit for AuthManager to load if needed
     setTimeout(() => {
         if (typeof AuthManager !== 'undefined') {
-            console.log("1. AuthManager loaded");
-            console.log("2. isLoggedIn?", AuthManager.isLoggedIn());
-            console.log("3. User:", AuthManager.getCurrentUser());
-            
             if (AuthManager.isLoggedIn()) {
                 console.log("✅ User authenticated via AuthManager");
-                // Page continues loading normally
             } else {
                 console.log("❌ AuthManager says not logged in");
-                
-                // Fallback: Check localStorage directly
                 const directUser = localStorage.getItem('magicEdenCurrentUser');
-                console.log("4. Direct localStorage check:", directUser);
-                
                 if (directUser) {
                     console.log("⚠️ User in localStorage but AuthManager missed it!");
-                    console.log("Continuing anyway...");
                 } else {
-                    console.log("No user anywhere, redirecting to login");
-                    // Use AuthManager's redirect (it handles redirectAfterLogin)
                     AuthManager.protectPage();
                 }
             }
         } else {
-            console.error("❌ AuthManager not loaded!");
-            
-            // Emergency fallback
             const user = localStorage.getItem('magicEdenCurrentUser');
             if (!user) {
-                console.log("No user in localStorage, going to login");
                 window.location.href = '/login';
-            } else {
-                console.log("User found in localStorage:", user, "- Allowing access");
             }
         }
-    }, 150); // Small delay to ensure AuthManager loads
-</script>
-   
+    }, 150);
+    </script>
 </head>
 <body>
-    <!-- Simple header -->
     <header class="add-eth-header">
         <div class="container">
             <a href="/dashboard" class="back-button">
@@ -68,131 +46,330 @@
         </div>
     </header>
     
-    <!-- Add ETH Page Content -->
     <main class="add-eth-page">
         <div class="container">
             <div class="marketplace-wallet-container">
-                <!-- Page Header -->
                 <div class="page-header">
                     <h1><i class="fab fa-ethereum"></i> Add ETH to Your Wallet</h1>
                     <p>Fund your marketplace wallet to buy and trade NFTs</p>
+                    <div class="network-badge">
+                        <i class="fas fa-network-wired"></i> Ethereum Mainnet (ERC-20)
+                    </div>
                 </div>
                 
-                <!-- Wallet Card -->
                 <div class="wallet-card">
-                    <!-- Balance Display -->
+                    <!-- Critical Warning Banner -->
+                    <div class="critical-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <div>
+                            <strong>IMPORTANT:</strong> Only send <strong>ETH (Ethereum) on ERC-20 network</strong> to this address. 
+                            Sending other tokens or using other networks will result in <strong>permanent loss</strong>.
+                        </div>
+                    </div>
+                    
                     <div class="wallet-balance-display">
                         <div class="balance-label">Your Marketplace Balance</div>
                         <div class="balance-amount" id="balanceAmount">0.0000 ETH</div>
                         <div class="balance-usd" id="balanceUSD">$0.00 USD</div>
-                        <!-- Example -->
-<p>Current ETH Price: <span id="currentEthPrice" data-eth-price data-eth-amount="1">$2500</span></p>
-
                     </div>
                     
-                    <!-- Wallet Address -->
                     <div class="wallet-address-section">
                         <h3 class="section-title">
-                            <i class="fas fa-address-card"></i> Your Wallet Address
+                            <i class="fas fa-address-card"></i> Your Ethereum Wallet Address (ERC-20)
                         </h3>
+                        
+                        <div class="network-info">
+                            <span class="network-tag"><i class="fas fa-link"></i> Ethereum Mainnet</span>
+                            <span class="network-tag"><i class="fas fa-coins"></i> ERC-20 Only</span>
+                        </div>
                         
                         <div class="address-display">
                             <div class="address-text" id="walletAddress">
                                 0x742d35Cc6634C0532925a3b844Bc9e90E4343A9B
                             </div>
-                            <button class="copy-btn" onclick="copyWalletAddress()">
+                            <button class="copy-btn" id="copyAddressBtn">
                                 <i class="fas fa-copy"></i> Copy Address
                             </button>
                         </div>
                         
-                        <!-- QR Code -->
                         <div class="qr-container">
                             <div id="qrCode"></div>
                             <p>Scan QR code to send ETH</p>
                         </div>
                     </div>
                     
-                    <!-- Action Cards -->
                     <div class="action-cards">
-                        <!-- Buy with MetaMask -->
-                        <div class="action-card" onclick="buyWithMetaMask()">
+                        <div class="action-card">
                             <div class="action-icon">
                                 <i class="fab fa-ethereum"></i>
                             </div>
-                            <h3>Buy with MetaMask</h3>
-                            <p>Purchase ETH directly in your MetaMask wallet and send to this address</p>
-                            <button class="copy-btn metamask-btn">
-                                <i class="fab fa-metamask"></i> Open MetaMask
+                            <h3>Get MetaMask Wallet</h3>
+                            <p>Install MetaMask browser extension to manage your ETH and interact with NFTs</p>
+                            <button class="copy-btn metamask-btn" id="openMetaMaskBtn">
+                                <i class="fab fa-metamask"></i> Get MetaMask
                             </button>
                         </div>
                         
-                        <!-- Transfer from Exchange -->
-                        <div class="action-card" onclick="showInstructions()">
+                        <div class="action-card">
                             <div class="action-icon">
                                 <i class="fas fa-exchange-alt"></i>
                             </div>
                             <h3>Transfer from Exchange</h3>
-                            <p>Send ETH from Coinbase, Binance, or any other exchange</p>
-                            <button class="copy-btn exchange-btn">
+                            <p>Send ETH from any cryptocurrency exchange</p>
+                            <button class="copy-btn exchange-btn" id="showInstructionsBtn">
                                 <i class="fas fa-university"></i> Show Instructions
                             </button>
                         </div>
                     </div>
                     
-                    <!-- Instructions (Initially Hidden) -->
                     <div class="instructions" id="transferInstructions" style="display: none;">
-                        <h3><i class="fas fa-info-circle"></i> How to Transfer ETH</h3>
-                        <ol>
-                            <li>Copy the wallet address above</li>
-                            <li>Open your exchange account (Coinbase, Binance, etc.)</li>
-                            <li>Go to "Withdraw" or "Send" section</li>
-                            <li>Select ETH (Ethereum) as the cryptocurrency</li>
-                            <li>Paste the wallet address</li>
-                            <li>Enter the amount and confirm the transaction</li>
-                            <li>Wait for network confirmation (2-5 minutes)</li>
-                            <li>Return to dashboard to see updated balance</li>
-                        </ol>
+                        <h3><i class="fas fa-info-circle"></i> How to Transfer ETH to Your Magic Eden Wallet</h3>
                         
-                        <div class="note">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <div>
-                                <strong>Important:</strong> Only send ETH (Ethereum) to this address. 
-                                Sending other tokens may result in permanent loss.
+                        <div class="step-by-step">
+                            <div class="step">
+                                <div class="step-number">1</div>
+                                <div class="step-content">
+                                    <h4>Copy Your Ethereum Address</h4>
+                                    <p>Click the "Copy Address" button above to copy your ERC-20 wallet address</p>
+                                </div>
+                            </div>
+                            
+                            <div class="step">
+                                <div class="step-number">2</div>
+                                <div class="step-content">
+                                    <h4>Go to Your Exchange</h4>
+                                    <p>Log into your preferred cryptocurrency exchange account</p>
+                                </div>
+                            </div>
+                            
+                            <div class="step">
+                                <div class="step-number">3</div>
+                                <div class="step-content">
+                                    <h4>Navigate to Withdraw/Send</h4>
+                                    <p>Find the "Withdraw" or "Send" section (usually in Wallet or Funds)</p>
+                                </div>
+                            </div>
+                            
+                            <div class="step">
+                                <div class="step-number">4</div>
+                                <div class="step-content">
+                                    <h4>Select ETH (Ethereum)</h4>
+                                    <p>Choose <strong>ETH (Ethereum)</strong> as the cryptocurrency</p>
+                                    <div class="warning-box">
+                                        <i class="fas fa-exclamation-circle"></i>
+                                        <span><strong>Critical:</strong> Do NOT select ETH on other networks (BEP-20, Polygon, etc.)</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="step">
+                                <div class="step-number">5</div>
+                                <div class="step-content">
+                                    <h4>Choose Network</h4>
+                                    <p>Select <strong>Ethereum Network (ERC-20)</strong> when prompted for network selection</p>
+                                    <div class="network-verification">
+                                        <span class="verified-network"><i class="fas fa-check-circle"></i> Ethereum (ERC-20)</span>
+                                        <span class="wrong-network"><i class="fas fa-times-circle"></i> Binance Smart Chain (BEP-20)</span>
+                                        <span class="wrong-network"><i class="fas fa-times-circle"></i> Polygon (MATIC)</span>
+                                        <span class="wrong-network"><i class="fas fa-times-circle"></i> Arbitrum</span>
+                                        <span class="wrong-network"><i class="fas fa-times-circle"></i> Optimism</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="step">
+                                <div class="step-number">6</div>
+                                <div class="step-content">
+                                    <h4>Paste Wallet Address</h4>
+                                    <p>Paste your copied Ethereum address into the recipient field</p>
+                                </div>
+                            </div>
+                            
+                            <div class="step">
+                                <div class="step-number">7</div>
+                                <div class="step-content">
+                                    <h4>Enter Amount & Confirm</h4>
+                                    <p>Enter the ETH amount, review all details, and confirm the transaction</p>
+                                </div>
+                            </div>
+                            
+                            <div class="step">
+                                <div class="step-number">8</div>
+                                <div class="step-content">
+                                    <h4>Wait for Confirmation</h4>
+                                    <p>Transaction typically confirms in 2-5 minutes (up to 30 minutes during high traffic)</p>
+                                </div>
                             </div>
                         </div>
+                        
+                        <div class="security-notes">
+                            <h4><i class="fas fa-shield-alt"></i> Security Checklist</h4>
+                            <ul>
+                                <li><i class="fas fa-check"></i> Double-check the wallet address</li>
+                                <li><i class="fas fa-check"></i> Verify network is Ethereum (ERC-20)</li>
+                                <li><i class="fas fa-check"></i> Start with a small test transaction if unsure</li>
+                                <li><i class="fas fa-check"></i> Save transaction ID for reference</li>
+                                <li><i class="fas fa-times"></i> DO NOT send other tokens (USDT, USDC, etc.)</li>
+                                <li><i class="fas fa-times"></i> DO NOT use other networks (BSC, Polygon, etc.)</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="recommended-exchanges">
+                            <h4><i class="fas fa-star"></i> Recommended Exchanges:</h4>
+                            <div class="exchange-logos">
+                                <div class="exchange-logo coinbase" onclick="window.open('https://www.coinbase.com/', '_blank')">
+                                    <i class="fas fa-coins"></i>
+                                    <span>Coinbase</span>
+                                </div>
+                                <div class="exchange-logo binance" onclick="window.open('https://www.binance.com/', '_blank')">
+                                    <i class="fas fa-chart-line"></i>
+                                    <span>Binance</span>
+                                </div>
+                                <div class="exchange-logo kraken" onclick="window.open('https://www.kraken.com/', '_blank')">
+                                    <i class="fas fa-anchor"></i>
+                                    <span>Kraken</span>
+                                </div>
+                                <div class="exchange-logo crypto-com" onclick="window.open('https://crypto.com/', '_blank')">
+                                    <i class="fas fa-credit-card"></i>
+                                    <span>Crypto.com</span>
+                                </div>
+                                <div class="exchange-logo gemini" onclick="window.open('https://www.gemini.com/', '_blank')">
+                                    <i class="fas fa-gem"></i>
+                                    <span>Gemini</span>
+                                </div>
+                                <div class="exchange-logo ftx" onclick="window.open('https://ftx.com/', '_blank')">
+                                    <i class="fas fa-bolt"></i>
+                                    <span>FTX</span>
+                                </div>
+                                <div class="exchange-logo bybit" onclick="window.open('https://www.bybit.com/', '_blank')">
+                                    <i class="fas fa-rocket"></i>
+                                    <span>Bybit</span>
+                                </div>
+                                <div class="exchange-logo kucoin" onclick="window.open('https://www.kucoin.com/', '_blank')">
+                                    <i class="fas fa-exchange-alt"></i>
+                                    <span>KuCoin</span>
+                                </div>
+                                <div class="exchange-logo huobi" onclick="window.open('https://www.huobi.com/', '_blank')">
+                                    <i class="fas fa-fire"></i>
+                                    <span>Huobi</span>
+                                </div>
+                                <div class="exchange-logo gate-io" onclick="window.open('https://www.gate.io/', '_blank')">
+                                    <i class="fas fa-door-open"></i>
+                                    <span>Gate.io</span>
+                                </div>
+                                <div class="exchange-logo okx" onclick="window.open('https://www.okx.com/', '_blank')">
+                                    <i class="fas fa-check-circle"></i>
+                                    <span>OKX</span>
+                                </div>
+                                <div class="exchange-logo bitfinex" onclick="window.open('https://www.bitfinex.com/', '_blank')">
+                                    <i class="fas fa-chart-bar"></i>
+                                    <span>Bitfinex</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button class="copy-btn close-instructions-btn" id="closeInstructionsBtn">
+                            <i class="fas fa-times"></i> Close Instructions
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="tips-section">
+                    <h3><i class="fas fa-lightbulb"></i> Tips for Successful ETH Transfers</h3>
+                    <div class="tips-grid">
+                        <div class="tip-card">
+                            <i class="fas fa-network-wired"></i>
+                            <h4>Network Verification</h4>
+                            <p>Always select <strong>Ethereum Network (ERC-20)</strong>. Other networks will result in lost funds.</p>
+                        </div>
+                        <div class="tip-card">
+                            <i class="fas fa-gas-pump"></i>
+                            <h4>Gas Fees</h4>
+                            <p>Check current Ethereum gas fees. High network congestion increases fees significantly.</p>
+                        </div>
+                        <div class="tip-card">
+                            <i class="fas fa-clock"></i>
+                            <h4>Timing</h4>
+                            <p>Transfer during low traffic hours (UTC 2-6 AM) for lower fees and faster confirmations.</p>
+                        </div>
+                        <div class="tip-card">
+                            <i class="fas fa-check-double"></i>
+                            <h4>Address Verification</h4>
+                            <p>Verify first 6 and last 4 characters of address match before sending.</p>
+                        </div>
+                        <div class="tip-card">
+                            <i class="fas fa-vial"></i>
+                            <h4>Test Transaction</h4>
+                            <p>For large amounts, send a small test transaction first to verify everything works.</p>
+                        </div>
+                        <div class="tip-card">
+                            <i class="fas fa-history"></i>
+                            <h4>Transaction History</h4>
+                            <p>Always save your transaction hash (TXID) for reference and support.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="network-comparison">
+                    <h3><i class="fas fa-project-diagram"></i> Network Comparison</h3>
+                    <div class="comparison-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Network</th>
+                                    <th>Token Standard</th>
+                                    <th>Compatible?</th>
+                                    <th>Risk Level</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="compatible">
+                                    <td><i class="fab fa-ethereum"></i> Ethereum</td>
+                                    <td>ERC-20</td>
+                                    <td><span class="badge success">YES</span></td>
+                                    <td>Safe</td>
+                                </tr>
+                                <tr class="incompatible">
+                                    <td><i class="fab fa-btc"></i> Binance Smart Chain</td>
+                                    <td>BEP-20</td>
+                                    <td><span class="badge danger">NO</span></td>
+                                    <td>FUNDS LOST</td>
+                                </tr>
+                                <tr class="incompatible">
+                                    <td><i class="fas fa-layer-group"></i> Polygon</td>
+                                    <td>ERC-20 (Polygon)</td>
+                                    <td><span class="badge danger">NO</span></td>
+                                    <td>FUNDS LOST</td>
+                                </tr>
+                                <tr class="incompatible">
+                                    <td><i class="fas fa-bolt"></i> Arbitrum</td>
+                                    <td>ERC-20 (Arb)</td>
+                                    <td><span class="badge danger">NO</span></td>
+                                    <td>FUNDS LOST</td>
+                                </tr>
+                                <tr class="incompatible">
+                                    <td><i class="fas fa-sun"></i> Optimism</td>
+                                    <td>ERC-20 (Opt)</td>
+                                    <td><span class="badge danger">NO</span></td>
+                                    <td>FUNDS LOST</td>
+                                </tr>
+                                <tr class="incompatible">
+                                    <td><i class="fas fa-snowflake"></i> Avalanche</td>
+                                    <td>ARC-20</td>
+                                    <td><span class="badge danger">NO</span></td>
+                                    <td>FUNDS LOST</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
     </main>
     
-    <!-- Load Scripts -->
+    <!-- Load JavaScript Files -->
     <script src="../js/app.js"></script>
     <script src="../js/add-eth.js"></script>
-    <!-- QR Code Library -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-    
-    <script>
-        // Add click handlers for buttons inside action cards
-        document.addEventListener('DOMContentLoaded', function() {
-            // MetaMask button
-            const metamaskBtn = document.querySelector('.metamask-btn');
-            if (metamaskBtn) {
-                metamaskBtn.addEventListener('click', function(e) {
-                    e.stopPropagation(); // Prevent card click event
-                    buyWithMetaMask();
-                });
-            }
-            
-            // Exchange button
-            const exchangeBtn = document.querySelector('.exchange-btn');
-            if (exchangeBtn) {
-                exchangeBtn.addEventListener('click', function(e) {
-                    e.stopPropagation(); // Prevent card click event
-                    showInstructions();
-                });
-            }
-        });
-    </script>
 </body>
 </html>
