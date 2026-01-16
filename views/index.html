@@ -272,19 +272,24 @@
                     <a href="/create-nft">Create NFT</a>
                     <a href="/profile">My Profile</a>
                 </div>
-                <div class="footer-section">
-                    <h4>Resources</h4>
-                    <a href="#" onclick="showSupportModal()"><i class="fas fa-headset"></i> Support</a>
-                    <a href="#" onclick="showAboutModal()">About</a>
-                    <a href="/admin" id="adminLink" style="display:none"><i class="fas fa-cog"></i> Admin</a>
-                </div>
+                <!-- In your footer section, replace the Resources section with this: -->
+<div class="footer-section">
+    <h4>Resources</h4>
+    <a href="/support.html" onclick="showLoading(); return false;">
+        <i class="fas fa-headset"></i> Support
+    </a>
+    <a href="about.html" onclick="showLoading(); return false;">
+        <i class="fas fa-info-circle"></i> About
+    </a>
+    
+</div>
                 <div class="footer-section">
                     <h4>Connect</h4>
                     <div class="social-links">
                         <a href="#"><i class="fab fa-twitter"></i></a>
                         <a href="#"><i class="fab fa-discord"></i></a>
                         <a href="#"><i class="fab fa-telegram"></i></a>
-                        <a href="#"><i class="fab fa-github"></i></a>
+                        
                     </div>
                 </div>
             </div>

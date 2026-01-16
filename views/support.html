@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Help & Support | Magic Eden</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="../css/support.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="../js/auth-manager.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(() => {
+            if (typeof AuthManager !== 'undefined' && !AuthManager.isLoggedIn()) {
+                const user = localStorage.getItem('magicEdenCurrentUser');
+                if (!user) {
+                    AuthManager.protectPage();
+                }
+            }
+        }, 100);
+    });
+    </script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="support-header">
+        <div class="container">
+            <div class="header-content">
+                <a href="/dashboard" class="back-button">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+                <div class="header-logo">
+                    <i class="fas fa-headset"></i>
+                    <h1>Magic Eden Support</h1>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Support Page Content -->
+    <main class="support-page">
+        <div class="container">
+            <!-- Hero Section -->
+            <div class="support-hero">
+                <div class="hero-content">
+                    <h1>How can we help you today?</h1>
+                    <p>Find answers to common questions or get in touch with our support team</p>
+                    <div class="search-bar">
+                        <input type="text" placeholder="Search for help articles..." id="supportSearch">
+                        <button class="search-btn" onclick="searchSupport()">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="hero-image">
+                    <i class="fas fa-headset"></i>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <div class="action-card" onclick="window.location.href='/add-eth'">
+                    <div class="action-icon">
+                        <i class="fas fa-wallet"></i>
+                    </div>
+                    <h3>Add Funds</h3>
+                    <p>Learn how to add ETH to your wallet</p>
+                </div>
+                <div class="action-card" onclick="scrollToSection('buying-guide')">
+                    <div class="action-icon">
+                        <i class="fas fa-shopping-cart"></i>
+                    </div>
+                    <h3>Buy NFTs</h3>
+                    <p>How to purchase NFTs on Magic Eden</p>
+                </div>
+                <div class="action-card" onclick="openTicketModal()">
+                    <div class="action-icon">
+                        <i class="fas fa-ticket-alt"></i>
+                    </div>
+                    <h3>Submit Ticket</h3>
+                    <p>Contact our support team directly</p>
+                </div>
+                <div class="action-card" onclick="window.location.href='/security'">
+                    <div class="action-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3>Security Guide</h3>
+                    <p>Keep your account safe</p>
+                </div>
+            </div>
+
+            <!-- FAQ Categories -->
+            <div class="faq-categories">
+                <h2 class="section-title">Frequently Asked Questions</h2>
+                
+                <!-- Account & Wallet -->
+                <div class="faq-category">
+                    <div class="category-header" onclick="toggleCategory(this)">
+                        <h3><i class="fas fa-user-circle"></i> Account & Wallet</h3>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="category-content">
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                How do I create an account?
+                                <i class="fas fa-plus"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p>Creating an account on Magic Eden is simple:</p>
+                                <ol>
+                                    <li>Click on the "Sign Up" button in the top right corner</li>
+                                    <li>Enter your email address and create a password</li>
+                                    <li>Verify your email address via the confirmation link sent to your inbox</li>
+                                    <li>Complete your profile setup</li>
+                                    <li>Connect your wallet to start trading</li>
+                                </ol>
+                            </div>
+                        </div>
+                        
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                How do I add ETH to my wallet?
+                                <i class="fas fa-plus"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p>To add ETH to your Magic Eden wallet:</p>
+                                <ol>
+                                    <li>Go to your Dashboard and click "Add ETH"</li>
+                                    <li>Copy your wallet address or scan the QR code</li>
+                                    <li>Send ETH from your external wallet or exchange</li>
+                                    <li>Wait for network confirmation (2-5 minutes)</li>
+                                    <li>Your balance will update automatically</li>
+                                </ol>
+                                <p><strong>Note:</strong> Only send ETH on Ethereum Network (ERC-20).</p>
+                            </div>
+                        </div>
+                        
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                Can I use MetaMask with Magic Eden?
+                                <i class="fas fa-plus"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p>Yes! Magic Eden fully supports MetaMask:</p>
+                                <ul>
+                                    <li>Install the MetaMask browser extension</li>
+                                    <li>Connect your MetaMask wallet to Magic Eden</li>
+                                    <li>Approve transactions directly through MetaMask</li>
+                                    <li>View your NFT collection in both platforms</li>
+                                </ul>
+                                <p>MetaMask is the recommended wallet for the best experience.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Buying & Selling NFTs -->
+                <div class="faq-category">
+                    <div class="category-header" onclick="toggleCategory(this)">
+                        <h3><i class="fas fa-shopping-bag"></i> Buying & Selling NFTs</h3>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="category-content">
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                How do I buy an NFT?
+                                <i class="fas fa-plus"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p>To purchase an NFT on Magic Eden:</p>
+                                <ol>
+                                    <li>Browse the marketplace and find an NFT you like</li>
+                                    <li>Click on the NFT to view its details</li>
+                                    <li>Click "Buy Now" if it's listed at a fixed price</li>
+                                    <li>Place a bid if it's in an auction</li>
+                                    <li>Confirm the transaction in your wallet</li>
+                                    <li>Wait for transaction confirmation</li>
+                                    <li>The NFT will appear in your collection</li>
+                                </ol>
+                            </div>
+                        </div>
+                        
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                How do I list an NFT for sale?
+                                <i class="fas fa-plus"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p>To sell your NFT:</p>
+                                <ol>
+                                    <li>Go to your Dashboard and click "My Collection"</li>
+                                    <li>Select the NFT you want to sell</li>
+                                    <li>Click "Sell" or "List for Sale"</li>
+                                    <li>Choose between fixed price or auction</li>
+                                    <li>Set your price and duration</li>
+                                    <li>Pay the gas fee to list the NFT</li>
+                                    <li>Your NFT will appear on the marketplace</li>
+                                </ol>
+                                <p>Platform fee: 2.5% of the sale price.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                What are gas fees?
+                                <i class="fas fa-plus"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p>Gas fees are transaction fees on the Ethereum network:</p>
+                                <ul>
+                                    <li><strong>What:</strong> Payment for computing energy needed to process transactions</li>
+                                    <li><strong>Who pays:</strong> The person initiating the transaction</li>
+                                    <li><strong>When:</strong> For buying, selling, minting, and transferring NFTs</li>
+                                    <li><strong>Amount:</strong> Varies based on network congestion</li>
+                                </ul>
+                                <p>Gas fees are paid in ETH and go to Ethereum miners, not Magic Eden.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Technical Support -->
+                <div class="faq-category">
+                    <div class="category-header" onclick="toggleCategory(this)">
+                        <h3><i class="fas fa-cogs"></i> Technical Support</h3>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="category-content">
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                My transaction failed but I was charged gas fees
+                                <i class="fas fa-plus"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p>This is a common issue on Ethereum:</p>
+                                <ul>
+                                    <li><strong>Why it happens:</strong> Gas fees are paid even for failed transactions</li>
+                                    <li><strong>Reason:</strong> Miners still perform the work to validate the transaction</li>
+                                    <li><strong>Solution:</strong> Check your wallet balance and try again</li>
+                                    <li><strong>Prevention:</strong> Use optimal gas settings from MetaMask</li>
+                                </ul>
+                                <p>If the issue persists, contact our support team with your transaction hash.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                I sent ETH to wrong address/wrong network
+                                <i class="fas fa-plus"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <div class="warning-box">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <p><strong>⚠️ CRITICAL:</strong> Transactions on blockchain are irreversible</p>
+                                </div>
+                                <p>If you sent funds to the wrong address or wrong network:</p>
+                                <ul>
+                                    <li>ETH sent to wrong Ethereum address: <strong>Cannot recover</strong></li>
+                                    <li>ETH sent on wrong network (BSC, Polygon, etc.): <strong>Cannot recover</strong></li>
+                                    <li>Other tokens sent instead of ETH: <strong>Cannot recover</strong></li>
+                                </ul>
+                                <p><strong>Always double-check:</strong></p>
+                                <ol>
+                                    <li>Wallet address before sending</li>
+                                    <li>Network is Ethereum (ERC-20)</li>
+                                    <li>You're sending ETH, not other tokens</li>
+                                    <li>Do a test transaction first</li>
+                                </ol>
+                            </div>
+                        </div>
+                        
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                NFT not showing in my collection
+                                <i class="fas fa-plus"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p>If your NFT isn't showing up:</p>
+                                <ol>
+                                    <li><strong>Refresh:</strong> Wait 5-10 minutes and refresh the page</li>
+                                    <li><strong>Check blockchain:</strong> Verify the transaction on Etherscan</li>
+                                    <li><strong>Clear cache:</strong> Clear browser cache and refresh</li>
+                                    <li><strong>Reconnect wallet:</strong> Disconnect and reconnect your wallet</li>
+                                    <li><strong>Check address:</strong> Ensure you're looking at the correct wallet</li>
+                                    <li><strong>Contact support:</strong> If still not showing, contact us with transaction hash</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security & Safety -->
+                <div class="faq-category">
+                    <div class="category-header" onclick="toggleCategory(this)">
+                        <h3><i class="fas fa-shield-alt"></i> Security & Safety</h3>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-content">
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                How do I keep my account secure?
+                                <i class="fas fa-plus"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p><strong>Essential Security Practices:</strong></p>
+                                <ul>
+                                    <li><strong>Use strong passwords:</strong> Minimum 12 characters with mix of letters, numbers, symbols</li>
+                                    <li><strong>Enable 2FA:</strong> Use Google Authenticator or Authy</li>
+                                    <li><strong>Secure your seed phrase:</strong> Never share or store digitally</li>
+                                    <li><strong>Use hardware wallet:</strong> Ledger or Trezor for large amounts</li>
+                                    <li><strong>Verify URLs:</strong> Always check you're on magic-eden.com</li>
+                                    <li><strong>Never share private keys:</strong> We will NEVER ask for your private keys</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                I think my account was compromised
+                                <i class="fas fa-plus"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <div class="urgent-box">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    <p><strong>🚨 URGENT ACTION REQUIRED</strong></p>
+                                </div>
+                                <p>If you suspect your account is compromised:</p>
+                                <ol>
+                                    <li><strong>Immediately:</strong> Transfer funds to a secure wallet</li>
+                                    <li><strong>Change password:</strong> Update your Magic Eden password</li>
+                                    <li><strong>Revoke access:</strong> Go to connected apps and revoke all</li>
+                                    <li><strong>Contact support:</strong> Email security@magic-eden.com immediately</li>
+                                    <li><strong>Report:</strong> File a report with local authorities if significant loss</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contact Support Section -->
+            <div class="contact-section" id="contact-section">
+                <h2 class="section-title">Still Need Help?</h2>
+                <div class="contact-options">
+                    <div class="contact-card" onclick="openTicketModal()">
+                        <div class="contact-icon">
+                            <i class="fas fa-ticket-alt"></i>
+                        </div>
+                        <h3>Submit Support Ticket</h3>
+                        <p>Get personalized help from our team</p>
+                        <button class="btn btn-primary">Open Ticket Form</button>
+                    </div>
+                    
+                    <div class="contact-card" onclick="window.open('mailto:support@magic-eden.com')">
+                        <div class="contact-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <h3>Email Us</h3>
+                        <p>support@magic-eden.com</p>
+                        <p class="response-time">Response time: 24-48 hours</p>
+                    </div>
+                    
+                    <div class="contact-card" onclick="window.open('https://twitter.com/MagicEden', '_blank')">
+                        <div class="contact-icon">
+                            <i class="fab fa-twitter"></i>
+                        </div>
+                        <h3>Twitter Support</h3>
+                        <p>DM @MagicEdenSupport</p>
+                        <p class="response-time">Response time: 2-6 hours</p>
+                    </div>
+                    
+                    <div class="contact-card" onclick="window.open('https://discord.gg/magiceden', '_blank')">
+                        <div class="contact-icon">
+                            <i class="fab fa-discord"></i>
+                        </div>
+                        <h3>Discord Community</h3>
+                        <p>Join our active Discord server</p>
+                        <p class="response-time">Community help & support</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Helpful Resources -->
+            <div class="resources-section">
+                <h2 class="section-title">Helpful Resources</h2>
+                <div class="resources-grid">
+                    <a href="/security" class="resource-card">
+                        <i class="fas fa-shield-alt"></i>
+                        <h4>Security Center</h4>
+                        <p>Complete guide to keeping your assets safe</p>
+                    </a>
+                    
+                    <a href="/buying-guide" class="resource-card">
+                        <i class="fas fa-book"></i>
+                        <h4>Buying Guide</h4>
+                        <p>Step-by-step guide for first-time buyers</p>
+                    </a>
+                    
+                    <a href="/gas-guide" class="resource-card">
+                        <i class="fas fa-gas-pump"></i>
+                        <h4>Gas Fees Guide</h4>
+                        <p>Understanding and optimizing gas fees</p>
+                    </a>
+                    
+                    <a href="/glossary" class="resource-card">
+                        <i class="fas fa-book-open"></i>
+                        <h4>NFT Glossary</h4>
+                        <p>Learn all the NFT terms and jargon</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Support Ticket Modal -->
+    <div class="modal" id="ticketModal">
+        <div class="modal-content support-modal">
+            <div class="modal-header">
+                <h2><i class="fas fa-ticket-alt"></i> Submit Support Ticket</h2>
+                <button class="close-modal" onclick="closeTicketModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="supportTicketForm" onsubmit="submitTicket(event)">
+                    <div class="form-group">
+                        <label for="ticketSubject">Subject *</label>
+                        <input type="text" id="ticketSubject" placeholder="Brief description of your issue" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="ticketCategory">Category *</label>
+                        <select id="ticketCategory" required>
+                            <option value="">Select a category</option>
+                            <option value="account">Account Issues</option>
+                            <option value="wallet">Wallet & Funds</option>
+                            <option value="buying">Buying NFTs</option>
+                            <option value="selling">Selling NFTs</option>
+                            <option value="technical">Technical Issues</option>
+                            <option value="security">Security Concerns</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="ticketDescription">Description *</label>
+                        <textarea id="ticketDescription" placeholder="Please describe your issue in detail. Include any error messages, transaction IDs, or relevant information." rows="6" required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="ticketEmail">Email Address *</label>
+                        <input type="email" id="ticketEmail" placeholder="Your email address" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="transactionHash">Transaction Hash (if applicable)</label>
+                        <input type="text" id="transactionHash" placeholder="0x...">
+                        <small>Find this on Etherscan or in your wallet transaction history</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="attachments">Attachments</label>
+                        <input type="file" id="attachments" multiple accept="image/*,.pdf,.txt">
+                        <small>Max 3 files, 5MB each. Screenshots help us resolve issues faster.</small>
+                    </div>
+                    
+                    <div class="form-group checkbox">
+                        <input type="checkbox" id="urgentCheckbox">
+                        <label for="urgentCheckbox">Mark as urgent (for compromised accounts or large fund losses only)</label>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeTicketModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i> Submit Ticket
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div class="modal" id="successModal">
+        <div class="modal-content success-modal">
+            <div class="modal-body">
+                <div class="success-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h3>Ticket Submitted Successfully!</h3>
+                <p>We've received your support ticket. Our team will get back to you within 24-48 hours.</p>
+                <p><strong>Ticket ID:</strong> <span id="ticketId">ME-</span></p>
+                <div class="next-steps">
+                    <h4>What happens next:</h4>
+                    <ul>
+                        <li>You'll receive a confirmation email</li>
+                        <li>Our support team will review your ticket</li>
+                        <li>We'll contact you via email with updates</li>
+                        <li>Check your spam folder if you don't see our emails</li>
+                    </ul>
+                </div>
+                <button class="btn btn-primary" onclick="closeSuccessModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Scripts -->
+    <script src="../js/app.js"></script>
+    <script src="../js/support.js"></script>
+</body>
+</html>
