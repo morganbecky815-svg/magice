@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Magic Eden | NFT Marketplace</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="../css/about.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="../js/auth-manager.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(() => {
+            if (typeof AuthManager !== 'undefined' && !AuthManager.isLoggedIn()) {
+                const user = localStorage.getItem('magicEdenCurrentUser');
+                if (!user) {
+                    AuthManager.protectPage();
+                }
+            }
+        }, 100);
+    });
+    </script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="about-header">
+        <div class="container">
+            <div class="header-content">
+                <a href="/dashboard" class="back-button">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+                <div class="header-logo">
+                    <i class="fas fa-crown"></i>
+                    <h1>About Magic Eden</h1>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- About Page Content -->
+    <main class="about-page">
+        <!-- Hero Section -->
+        <section class="about-hero">
+            <div class="container">
+                <div class="hero-content">
+                    <h1>Welcome to Magic Eden</h1>
+                    <p class="hero-subtitle">The Premier NFT Marketplace on Solana & Ethereum</p>
+                    <p class="hero-description">
+                        Magic Eden is revolutionizing digital ownership by making NFTs accessible, 
+                        secure, and enjoyable for everyone. Join millions of users in discovering, 
+                        collecting, and trading unique digital assets.
+                    </p>
+                    <div class="hero-stats">
+                        <div class="stat-item">
+                            <div class="stat-number" id="totalUsers">500K+</div>
+                            <div class="stat-label">Active Users</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="totalNFTs">2.5M+</div>
+                            <div class="stat-label">NFTs Traded</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="totalVolume">$850M+</div>
+                            <div class="stat-label">Trading Volume</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="totalCollections">15K+</div>
+                            <div class="stat-label">Collections</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Our Story -->
+        <section class="story-section">
+            <div class="container">
+                <h2 class="section-title">Our Story</h2>
+                <div class="story-content">
+                    <div class="story-image">
+                        <i class="fas fa-rocket"></i>
+                    </div>
+                    <div class="story-text">
+                        <h3>Building the Future of Digital Ownership</h3>
+                        <p>
+                            Founded in 2021, Magic Eden began as a passion project among blockchain 
+                            enthusiasts who believed in the power of NFTs to transform digital ownership 
+                            and creator economies.
+                        </p>
+                        <p>
+                            What started as a small marketplace on Solana has grown into a multi-chain 
+                            platform supporting Ethereum, Polygon, and beyond, serving millions of users 
+                            worldwide.
+                        </p>
+                        <p>
+                            Our mission is simple: make NFTs accessible to everyone while maintaining 
+                            the highest standards of security, user experience, and community engagement.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Our Values -->
+        <section class="values-section">
+            <div class="container">
+                <h2 class="section-title">Our Values</h2>
+                <div class="values-grid">
+                    <div class="value-card">
+                        <div class="value-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <h3>Community First</h3>
+                        <p>We prioritize our community's needs, listening to feedback and evolving with our users.</p>
+                    </div>
+                    
+                    <div class="value-card">
+                        <div class="value-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <h3>Security & Trust</h3>
+                        <p>Your security is our top priority. We implement enterprise-grade security measures.</p>
+                    </div>
+                    
+                    <div class="value-card">
+                        <div class="value-icon">
+                            <i class="fas fa-lightbulb"></i>
+                        </div>
+                        <h3>Innovation</h3>
+                        <p>Constantly pushing boundaries to deliver cutting-edge NFT experiences.</p>
+                    </div>
+                    
+                    <div class="value-card">
+                        <div class="value-icon">
+                            <i class="fas fa-handshake"></i>
+                        </div>
+                        <h3>Accessibility</h3>
+                        <p>Making NFTs easy to understand and use for everyone, from beginners to experts.</p>
+                    </div>
+                    
+                    <div class="value-card">
+                        <div class="value-icon">
+                            <i class="fas fa-heart"></i>
+                        </div>
+                        <h3>Creator Support</h3>
+                        <p>Empowering artists and creators with fair royalties and powerful tools.</p>
+                    </div>
+                    
+                    <div class="value-card">
+                        <div class="value-icon">
+                            <i class="fas fa-globe"></i>
+                        </div>
+                        <h3>Global Reach</h3>
+                        <p>Building a borderless marketplace connecting creators and collectors worldwide.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Team Section -->
+        <section class="team-section">
+            <div class="container">
+                <h2 class="section-title">Leadership Team</h2>
+                <div class="team-grid">
+                    <div class="team-member">
+                        <div class="member-avatar">
+                            <i class="fas fa-user-tie"></i>
+                        </div>
+                        <h3>Alex Johnson</h3>
+                        <p class="member-role">CEO & Founder</p>
+                        <p class="member-bio">
+                            Former blockchain engineer at Coinbase. Passionate about democratizing digital ownership.
+                        </p>
+                    </div>
+                    
+                    <div class="team-member">
+                        <div class="member-avatar">
+                            <i class="fas fa-user-cog"></i>
+                        </div>
+                        <h3>Sarah Chen</h3>
+                        <p class="member-role">CTO</p>
+                        <p class="member-bio">
+                            Ex-Google engineer specializing in scalable blockchain infrastructure.
+                        </p>
+                    </div>
+                    
+                    <div class="team-member">
+                        <div class="member-avatar">
+                            <i class="fas fa-user-shield"></i>
+                        </div>
+                        <h3>Marcus Lee</h3>
+                        <p class="member-role">Head of Security</p>
+                        <p class="member-bio">
+                            Cybersecurity expert with 15+ years protecting financial systems.
+                        </p>
+                    </div>
+                    
+                    <div class="team-member">
+                        <div class="member-avatar">
+                            <i class="fas fa-user-friends"></i>
+                        </div>
+                        <h3>Elena Rodriguez</h3>
+                        <p class="member-role">Head of Community</p>
+                        <p class="member-bio">
+                            Building vibrant communities since the early days of crypto.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Technology -->
+        <section class="tech-section">
+            <div class="container">
+                <h2 class="section-title">Our Technology</h2>
+                <div class="tech-content">
+                    <div class="tech-info">
+                        <h3>Powered by Cutting-Edge Blockchain</h3>
+                        <p>Magic Eden leverages the latest blockchain technology to provide a seamless, secure, and scalable NFT trading experience.</p>
+                        
+                        <div class="tech-stack">
+                            <div class="stack-item">
+                                <div class="stack-icon">
+                                    <i class="fab fa-ethereum"></i>
+                                </div>
+                                <div class="stack-info">
+                                    <h4>Ethereum</h4>
+                                    <p>The world's most secure and established blockchain for NFTs</p>
+                                </div>
+                            </div>
+                            
+                            <div class="stack-item">
+                                <div class="stack-icon">
+                                    <i class="fas fa-bolt"></i>
+                                </div>
+                                <div class="stack-info">
+                                    <h4>Solana</h4>
+                                    <p>High-speed, low-cost transactions for mass adoption</p>
+                                </div>
+                            </div>
+                            
+                            <div class="stack-item">
+                                <div class="stack-icon">
+                                    <i class="fas fa-layer-group"></i>
+                                </div>
+                                <div class="stack-info">
+                                    <h4>Polygon</h4>
+                                    <p>Ethereum-compatible scaling solution</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tech-features">
+                        <div class="feature-item">
+                            <i class="fas fa-shield-check"></i>
+                            <div>
+                                <h4>Enterprise Security</h4>
+                                <p>Multi-signature wallets, cold storage, and regular audits</p>
+                            </div>
+                        </div>
+                        
+                        <div class="feature-item">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <div>
+                                <h4>High Performance</h4>
+                                <p>99.9% uptime with sub-second transaction processing</p>
+                            </div>
+                        </div>
+                        
+                        <div class="feature-item">
+                            <i class="fas fa-mobile-alt"></i>
+                            <div>
+                                <h4>Mobile First</h4>
+                                <p>Optimized experience across all devices</p>
+                            </div>
+                        </div>
+                        
+                        <div class="feature-item">
+                            <i class="fas fa-code"></i>
+                            <div>
+                                <h4>Open APIs</h4>
+                                <p>Developer-friendly APIs for building on Magic Eden</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Partners & Investors -->
+        <section class="partners-section">
+            <div class="container">
+                <h2 class="section-title">Partners & Investors</h2>
+                <div class="partners-grid">
+                    <div class="partner-logo">
+                        <i class="fas fa-coins"></i>
+                        <span>Coinbase Ventures</span>
+                    </div>
+                    <div class="partner-logo">
+                        <i class="fab fa-google"></i>
+                        <span>Google Cloud</span>
+                    </div>
+                    <div class="partner-logo">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Andreessen Horowitz</span>
+                    </div>
+                    <div class="partner-logo">
+                        <i class="fas fa-parachute-box"></i>
+                        <span>Paradigm</span>
+                    </div>
+                    <div class="partner-logo">
+                        <i class="fas fa-building"></i>
+                        <span>Sequoia Capital</span>
+                    </div>
+                    <div class="partner-logo">
+                        <i class="fab fa-microsoft"></i>
+                        <span>Microsoft</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Press & Media -->
+        <section class="press-section">
+            <div class="container">
+                <h2 class="section-title">Featured In</h2>
+                <div class="press-grid">
+                    <div class="press-item">
+                        <i class="fas fa-newspaper"></i>
+                        <h4>TechCrunch</h4>
+                        <p>"Magic Eden is revolutionizing NFT accessibility"</p>
+                    </div>
+                    <div class="press-item">
+                        <i class="fas fa-tv"></i>
+                        <h4>CNBC</h4>
+                        <p>"The go-to marketplace for NFT enthusiasts"</p>
+                    </div>
+                    <div class="press-item">
+                        <i class="fas fa-podcast"></i>
+                        <h4>Bloomberg</h4>
+                        <p>"Leading the charge in digital collectibles"</p>
+                    </div>
+                    <div class="press-item">
+                        <i class="fas fa-broadcast-tower"></i>
+                        <h4>Forbes</h4>
+                        <p>"Innovative platform bridging art and technology"</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Careers CTA -->
+        <section class="careers-section">
+            <div class="container">
+                <div class="careers-content">
+                    <h2>Join Our Team</h2>
+                    <p>We're always looking for talented individuals passionate about blockchain and NFTs.</p>
+                    <div class="careers-buttons">
+                        <button class="btn btn-primary" onclick="window.open('mailto:careers@magic-eden.com')">
+                            <i class="fas fa-paper-plane"></i> Send Resume
+                        </button>
+                        <button class="btn btn-secondary" onclick="window.open('/careers', '_blank')">
+                            <i class="fas fa-briefcase"></i> View Open Positions
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Contact Info -->
+        <section class="contact-section">
+            <div class="container">
+                <h2 class="section-title">Get In Touch</h2>
+                <div class="contact-grid">
+                    <div class="contact-info">
+                        <i class="fas fa-envelope"></i>
+                        <h4>General Inquiries</h4>
+                        <p>hello@magic-eden.com</p>
+                    </div>
+                    <div class="contact-info">
+                        <i class="fas fa-headset"></i>
+                        <h4>Support</h4>
+                        <p>support@magic-eden.com</p>
+                    </div>
+                    <div class="contact-info">
+                        <i class="fas fa-building"></i>
+                        <h4>Office</h4>
+                        <p>123 Blockchain Blvd, San Francisco, CA</p>
+                    </div>
+                    <div class="contact-info">
+                        <i class="fab fa-twitter"></i>
+                        <h4>Twitter</h4>
+                        <p>@MagicEden</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Load Scripts -->
+    <script src="../js/app.js"></script>
+    <script src="../js/about.js"></script>
+</body>
+</html>
