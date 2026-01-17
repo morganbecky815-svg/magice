@@ -1153,3 +1153,56 @@
         gap: 15px;
     }
 }
+/* QR Code Section */
+.qr-container {
+    text-align: center;
+    margin: 30px auto;
+    padding: 25px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 20px;
+    border: 2px solid #e2e8f0;
+    max-width: 280px;
+    position: relative;
+}
+
+.qr-container:before {
+    content: "✅ YOUR QR CODE";
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #10b981;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+#qrCode {
+    display: block !important;
+    visibility: visible !important;
+    min-height: 200px;
+    margin: 0 auto;
+}
+
+#qrCode img {
+    display: block !important;
+    margin: 0 auto;
+}
+
+.qr-container p {
+    margin-top: 20px;
+    color: #4a5568;
+    font-weight: 600;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.qr-container p:before {
+    content: "📱";
+    font-size: 18px;
+}

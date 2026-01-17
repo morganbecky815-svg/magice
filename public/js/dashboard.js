@@ -4,23 +4,15 @@
 
 let currentDashboardUser = null;
 let currentConversionType = 'ethToWeth';
-let ETH_PRICE = window.ETH_PRICE || localStorage.getItem('currentEthPrice') ||2500; // Default price
+// REMOVED: let ETH_PRICE = window.ETH_PRICE || localStorage.getItem('currentEthPrice') ||2500; // Default price
 const MARKETPLACE_WALLET_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc9e90E4343A9B";
 
-// Replace direct CoinGecko calls with:
-async function updateEthDisplay() {
-    if (window.ethPriceService) {
-      const price = await window.ethPriceService.getPrice();
-      // Update your display
-      document.getElementById('ethPrice').textContent = `$${price}`;
-    }
-  }
+// ✅ FIXED: Get price from service
+function getCurrentEthPrice() {
+    return window.ethPriceService?.currentPrice || 2500;
+}
 
-// ============================================
-// UPDATED DASHBOARD.JS WITH /me ENDPOINTS
-// ============================================
-
-// ✅ Fetch user data using /me/profile endpoint
+// ✅ FIXED: Updated function with live ETH price
 async function fetchUserFromBackend() {
     try {
         const token = localStorage.getItem('token');
@@ -185,7 +177,7 @@ async function loadDashboard() {
     }, 1000);
 }
 
-// ✅ UPDATED executeConversion function
+// ✅ UPDATED executeConversion function (LEAVE THIS AS IS - IT'S WORKING)
 async function executeConversion() {
     const amountInput = document.getElementById('conversionAmount');
     if (!amountInput || !currentDashboardUser) return;
@@ -246,81 +238,13 @@ async function executeConversion() {
     }
 }
 
-// Initialize dashboard
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Dashboard initializing...');
-    loadDashboard();
-}, 500);
-
-// Auto-refresh market trends every 30 seconds
-setTimeout(updateMarketTrends, 1000);
-setInterval(updateMarketTrends, 30000);
-
-
-// REPLACE your current loadDashboard() function with this:
-async function loadDashboard() {
-    console.log("🔍 DASHBOARD.JS - LOADING WITH API...");
-    
-    // Get token
-    const token = localStorage.getItem('token');
-    console.log("🔑 Token exists:", !!token);
-    
-    if (!token) {
-        console.log("❌ No token found, redirecting to login");
-        window.location.href = '/login';
-        return;
-    }
-    
-    // Try to fetch fresh data from server FIRST
-    console.log("🔄 Fetching fresh user data from server...");
-    const freshUser = await fetchUserFromBackend();
-    
-    let user;
-    if (freshUser) {
-        // Use fresh data from server
-        user = freshUser;
-        console.log("✅ Using fresh data from server");
-    } else {
-        // Fall back to localStorage (for offline mode)
-        console.log("⚠️ Using cached localStorage data");
-        const userData = localStorage.getItem('user');
-        
-        if (!userData || userData === 'null' || userData === 'undefined') {
-            window.location.href = '/login';
-            return;
-        }
-        
-        try {
-            user = JSON.parse(userData);
-        } catch (e) {
-            console.error("❌ Error parsing user data:", e);
-            window.location.href = '/login';
-            return;
-        }
-    }
-    
-    // Set global variables
-    currentDashboardUser = user;
-    console.log("🎯 Dashboard ready for:", user.email);
-    console.log("💰 User balance from server:", user.balance);
-    console.log("💰 User ETH balance:", user.ethBalance);
-    console.log("💰 User WETH balance:", user.wethBalance);
-    
-    // Display dashboard
-    displayDashboardData(user);
-    
-    // Load additional features
-    setTimeout(() => {
-        if (typeof updateMarketTrends === 'function') {
-            updateMarketTrends();
-        }
-    }, 1000);
-}
-
-// Display dashboard data
+// ✅ FIXED: Display dashboard data with LIVE ETH PRICE
 function displayDashboardData(user) {
     console.log("📊 Displaying dashboard data for:", user.email);
-    console.log("💰 Current ETH price:", ETH_PRICE);
+    
+    // ✅ FIXED: Get LIVE ETH price from service
+    const currentPrice = getCurrentEthPrice();
+    console.log("💰 Current ETH price:", currentPrice);
     
     // Welcome message
     const welcomeMessage = document.getElementById('welcomeMessage');
@@ -334,61 +258,44 @@ function displayDashboardData(user) {
         welcomeMessage.textContent = `${greeting}, ${name}!`;
     }
     
-    // Update ETH balance
+    // ✅ FIXED: Update ETH balance with LIVE price
     const ethBalanceEl = document.getElementById('ethBalance');
     const ethValueEl = document.getElementById('ethValue');
     
     if (ethBalanceEl) ethBalanceEl.textContent = `${user.ethBalance.toFixed(4)} ETH`;
-    if (ethValueEl) ethValueEl.textContent = `$${(user.ethBalance * ETH_PRICE).toFixed(2)}`;
+    if (ethValueEl) {
+        // ✅ FIXED: Use currentPrice from service, not hardcoded 2500
+        ethValueEl.textContent = `$${(user.ethBalance * currentPrice).toFixed(2)}`;
+    }
     
-    // Update WETH balance
+    // ✅ FIXED: Update WETH balance with LIVE price
     const wethBalanceEl = document.getElementById('wethBalance');
     const wethValueEl = document.getElementById('wethValue');
     if (wethBalanceEl) wethBalanceEl.textContent = `${user.wethBalance.toFixed(4)} WETH`;
-    if (wethValueEl) wethValueEl.textContent = `$${(user.wethBalance * ETH_PRICE).toFixed(2)}`;
+    if (wethValueEl) {
+        // ✅ FIXED: Use currentPrice from service, not hardcoded 2500
+        wethValueEl.textContent = `$${(user.wethBalance * currentPrice).toFixed(2)}`;
+    }
     
-    // Calculate and display portfolio
-    updatePortfolioDisplay(user);
+    // ✅ FIXED: Calculate and display portfolio with LIVE price
+    updatePortfolioDisplay(user, currentPrice);
     
     console.log("✅ Dashboard data displayed");
 }
 
-// Add this function to sync with server every 30 seconds
-function startPeriodicSync() {
-    setInterval(async () => {
-        if (currentDashboardUser && localStorage.getItem('token')) {
-            console.log('🔄 Periodic sync with server...');
-            await fetchUserFromBackend();
-            
-            // Refresh display if user is on dashboard
-            if (window.location.pathname.includes('dashboard')) {
-                const userData = localStorage.getItem('user');
-                if (userData) {
-                    const user = JSON.parse(userData);
-                    displayDashboardData(user);
-                }
-            }
-        }
-    }, 30000); // Every 30 seconds
-}
-
-// Call this in your DOMContentLoaded event
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Dashboard initializing...');
-    loadDashboard();
-    startPeriodicSync(); // Add this line
-}, 500);
-
-// Update portfolio display
-function updatePortfolioDisplay(user) {
+// ✅ FIXED: Update portfolio display with LIVE price parameter
+function updatePortfolioDisplay(user, ethPrice) {
     const portfolioValueEl = document.getElementById('portfolioValue');
     const portfolioChangeEl = document.getElementById('portfolioChange');
     
     if (!portfolioValueEl && !portfolioChangeEl) return;
     
+    // ✅ FIXED: Use the passed ethPrice (LIVE price)
+    const calculatedEthPrice = ethPrice || getCurrentEthPrice();
+    
     // Calculate total portfolio value
-    const ethValue = (user.ethBalance || 0) * ETH_PRICE;
-    const wethValue = (user.wethBalance || 0) * ETH_PRICE;
+    const ethValue = (user.ethBalance || 0) * calculatedEthPrice;
+    const wethValue = (user.wethBalance || 0) * calculatedEthPrice;
     const totalPortfolioValue = ethValue + wethValue;
     
     // Update portfolio value
@@ -410,6 +317,82 @@ function updatePortfolioDisplay(user) {
     
     // Store in history
     updatePortfolioHistory(totalPortfolioValue);
+}
+
+// ✅ FIXED: Add function to subscribe to ETH price updates
+function subscribeToEthPriceUpdates() {
+    if (!window.ethPriceService) {
+        console.log("⏳ Waiting for ethPriceService...");
+        setTimeout(subscribeToEthPriceUpdates, 1000);
+        return;
+    }
+    
+    console.log("✅ Subscribing to ETH price updates");
+    
+    // Subscribe to price changes
+    window.ethPriceService.subscribe((newPrice) => {
+        console.log("🔄 ETH price updated to:", newPrice);
+        
+        // Update dashboard when price changes
+        if (currentDashboardUser) {
+            // Update ETH value display
+            const ethValueEl = document.getElementById('ethValue');
+            if (ethValueEl && currentDashboardUser.ethBalance !== undefined) {
+                ethValueEl.textContent = `$${(currentDashboardUser.ethBalance * newPrice).toFixed(2)}`;
+            }
+            
+            // Update WETH value display
+            const wethValueEl = document.getElementById('wethValue');
+            if (wethValueEl && currentDashboardUser.wethBalance !== undefined) {
+                wethValueEl.textContent = `$${(currentDashboardUser.wethBalance * newPrice).toFixed(2)}`;
+            }
+            
+            // Update portfolio with new price
+            updatePortfolioDisplay(currentDashboardUser, newPrice);
+        }
+    });
+    
+    // Force initial update
+    setTimeout(() => {
+        if (window.ethPriceService) {
+            window.ethPriceService.updateAllDisplays();
+        }
+    }, 1500);
+}
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Dashboard initializing...');
+    loadDashboard();
+    
+    // ✅ FIXED: Start subscribing to ETH price updates
+    setTimeout(subscribeToEthPriceUpdates, 2000);
+    
+    // Start auto-refresh
+    startPeriodicSync();
+}, 500);
+
+// Auto-refresh market trends every 30 seconds
+setTimeout(updateMarketTrends, 1000);
+setInterval(updateMarketTrends, 30000);
+
+// Add this to sync with server every 30 seconds
+function startPeriodicSync() {
+    setInterval(async () => {
+        if (currentDashboardUser && localStorage.getItem('token')) {
+            console.log('🔄 Periodic sync with server...');
+            await fetchUserFromBackend();
+            
+            // Refresh display if user is on dashboard
+            if (window.location.pathname.includes('dashboard')) {
+                const userData = localStorage.getItem('user');
+                if (userData) {
+                    const user = JSON.parse(userData);
+                    displayDashboardData(user);
+                }
+            }
+        }
+    }, 30000); // Every 30 seconds
 }
 
 // Store portfolio history
@@ -604,7 +587,7 @@ function showDepositInstructions() {
     }
 }
 
-// WETH Conversion Functions
+// WETH Conversion Functions (LEAVE THESE AS IS - THEY'RE WORKING)
 function showWETHConversion() {
     if (!currentDashboardUser) {
         alert('Please login first');
@@ -694,76 +677,10 @@ function updateConversionPreview() {
     convertButton.disabled = false;
 }
 
-// REPLACE your executeConversion() function with this:
-async function executeConversion() {
-    const amountInput = document.getElementById('conversionAmount');
-    if (!amountInput || !currentDashboardUser) return;
-    
-    const amount = parseFloat(amountInput.value);
-    if (isNaN(amount) || amount <= 0) {
-        alert('Please enter a valid amount');
-        return;
-    }
-    
-    const token = localStorage.getItem('token');
-    if (!token) {
-        alert('Please login again');
-        window.location.href = '/login';
-        return;
-    }
-    
-    try {
-        // Call your Node.js API to perform conversion
-        const response = await fetch('/api/user/convert', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                conversionType: currentConversionType,
-                amount: amount
-            })
-        });
-        
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Conversion failed');
-        }
-        
-        const result = await response.json();
-        
-        // Update local user data with server response
-        currentDashboardUser.ethBalance = result.ethBalance;
-        currentDashboardUser.wethBalance = result.wethBalance;
-        
-        // Save updated data to localStorage
-        localStorage.setItem('user', JSON.stringify(currentDashboardUser));
-        
-        // Update display
-        displayDashboardData(currentDashboardUser);
-        
-        // Show success
-        const fromCurrency = currentConversionType === 'ethToWeth' ? 'ETH' : 'WETH';
-        const toCurrency = currentConversionType === 'ethToWeth' ? 'WETH' : 'ETH';
-        alert(`Successfully converted ${amount.toFixed(4)} ${fromCurrency} to ${toCurrency}!`);
-        
-        closeModal('wethConversionModal');
-        
-    } catch (error) {
-        console.error('Conversion error:', error);
-        alert(`Error: ${error.message}`);
-    }
-}
-
-function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) modal.style.display = 'none';
-}
-
 // Dashboard ETH price updates
 function updateDashboardPrices() {
-    const ethPrice = window.ETH_PRICE || localStorage.getItem('currentEthPrice') || 2500;
+    // ✅ FIXED: Get price from service
+    const ethPrice = getCurrentEthPrice();
     
     // Update all price displays
     document.querySelectorAll('[data-eth-price]').forEach(el => {

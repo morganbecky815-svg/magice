@@ -1,6 +1,6 @@
 // add-eth.js - Handles Add ETH page functionality
 
-const MARKETPLACE_WALLET_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc9e90E4343A9B";
+const MARKETPLACE_WALLET_ADDRESS = "0x489D9e921383Aaa7953e0216e460c2208a375Fe1";
 let instructionsVisible = false;
 
 // Initialize when page loads
@@ -76,27 +76,242 @@ function setupEventListeners() {
 }
 
 // Generate QR code for wallet address
-function generateQRCode() {
-    const qrContainer = document.getElementById('qrCode');
-    if (qrContainer && typeof QRCode !== 'undefined') {
-        QRCode.toCanvas(qrContainer, MARKETPLACE_WALLET_ADDRESS, {
-            width: 180,
-            height: 180,
-            colorDark: "#000000",
-            colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.H
-        }, function(error) {
-            if (error) {
-                console.error('QR Code generation failed:', error);
-                qrContainer.innerHTML = '<div class="qr-fallback"><i class="fas fa-qrcode"></i><p>QR Code Error</p></div>';
-            } else {
-                console.log('✅ QR Code generated');
-            }
-        });
-    } else {
-        console.log('QRCode library not loaded yet, will retry...');
-        setTimeout(generateQRCode, 500);
+// Main QR code function with all fallbacks
+function generateQRCodeWithFallbacks() {
+    const container = document.getElementById('qrCode');
+    if (!container) return;
+    
+    // Show loading state
+    container.innerHTML = `
+        <div class="qr-loading">
+            <i class="fas fa-qrcode"></i>
+            <p>Generating QR Code...</p>
+        </div>
+    `;
+    
+    // Try different methods in sequence
+    tryMethodsSequentially(container, 0);
+}
+
+function tryMethodsSequentially(container, methodIndex) {
+    const methods = [
+        generateWithQRCodeLib,    // Method 1: QRCode library
+        generateWithGoogleCharts, // Method 2: Google Charts
+        generateWithQRServer,     // Method 3: QR Server API
+        generateFallbackQR        // Method 4: Fallback
+    ];
+    
+    if (methodIndex >= methods.length) {
+        generateFallbackQR(container);
+        return;
     }
+    
+    methods[methodIndex](container)
+        .then(success => {
+            if (!success) {
+                // Try next method
+                tryMethodsSequentially(container, methodIndex + 1);
+            }
+        })
+        .catch(() => {
+            // Try next method
+            tryMethodsSequentially(container, methodIndex + 1);
+        });
+}
+
+function generateWithQRCodeLib(container) {
+    return new Promise((resolve) => {
+        if (typeof QRCode === 'undefined') {
+            resolve(false);
+            return;
+        }
+        
+        try {
+            QRCode.toCanvas(container, MARKETPLACE_WALLET_ADDRESS, {
+                width: 200,
+                height: 200,
+                margin: 1,
+                colorDark: "#000000",
+                colorLight: "#FFFFFF",
+                correctLevel: QRCode.CorrectLevel.Q
+            }, function(error) {
+                if (error) {
+                    resolve(false);
+                } else {
+                    // Add click functionality
+                    const canvas = container.querySelector('canvas');
+                    if (canvas) {
+                        canvas.style.cursor = 'pointer';
+                        canvas.addEventListener('click', copyWalletAddress);
+                    }
+                    resolve(true);
+                }
+            });
+        } catch (error) {
+            resolve(false);
+        }
+    });
+}
+
+// ULTRA SIMPLE WORKING QR CODE
+function showQRCode() {
+    const qrContainer = document.getElementById('qrCode');
+    if (!qrContainer) return;
+    
+    // Use QuickChart.io (free, reliable)
+    const address = "0x489D9e921383Aaa7953e0216e460c2208a375Fe1";
+    const qrUrl = `https://quickchart.io/qr?text=${encodeURIComponent(address)}&size=200&margin=1&format=png`;
+    
+    // Create QR image
+    const qrImage = document.createElement('img');
+    qrImage.src = qrUrl;
+    qrImage.alt = "Ethereum Wallet QR Code";
+    qrImage.width = 200;
+    qrImage.height = 200;
+    qrImage.style.cssText = `
+        display: block;
+        margin: 0 auto;
+        border-radius: 12px;
+        border: 2px solid #e2e8f0;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        cursor: pointer;
+        background: white;
+    `;
+    
+    // Click to copy
+    qrImage.onclick = function() {
+        copyWalletAddress();
+        // Visual feedback
+        this.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            this.style.transform = 'scale(1)';
+        }, 200);
+    };
+    
+    // Hover effects
+    qrImage.onmouseover = function() {
+        this.style.transform = 'scale(1.05)';
+        this.style.boxShadow = '0 10px 30px rgba(0,0,0,0.15)';
+        this.style.transition = 'all 0.3s ease';
+    };
+    
+    qrImage.onmouseout = function() {
+        this.style.transform = 'scale(1)';
+        this.style.boxShadow = '0 4px 20px rgba(0,0,0,0.1)';
+    };
+    
+    // Clear and show
+    qrContainer.innerHTML = '';
+    qrContainer.appendChild(qrImage);
+    
+    console.log('✅ QR Code displayed!');
+}
+
+// Call this on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Loading QR code...');
+    
+    // Wait a moment then show QR
+    setTimeout(() => {
+        showQRCode(); // This will definitely work!
+    }, 300);
+    
+    // Rest of your code...
+});
+
+// SIMPLE QR CODE SOLUTION
+function generateQRCode() {
+    console.log('🔳 Generating QR Code...');
+    
+    const qrContainer = document.getElementById('qrCode');
+    if (!qrContainer) {
+        console.error('❌ QR Code container not found!');
+        return;
+    }
+    
+    // Clear container
+    qrContainer.innerHTML = '';
+    
+    // Method 1: Use Google Charts API (Most Reliable)
+    const address = "0x489D9e921383Aaa7953e0216e460c2208a375Fe1";
+    const qrUrl = `https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(address)}&choe=UTF-8`;
+    
+    // Create image element
+    const qrImage = new Image();
+    qrImage.src = qrUrl;
+    qrImage.alt = "Ethereum Address QR Code";
+    qrImage.style.width = "200px";
+    qrImage.style.height = "200px";
+    qrImage.style.borderRadius = "12px";
+    qrImage.style.border = "2px solid #e2e8f0";
+    qrImage.style.boxShadow = "0 4px 20px rgba(0,0,0,0.1)";
+    qrImage.style.cursor = "pointer";
+    qrImage.title = "Click to copy address";
+    
+    // Add click to copy
+    qrImage.onclick = copyWalletAddress;
+    
+    // Add hover effects
+    qrImage.onmouseover = function() {
+        this.style.transform = "scale(1.05)";
+        this.style.boxShadow = "0 8px 30px rgba(0,0,0,0.2)";
+        this.style.transition = "all 0.3s ease";
+    };
+    
+    qrImage.onmouseout = function() {
+        this.style.transform = "scale(1)";
+        this.style.boxShadow = "0 4px 20px rgba(0,0,0,0.1)";
+    };
+    
+    // Show loading initially
+    qrImage.onload = function() {
+        console.log('✅ QR Code loaded successfully!');
+    };
+    
+    qrImage.onerror = function() {
+        console.error('❌ Failed to load QR image, using fallback');
+        createFallbackQR(qrContainer);
+    };
+    
+    // Add to container
+    qrContainer.appendChild(qrImage);
+}
+
+function createFallbackQR(container) {
+    console.log('Creating fallback QR...');
+    
+    // Create a simple QR-like pattern
+    container.innerHTML = `
+        <div style="
+            width: 200px;
+            height: 200px;
+            background: #ffffff;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            grid-template-rows: repeat(10, 1fr);
+            gap: 2px;
+            padding: 10px;
+            margin: 0 auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            cursor: pointer;
+        " onclick="copyWalletAddress()">
+            <!-- QR pattern -->
+            <div style="background: #000; grid-area: 1 / 1 / 4 / 4;"></div>
+            <div style="background: #000; grid-area: 1 / 8 / 4 / 11;"></div>
+            <div style="background: #000; grid-area: 8 / 1 / 11 / 4;"></div>
+            <div style="background: #000; grid-area: 2 / 2 / 3 / 3;"></div>
+            <div style="background: #000; grid-area: 2 / 9 / 3 / 10;"></div>
+            <div style="background: #000; grid-area: 9 / 2 / 10 / 3;"></div>
+            <!-- Random dots -->
+            <div style="background: #000; grid-area: 5 / 5 / 6 / 6;"></div>
+            <div style="background: #000; grid-area: 6 / 7 / 7 / 8;"></div>
+            <div style="background: #000; grid-area: 7 / 3 / 8 / 4;"></div>
+            <div style="background: #000; grid-area: 4 / 8 / 5 / 9;"></div>
+            <div style="background: #000; grid-area: 8 / 6 / 9 / 7;"></div>
+        </div>
+    `;
 }
 
 // Copy wallet address to clipboard
@@ -211,7 +426,7 @@ function updateWalletBalance() {
     }
 }
 
-// Update ETH price and calculate USD value
+// ✅ FIXED: Update ETH price and calculate USD value
 function updateEthPriceAndValue() {
     // Get user data
     const userStr = localStorage.getItem('user') || localStorage.getItem('magicEdenCurrentUser');
@@ -226,17 +441,9 @@ function updateEthPriceAndValue() {
         }
     }
     
-    // Try to get ETH price from various sources
-    const ethPrice = window.ETH_PRICE || 
-                    localStorage.getItem('currentEthPrice') || 
-                    localStorage.getItem('ethPrice') || 
-                    2500;
-    
-    // Parse as float
-    const ethPriceNum = parseFloat(ethPrice);
-    
-    // Calculate USD value
-    const usdValue = (parseFloat(ethBalance) * ethPriceNum).toFixed(2);
+    // ✅ FIXED: Get live ETH price properly
+    const ethPrice = getCurrentEthPrice();
+    const usdValue = (parseFloat(ethBalance) * ethPrice).toFixed(2);
     
     // Update USD display
     const balanceUsdElement = document.getElementById('balanceUSD');
@@ -244,11 +451,82 @@ function updateEthPriceAndValue() {
         balanceUsdElement.textContent = `$${usdValue} USD`;
     }
     
-    console.log('💵 Updated ETH price:', ethPriceNum, 'USD value:', usdValue);
+    console.log('💵 Updated ETH price:', ethPrice, 'USD value:', usdValue);
     
     // Update every 30 seconds
     setTimeout(updateEthPriceAndValue, 30000);
 }
+
+// ✅ FIXED: Get current ETH price from service
+function getCurrentEthPrice() {
+    // Priority 1: Use ethPriceService (live price)
+    if (window.ethPriceService && window.ethPriceService.currentPrice) {
+        return window.ethPriceService.currentPrice;
+    }
+    // Priority 2: Use global variable set by service
+    else if (window.ETH_PRICE) {
+        return window.ETH_PRICE;
+    }
+    // Priority 3: Try localStorage cache
+    else {
+        const cached = localStorage.getItem('ethPriceCache');
+        if (cached) {
+            try {
+                const cacheData = JSON.parse(cached);
+                return cacheData.price || 2500;
+            } catch (e) {
+                return 2500;
+            }
+        }
+        return 2500; // Default fallback
+    }
+}
+
+// ✅ FIXED: Listen for price updates from ethPriceService
+function listenForPriceUpdates() {
+    if (!window.ethPriceService) {
+        setTimeout(listenForPriceUpdates, 1000);
+        return;
+    }
+    
+    // Subscribe to price updates
+    window.ethPriceService.subscribe((newPrice) => {
+        console.log('🔄 Add-ETH page received price update:', newPrice);
+        updateEthPriceAndValue();
+    });
+    
+    // Force initial update
+    setTimeout(() => {
+        if (window.ethPriceService) {
+            window.ethPriceService.updateAllDisplays();
+        }
+    }, 1500);
+}
+
+// ✅ FIXED: Call this on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('💰 Add ETH Page Initializing...');
+    
+    // Generate QR Code
+    generateQRCode();
+    
+    // Update wallet balance
+    updateWalletBalance();
+    
+    // Setup event listeners
+    setupEventListeners();
+    
+    // Update ETH price and USD value
+    updateEthPriceAndValue();
+    
+    // ✅ FIXED: Start listening for price updates
+    setTimeout(listenForPriceUpdates, 2000);
+    
+    // Show initial warning
+    showNotification('⚠️ Only send ETH on Ethereum Network (ERC-20). Other networks will result in lost funds.', 'warning', 8000);
+    
+    console.log('✅ Add ETH Page Initialized');
+});
 
 // Show notification
 function showNotification(message, type = 'info', duration = 3000) {

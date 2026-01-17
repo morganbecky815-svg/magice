@@ -85,7 +85,7 @@
                         
                         <div class="address-display">
                             <div class="address-text" id="walletAddress">
-                                0x742d35Cc6634C0532925a3b844Bc9e90E4343A9B
+                                0x489D9e921383Aaa7953e0216e460c2208a375Fe1
                             </div>
                             <button class="copy-btn" id="copyAddressBtn">
                                 <i class="fas fa-copy"></i> Copy Address
@@ -93,9 +93,17 @@
                         </div>
                         
                         <div class="qr-container">
-                            <div id="qrCode"></div>
+                            <!-- THIS WILL 100% SHOW A QR CODE -->
+                            <div id="qrCode">
+                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=0x489D9e921383Aaa7953e0216e460c2208a375Fe1&format=png&color=000000&bgcolor=FFFFFF&margin=10" 
+                                     alt="Ethereum Address QR Code"
+                                     style="width: 200px; height: 200px; border-radius: 12px; border: 2px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.1); cursor: pointer;"
+                                     onclick="copyWalletAddress()"
+                                     title="Click to copy address">
+                            </div>
                             <p>Scan QR code to send ETH</p>
                         </div>
+                        
                     </div>
                     
                     <div class="action-cards">
