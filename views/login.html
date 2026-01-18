@@ -160,5 +160,97 @@
       console.log("✅ Login form override complete");
   });
   </script>
+  <!-- Add this RIGHT BEFORE the closing </body> tag -->
+<script>
+    // EMERGENCY OVERRIDE - FIX LOGIN FORM
+    console.log("🚨 EMERGENCY LOGIN FIX ACTIVATED");
+    
+    // Wait for page to load
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("✅ DOM ready");
+        
+        // Get the login form
+        const loginForm = document.getElementById('loginForm');
+        if (!loginForm) {
+            console.error("❌ ERROR: Login form not found!");
+            return;
+        }
+        
+        console.log("✅ Login form found, overriding...");
+        
+        // REMOVE ALL existing event listeners by cloning
+        const newForm = loginForm.cloneNode(true);
+        loginForm.parentNode.replaceChild(newForm, loginForm);
+        
+        // Add NEW event handler
+        newForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            console.log("🔄 Form submission PREVENTED");
+            
+            // Get form values
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const loginButton = newForm.querySelector('button[type="submit"]');
+            
+            console.log("📧 Email entered:", email);
+            
+            // Disable button
+            if (loginButton) {
+                loginButton.disabled = true;
+                loginButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
+            }
+            
+            // Make AJAX request
+            fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email, password })
+            })
+            .then(response => response.json())
+            .then(result => {
+                console.log("API Response:", result);
+                
+                if (result.success) {
+                    // Save data
+                    localStorage.setItem('token', result.token);
+                    localStorage.setItem('user', JSON.stringify(result.user));
+                    localStorage.setItem('magicEdenCurrentUser', result.user.email);
+                    
+                    console.log("✅ Login successful! Redirecting...");
+                    
+                    // ✅✅✅ CHECK IF ADMIN AND REDIRECT ACCORDINGLY
+                    if (result.user && result.user.isAdmin) {
+                        console.log('🛡️ Admin detected, redirecting to admin panel');
+                        window.location.href = '/admin.html';
+                    } else {
+                        console.log('👤 Regular user, redirecting to dashboard');
+                        window.location.href = '/dashboard';
+                    }
+                } else {
+                    alert('Login failed: ' + (result.error || 'Unknown error'));
+                    if (loginButton) {
+                        loginButton.disabled = false;
+                        loginButton.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Login error:', error);
+                alert('Network error. Is backend running?');
+                if (loginButton) {
+                    loginButton.disabled = false;
+                    loginButton.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+                }
+            });
+            
+            return false;
+        });
+        
+        console.log("✅ Login form override complete");
+    });
+  </script>
 </body>
 </html>

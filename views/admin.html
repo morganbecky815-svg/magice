@@ -7,6 +7,419 @@
     <title>Admin Panel | Magic Eden</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/js/app.js"></script>
+    
+    <!-- Then load admin-specific JS -->
+    <script>
+        // Admin Panel JavaScript
+        
+        // Check if user is admin - WITH DEBUGGING
+function checkAdminAccess() {
+    console.log('🔍 ADMIN: Starting checkAdminAccess()');
+    
+    // Check 1: Get user email
+    const userEmail = localStorage.getItem('magicEdenCurrentUser');
+    console.log('🔍 ADMIN: userEmail from localStorage:', userEmail);
+    
+    if (!userEmail) {
+        console.log('❌ ADMIN: No user email found, redirecting to login');
+        window.location.href = '/login';
+        return false;
+    }
+    
+    // Check 2: Get full user object
+    const userStr = localStorage.getItem('user');
+    console.log('🔍 ADMIN: user object from localStorage:', userStr);
+    
+    if (!userStr) {
+        console.log('❌ ADMIN: No user object found, checking users DB');
+        // Try to get from users array
+        const users = JSON.parse(localStorage.getItem('magicEdenUsers')) || [];
+        console.log('🔍 ADMIN: All users in localStorage:', users);
+        const user = users.find(u => u.email === userEmail);
+        console.log('🔍 ADMIN: Found user in users array:', user);
+        
+        if (!user || !user.isAdmin) {
+            alert('❌ Admin access required. You are not an administrator.');
+            window.location.href = '/index';
+            return false;
+        }
+    } else {
+        try {
+            const user = JSON.parse(userStr);
+            console.log('🔍 ADMIN: Parsed user object:', user);
+            console.log('🔍 ADMIN: isAdmin value:', user.isAdmin);
+            console.log('🔍 ADMIN: isAdmin type:', typeof user.isAdmin);
+            
+            if (!user.isAdmin) {
+                console.log('❌ ADMIN: User is not admin');
+                alert('❌ Admin access required. You are not an administrator.');
+                window.location.href = '/index';
+                return false;
+            }
+        } catch (error) {
+            console.error('❌ ADMIN: Error parsing user:', error);
+            window.location.href = '/login';
+            return false;
+        }
+    }
+    
+    console.log('✅ ADMIN: Access granted!');
+    return true;
+}
+        
+        // Load dashboard
+        function loadDashboard() {
+            try {
+                const nfts = JSON.parse(localStorage.getItem('magicEdenNFTs')) || [];
+                const users = JSON.parse(localStorage.getItem('magicEdenUsers')) || [];
+                const tickets = JSON.parse(localStorage.getItem('magicEdenSupportTickets')) || [];
+                
+                // Update stats
+                const totalNFTs = document.getElementById('adminTotalNFTs');
+                const totalUsers = document.getElementById('adminTotalUsers');
+                const totalVolume = document.getElementById('adminTotalVolume');
+                const openTickets = document.getElementById('adminOpenTickets');
+                
+                if (totalNFTs) totalNFTs.textContent = nfts.length;
+                if (totalUsers) totalUsers.textContent = users.length;
+                
+                // Calculate total volume
+                let volume = 0;
+                nfts.forEach(nft => {
+                    volume += parseFloat(nft.price) || 0;
+                });
+                if (totalVolume) totalVolume.textContent = volume.toFixed(2) + ' WETH';
+                
+                // Count open tickets
+                const openCount = tickets.filter(t => t.status === 'open').length;
+                if (openTickets) openTickets.textContent = openCount;
+                
+                // Load recent activity
+                const activity = document.getElementById('recentActivity');
+                if (activity) {
+                    activity.innerHTML = '';
+                    
+                    // Show recent NFTs (last 5)
+                    const recentNFTs = nfts.slice(-5).reverse();
+                    if (recentNFTs.length === 0) {
+                        activity.innerHTML = '<div class="stat-box"><p>No recent activity</p></div>';
+                    } else {
+                        recentNFTs.forEach(nft => {
+                            const item = document.createElement('div');
+                            item.className = 'stat-box';
+                            item.innerHTML = '<strong>' + (nft.name || 'Unnamed NFT') + '</strong>' +
+                                '<div>' + (nft.collection || 'No collection') + ' • ' + (nft.price || '0') + ' WETH</div>' +
+                                '<small>Created: ' + new Date(nft.createdAt).toLocaleDateString() + '</small>';
+                            activity.appendChild(item);
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                alert('Error loading dashboard data');
+            }
+        }
+        
+        // Load NFTs table
+        function loadNFTsTable() {
+            try {
+                const nfts = JSON.parse(localStorage.getItem('magicEdenNFTs')) || [];
+                const tbody = document.getElementById('nftsTableBody');
+                
+                if (!tbody) return;
+                
+                tbody.innerHTML = '';
+                
+                if (nfts.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">No NFTs found</td></tr>';
+                    return;
+                }
+                
+                nfts.forEach(nft => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = '<td>' + (nft.id || 'N/A') + '</td>' +
+                        '<td>' + (nft.name || 'Unnamed') + '</td>' +
+                        '<td>' + (nft.collection || 'No collection') + '</td>' +
+                        '<td>' + (nft.price || '0') + ' WETH</td>' +
+                        '<td>' + (nft.owner || 'Unknown') + '</td>' +
+                        '<td>' +
+                        '<button class="action-btn btn-edit" onclick="editNFT(' + nft.id + ')">' +
+                        '<i class="fas fa-edit"></i> Edit</button> ' +
+                        '<button class="action-btn btn-delete" onclick="deleteNFT(' + nft.id + ')">' +
+                        '<i class="fas fa-trash"></i> Delete</button>' +
+                        '</td>';
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading NFTs table:', error);
+                alert('Error loading NFTs data');
+            }
+        }
+        
+        // Load users table
+        function loadUsersTable() {
+            try {
+                const users = JSON.parse(localStorage.getItem('magicEdenUsers')) || [];
+                const tbody = document.getElementById('usersTableBody');
+                
+                if (!tbody) return;
+                
+                tbody.innerHTML = '';
+                
+                if (users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #888;">No users found</td></tr>';
+                    return;
+                }
+                
+                users.forEach(user => {
+                    // Don't show passwords
+                    const safeUser = { ...user };
+                    delete safeUser.password;
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = '<td>' + (safeUser.email || 'Unknown') + '</td>' +
+                        '<td>' + (safeUser.balance || '0') + ' WETH</td>' +
+                        '<td>' + new Date(safeUser.createdAt).toLocaleDateString() + '</td>' +
+                        '<td>' + (safeUser.isAdmin ? 'Yes' : 'No') + '</td>' +
+                        '<td>' +
+                        '<button class="action-btn btn-edit" onclick="editUser(\'' + safeUser.email + '\')">' +
+                        '<i class="fas fa-edit"></i> Edit</button>' +
+                        '</td>';
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading users table:', error);
+                alert('Error loading users data');
+            }
+        }
+        
+        // Load tickets table
+        function loadTicketsTable() {
+            try {
+                const tickets = JSON.parse(localStorage.getItem('magicEdenSupportTickets')) || [];
+                const tbody = document.getElementById('ticketsTableBody');
+                
+                if (!tbody) return;
+                
+                tbody.innerHTML = '';
+                
+                if (tickets.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">No support tickets</td></tr>';
+                    return;
+                }
+                
+                tickets.forEach(ticket => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = '<td>' + (ticket.id || 'N/A') + '</td>' +
+                        '<td>' + (ticket.userEmail || 'Anonymous') + '</td>' +
+                        '<td>' + (ticket.message ? (ticket.message.substring(0, 50) + (ticket.message.length > 50 ? '...' : '')) : 'No message') + '</td>' +
+                        '<td><span style="color: ' + (ticket.status === 'open' ? '#ef4444' : '#10b981') + '">' + 
+                        (ticket.status || 'open') + '</span></td>' +
+                        '<td>' + new Date(ticket.createdAt).toLocaleDateString() + '</td>' +
+                        '<td>' + 
+                        ((ticket.status === 'open') ? 
+                            '<button class="action-btn btn-resolve" onclick="resolveTicket(' + ticket.id + ')">' +
+                            '<i class="fas fa-check"></i> Resolve</button>' : '') +
+                        '</td>';
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading tickets table:', error);
+                alert('Error loading tickets data');
+            }
+        }
+        
+        // Admin create NFT
+        function adminCreateNFT(event) {
+            event.preventDefault();
+            
+            const name = document.getElementById('adminNftName').value.trim();
+            const collection = document.getElementById('adminNftCollection').value.trim();
+            const price = parseFloat(document.getElementById('adminNftPrice').value);
+            const category = document.getElementById('adminNftCategory').value;
+            const image = document.getElementById('adminNftImage').value.trim();
+            const owner = document.getElementById('adminNftOwner').value.trim();
+            
+            const messageEl = document.getElementById('adminMessage');
+            
+            // Validation
+            if (!name || !collection || !price || !category || !image || !owner) {
+                if (messageEl) {
+                    messageEl.textContent = '❌ Please fill all required fields!';
+                    messageEl.className = 'admin-message error';
+                }
+                return false;
+            }
+            
+            if (price <= 0) {
+                if (messageEl) {
+                    messageEl.textContent = '❌ Price must be greater than 0';
+                    messageEl.className = 'admin-message error';
+                }
+                return false;
+            }
+            
+            if (!owner.includes('@')) {
+                if (messageEl) {
+                    messageEl.textContent = '❌ Please enter a valid email for owner';
+                    messageEl.className = 'admin-message error';
+                }
+                return false;
+            }
+            
+            try {
+                // Get NFTs from localStorage
+                const nfts = JSON.parse(localStorage.getItem('magicEdenNFTs')) || [];
+                const newNFT = {
+                    id: Date.now(),
+                    name: name,
+                    collection: collection,
+                    price: price,
+                    category: category,
+                    image: image,
+                    owner: owner,
+                    createdAt: new Date().toISOString(),
+                    tokenId: 'ME' + Date.now().toString(36).toUpperCase()
+                };
+                
+                nfts.push(newNFT);
+                localStorage.setItem('magicEdenNFTs', JSON.stringify(nfts));
+                
+                if (messageEl) {
+                    messageEl.textContent = '✅ NFT created successfully!';
+                    messageEl.className = 'admin-message success';
+                }
+                
+                // Clear form
+                document.getElementById('adminCreateForm').reset();
+                
+                // Refresh tables
+                loadNFTsTable();
+                loadDashboard();
+                
+                // Auto-switch to NFTs tab after 2 seconds
+                setTimeout(() => {
+                    showAdminTab('nfts', null);
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Error creating NFT:', error);
+                if (messageEl) {
+                    messageEl.textContent = '❌ Error creating NFT: ' + error.message;
+                    messageEl.className = 'admin-message error';
+                }
+            }
+            
+            return false;
+        }
+        
+        // Admin functions
+        function deleteNFT(id) {
+            if (confirm('Are you sure you want to delete this NFT?')) {
+                try {
+                    let nfts = JSON.parse(localStorage.getItem('magicEdenNFTs')) || [];
+                    const originalLength = nfts.length;
+                    nfts = nfts.filter(nft => nft.id !== id);
+                    
+                    if (nfts.length < originalLength) {
+                        localStorage.setItem('magicEdenNFTs', JSON.stringify(nfts));
+                        alert('✅ NFT deleted successfully!');
+                        loadNFTsTable();
+                        loadDashboard();
+                    } else {
+                        alert('❌ NFT not found');
+                    }
+                } catch (error) {
+                    console.error('Error deleting NFT:', error);
+                    alert('❌ Error deleting NFT');
+                }
+            }
+        }
+        
+        function editNFT(id) {
+            alert('Edit feature coming soon!\nNFT ID: ' + id);
+            // Future implementation: Show edit form with current values
+        }
+        
+        function editUser(email) {
+            const users = JSON.parse(localStorage.getItem('magicEdenUsers')) || [];
+            const user = users.find(u => u.email === email);
+            
+            if (!user) {
+                alert('❌ User not found');
+                return;
+            }
+            
+            const newBalance = prompt('Enter new balance for ' + email + ' (Current: ' + user.balance + ' WETH):', user.balance.toString());
+            if (newBalance !== null && newBalance !== '') {
+                try {
+                    const parsedBalance = parseFloat(newBalance);
+                    if (isNaN(parsedBalance) || parsedBalance < 0) {
+                        alert('❌ Invalid balance amount');
+                        return;
+                    }
+                    
+                    user.balance = parsedBalance;
+                    localStorage.setItem('magicEdenUsers', JSON.stringify(users));
+                    loadUsersTable();
+                    alert('✅ Balance updated to ' + parsedBalance + ' WETH!');
+                } catch (error) {
+                    console.error('Error updating user:', error);
+                    alert('❌ Error updating balance');
+                }
+            }
+        }
+        
+        function resolveTicket(id) {
+            try {
+                let tickets = JSON.parse(localStorage.getItem('magicEdenSupportTickets')) || [];
+                const ticketIndex = tickets.findIndex(t => t.id === id);
+                
+                if (ticketIndex !== -1) {
+                    tickets[ticketIndex].status = 'resolved';
+                    localStorage.setItem('magicEdenSupportTickets', JSON.stringify(tickets));
+                    loadTicketsTable();
+                    loadDashboard();
+                    alert('✅ Ticket resolved!');
+                } else {
+                    alert('❌ Ticket not found');
+                }
+            } catch (error) {
+                console.error('Error resolving ticket:', error);
+                alert('❌ Error resolving ticket');
+            }
+        }
+        
+        // Logout function
+        function adminLogout() {
+            if (confirm('Are you sure you want to logout?')) {
+                localStorage.removeItem('magicEdenCurrentUser');
+                window.location.href = '/';
+            }
+        }
+        
+        // Initialize admin panel
+        document.addEventListener('DOMContentLoaded', function() {
+            if (checkAdminAccess()) {
+                console.log('✅ Admin access granted');
+                loadDashboard();
+                loadNFTsTable();
+                loadUsersTable();
+                loadTicketsTable();
+            }
+        });
+        
+        // Make functions globally available
+        window.showAdminTab = showAdminTab;
+        window.adminCreateNFT = adminCreateNFT;
+        window.deleteNFT = deleteNFT;
+        window.editNFT = editNFT;
+        window.editUser = editUser;
+        window.resolveTicket = resolveTicket;
+        window.adminLogout = adminLogout;
+        window.checkAdminAccess = checkAdminAccess;
+    </script>
     <style>
         /* Admin-specific styles */
         .admin-container {
@@ -386,420 +799,6 @@
         </div>
     </div>
 
-    <!-- Load app.js first (contains Database class) -->
-    <script src="app.js"></script>
-    
-    <!-- Then load admin-specific JS -->
-    <script>
-        // Admin Panel JavaScript
-        
-        // Check if user is admin
-        function checkAdminAccess() {
-            const userEmail = localStorage.getItem('magicEdenCurrentUser');
-            if (!userEmail) {
-                window.location.href = '/login';
-                return false;
-            }
-            
-            const users = JSON.parse(localStorage.getItem('magicEdenUsers')) || [];
-            const user = users.find(u => u.email === userEmail);
-            
-            if (!user) {
-                window.location.href = '/login';
-                return false;
-            }
-            
-            if (!user.isAdmin) {
-                alert('❌ Admin access required. You are not an administrator.');
-                window.location.href = '/index';
-                return false;
-            }
-            
-            return true;
-        }
-        
-        // Tab switching
-        function showAdminTab(tab, event) {
-            // Update tabs
-            const tabs = document.querySelectorAll('.admin-tab');
-            const contents = document.querySelectorAll('.admin-content');
-            
-            tabs.forEach(t => t.classList.remove('active'));
-            contents.forEach(c => c.classList.remove('active'));
-            
-            // Show selected tab
-            const tabElement = document.getElementById(tab + 'Tab');
-            if (tabElement) {
-                tabElement.classList.add('active');
-            }
-            
-            if (event && event.target) {
-                event.target.classList.add('active');
-            }
-            
-            // Load tab data
-            if (tab === 'dashboard') {
-                loadDashboard();
-            } else if (tab === 'nfts') {
-                loadNFTsTable();
-            } else if (tab === 'users') {
-                loadUsersTable();
-            } else if (tab === 'support') {
-                loadTicketsTable();
-            }
-        }
-        
-        // Load dashboard
-        function loadDashboard() {
-            try {
-                const nfts = JSON.parse(localStorage.getItem('magicEdenNFTs')) || [];
-                const users = JSON.parse(localStorage.getItem('magicEdenUsers')) || [];
-                const tickets = JSON.parse(localStorage.getItem('magicEdenSupportTickets')) || [];
-                
-                // Update stats
-                const totalNFTs = document.getElementById('adminTotalNFTs');
-                const totalUsers = document.getElementById('adminTotalUsers');
-                const totalVolume = document.getElementById('adminTotalVolume');
-                const openTickets = document.getElementById('adminOpenTickets');
-                
-                if (totalNFTs) totalNFTs.textContent = nfts.length;
-                if (totalUsers) totalUsers.textContent = users.length;
-                
-                // Calculate total volume
-                let volume = 0;
-                nfts.forEach(nft => {
-                    volume += parseFloat(nft.price) || 0;
-                });
-                if (totalVolume) totalVolume.textContent = volume.toFixed(2) + ' WETH';
-                
-                // Count open tickets
-                const openCount = tickets.filter(t => t.status === 'open').length;
-                if (openTickets) openTickets.textContent = openCount;
-                
-                // Load recent activity
-                const activity = document.getElementById('recentActivity');
-                if (activity) {
-                    activity.innerHTML = '';
-                    
-                    // Show recent NFTs (last 5)
-                    const recentNFTs = nfts.slice(-5).reverse();
-                    if (recentNFTs.length === 0) {
-                        activity.innerHTML = '<div class="stat-box"><p>No recent activity</p></div>';
-                    } else {
-                        recentNFTs.forEach(nft => {
-                            const item = document.createElement('div');
-                            item.className = 'stat-box';
-                            item.innerHTML = '<strong>' + (nft.name || 'Unnamed NFT') + '</strong>' +
-                                '<div>' + (nft.collection || 'No collection') + ' • ' + (nft.price || '0') + ' WETH</div>' +
-                                '<small>Created: ' + new Date(nft.createdAt).toLocaleDateString() + '</small>';
-                            activity.appendChild(item);
-                        });
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading dashboard:', error);
-                alert('Error loading dashboard data');
-            }
-        }
-        
-        // Load NFTs table
-        function loadNFTsTable() {
-            try {
-                const nfts = JSON.parse(localStorage.getItem('magicEdenNFTs')) || [];
-                const tbody = document.getElementById('nftsTableBody');
-                
-                if (!tbody) return;
-                
-                tbody.innerHTML = '';
-                
-                if (nfts.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">No NFTs found</td></tr>';
-                    return;
-                }
-                
-                nfts.forEach(nft => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = '<td>' + (nft.id || 'N/A') + '</td>' +
-                        '<td>' + (nft.name || 'Unnamed') + '</td>' +
-                        '<td>' + (nft.collection || 'No collection') + '</td>' +
-                        '<td>' + (nft.price || '0') + ' WETH</td>' +
-                        '<td>' + (nft.owner || 'Unknown') + '</td>' +
-                        '<td>' +
-                        '<button class="action-btn btn-edit" onclick="editNFT(' + nft.id + ')">' +
-                        '<i class="fas fa-edit"></i> Edit</button> ' +
-                        '<button class="action-btn btn-delete" onclick="deleteNFT(' + nft.id + ')">' +
-                        '<i class="fas fa-trash"></i> Delete</button>' +
-                        '</td>';
-                    tbody.appendChild(row);
-                });
-            } catch (error) {
-                console.error('Error loading NFTs table:', error);
-                alert('Error loading NFTs data');
-            }
-        }
-        
-        // Load users table
-        function loadUsersTable() {
-            try {
-                const users = JSON.parse(localStorage.getItem('magicEdenUsers')) || [];
-                const tbody = document.getElementById('usersTableBody');
-                
-                if (!tbody) return;
-                
-                tbody.innerHTML = '';
-                
-                if (users.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #888;">No users found</td></tr>';
-                    return;
-                }
-                
-                users.forEach(user => {
-                    // Don't show passwords
-                    const safeUser = { ...user };
-                    delete safeUser.password;
-                    
-                    const row = document.createElement('tr');
-                    row.innerHTML = '<td>' + (safeUser.email || 'Unknown') + '</td>' +
-                        '<td>' + (safeUser.balance || '0') + ' WETH</td>' +
-                        '<td>' + new Date(safeUser.createdAt).toLocaleDateString() + '</td>' +
-                        '<td>' + (safeUser.isAdmin ? 'Yes' : 'No') + '</td>' +
-                        '<td>' +
-                        '<button class="action-btn btn-edit" onclick="editUser(\'' + safeUser.email + '\')">' +
-                        '<i class="fas fa-edit"></i> Edit</button>' +
-                        '</td>';
-                    tbody.appendChild(row);
-                });
-            } catch (error) {
-                console.error('Error loading users table:', error);
-                alert('Error loading users data');
-            }
-        }
-        
-        // Load tickets table
-        function loadTicketsTable() {
-            try {
-                const tickets = JSON.parse(localStorage.getItem('magicEdenSupportTickets')) || [];
-                const tbody = document.getElementById('ticketsTableBody');
-                
-                if (!tbody) return;
-                
-                tbody.innerHTML = '';
-                
-                if (tickets.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">No support tickets</td></tr>';
-                    return;
-                }
-                
-                tickets.forEach(ticket => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = '<td>' + (ticket.id || 'N/A') + '</td>' +
-                        '<td>' + (ticket.userEmail || 'Anonymous') + '</td>' +
-                        '<td>' + (ticket.message ? (ticket.message.substring(0, 50) + (ticket.message.length > 50 ? '...' : '')) : 'No message') + '</td>' +
-                        '<td><span style="color: ' + (ticket.status === 'open' ? '#ef4444' : '#10b981') + '">' + 
-                        (ticket.status || 'open') + '</span></td>' +
-                        '<td>' + new Date(ticket.createdAt).toLocaleDateString() + '</td>' +
-                        '<td>' + 
-                        ((ticket.status === 'open') ? 
-                            '<button class="action-btn btn-resolve" onclick="resolveTicket(' + ticket.id + ')">' +
-                            '<i class="fas fa-check"></i> Resolve</button>' : '') +
-                        '</td>';
-                    tbody.appendChild(row);
-                });
-            } catch (error) {
-                console.error('Error loading tickets table:', error);
-                alert('Error loading tickets data');
-            }
-        }
-        
-        // Admin create NFT
-        function adminCreateNFT(event) {
-            event.preventDefault();
-            
-            const name = document.getElementById('adminNftName').value.trim();
-            const collection = document.getElementById('adminNftCollection').value.trim();
-            const price = parseFloat(document.getElementById('adminNftPrice').value);
-            const category = document.getElementById('adminNftCategory').value;
-            const image = document.getElementById('adminNftImage').value.trim();
-            const owner = document.getElementById('adminNftOwner').value.trim();
-            
-            const messageEl = document.getElementById('adminMessage');
-            
-            // Validation
-            if (!name || !collection || !price || !category || !image || !owner) {
-                if (messageEl) {
-                    messageEl.textContent = '❌ Please fill all required fields!';
-                    messageEl.className = 'admin-message error';
-                }
-                return false;
-            }
-            
-            if (price <= 0) {
-                if (messageEl) {
-                    messageEl.textContent = '❌ Price must be greater than 0';
-                    messageEl.className = 'admin-message error';
-                }
-                return false;
-            }
-            
-            if (!owner.includes('@')) {
-                if (messageEl) {
-                    messageEl.textContent = '❌ Please enter a valid email for owner';
-                    messageEl.className = 'admin-message error';
-                }
-                return false;
-            }
-            
-            try {
-                // Get NFTs from localStorage
-                const nfts = JSON.parse(localStorage.getItem('magicEdenNFTs')) || [];
-                const newNFT = {
-                    id: Date.now(),
-                    name: name,
-                    collection: collection,
-                    price: price,
-                    category: category,
-                    image: image,
-                    owner: owner,
-                    createdAt: new Date().toISOString(),
-                    tokenId: 'ME' + Date.now().toString(36).toUpperCase()
-                };
-                
-                nfts.push(newNFT);
-                localStorage.setItem('magicEdenNFTs', JSON.stringify(nfts));
-                
-                if (messageEl) {
-                    messageEl.textContent = '✅ NFT created successfully!';
-                    messageEl.className = 'admin-message success';
-                }
-                
-                // Clear form
-                document.getElementById('adminCreateForm').reset();
-                
-                // Refresh tables
-                loadNFTsTable();
-                loadDashboard();
-                
-                // Auto-switch to NFTs tab after 2 seconds
-                setTimeout(() => {
-                    showAdminTab('nfts', null);
-                }, 2000);
-                
-            } catch (error) {
-                console.error('Error creating NFT:', error);
-                if (messageEl) {
-                    messageEl.textContent = '❌ Error creating NFT: ' + error.message;
-                    messageEl.className = 'admin-message error';
-                }
-            }
-            
-            return false;
-        }
-        
-        // Admin functions
-        function deleteNFT(id) {
-            if (confirm('Are you sure you want to delete this NFT?')) {
-                try {
-                    let nfts = JSON.parse(localStorage.getItem('magicEdenNFTs')) || [];
-                    const originalLength = nfts.length;
-                    nfts = nfts.filter(nft => nft.id !== id);
-                    
-                    if (nfts.length < originalLength) {
-                        localStorage.setItem('magicEdenNFTs', JSON.stringify(nfts));
-                        alert('✅ NFT deleted successfully!');
-                        loadNFTsTable();
-                        loadDashboard();
-                    } else {
-                        alert('❌ NFT not found');
-                    }
-                } catch (error) {
-                    console.error('Error deleting NFT:', error);
-                    alert('❌ Error deleting NFT');
-                }
-            }
-        }
-        
-        function editNFT(id) {
-            alert('Edit feature coming soon!\nNFT ID: ' + id);
-            // Future implementation: Show edit form with current values
-        }
-        
-        function editUser(email) {
-            const users = JSON.parse(localStorage.getItem('magicEdenUsers')) || [];
-            const user = users.find(u => u.email === email);
-            
-            if (!user) {
-                alert('❌ User not found');
-                return;
-            }
-            
-            const newBalance = prompt('Enter new balance for ' + email + ' (Current: ' + user.balance + ' WETH):', user.balance.toString());
-            if (newBalance !== null && newBalance !== '') {
-                try {
-                    const parsedBalance = parseFloat(newBalance);
-                    if (isNaN(parsedBalance) || parsedBalance < 0) {
-                        alert('❌ Invalid balance amount');
-                        return;
-                    }
-                    
-                    user.balance = parsedBalance;
-                    localStorage.setItem('magicEdenUsers', JSON.stringify(users));
-                    loadUsersTable();
-                    alert('✅ Balance updated to ' + parsedBalance + ' WETH!');
-                } catch (error) {
-                    console.error('Error updating user:', error);
-                    alert('❌ Error updating balance');
-                }
-            }
-        }
-        
-        function resolveTicket(id) {
-            try {
-                let tickets = JSON.parse(localStorage.getItem('magicEdenSupportTickets')) || [];
-                const ticketIndex = tickets.findIndex(t => t.id === id);
-                
-                if (ticketIndex !== -1) {
-                    tickets[ticketIndex].status = 'resolved';
-                    localStorage.setItem('magicEdenSupportTickets', JSON.stringify(tickets));
-                    loadTicketsTable();
-                    loadDashboard();
-                    alert('✅ Ticket resolved!');
-                } else {
-                    alert('❌ Ticket not found');
-                }
-            } catch (error) {
-                console.error('Error resolving ticket:', error);
-                alert('❌ Error resolving ticket');
-            }
-        }
-        
-        // Logout function
-        function adminLogout() {
-            if (confirm('Are you sure you want to logout?')) {
-                localStorage.removeItem('magicEdenCurrentUser');
-                window.location.href = '/';
-            }
-        }
-        
-        // Initialize admin panel
-        document.addEventListener('DOMContentLoaded', function() {
-            if (checkAdminAccess()) {
-                console.log('✅ Admin access granted');
-                loadDashboard();
-                loadNFTsTable();
-                loadUsersTable();
-                loadTicketsTable();
-            }
-        });
-        
-        // Make functions globally available
-        window.showAdminTab = showAdminTab;
-        window.adminCreateNFT = adminCreateNFT;
-        window.deleteNFT = deleteNFT;
-        window.editNFT = editNFT;
-        window.editUser = editUser;
-        window.resolveTicket = resolveTicket;
-        window.adminLogout = adminLogout;
-        window.checkAdminAccess = checkAdminAccess;
-    </script>
+   
 </body>
 </html>

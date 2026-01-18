@@ -51,7 +51,7 @@ router.post('/register', async (req, res) => {
         success: true,
         message: 'Registration successful',
         user: {
-          id: user._id,
+          id: user_id,
           email: user.email,
           fullName: user.fullName,
           balance: user.balance,
@@ -73,42 +73,52 @@ router.post('/register', async (req, res) => {
 // Login User
 router.post('/login', async (req, res) => {
   try {
+    console.log('🔍 1. Starting login for:', req.body.email);
+    
     const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
+    console.log('🔍 2. Looking for user...');
     const user = await User
       .findOne({ email: email.toLowerCase().trim() })
       .select('+password');
 
+    console.log('🔍 3. User found:', user ? 'Yes' : 'No');
+    
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    console.log('🔍 4. Comparing password...');
     const isPasswordValid = await user.comparePassword(password);
+    console.log('🔍 5. Password valid:', isPasswordValid);
+    
     if (!isPasswordValid) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // ✅ update without triggering pre-save
+    console.log('🔍 6. Updating last login...');
     await User.updateOne(
       { _id: user._id },
       { $set: { lastLogin: new Date() } }
     );
 
+    console.log('🔍 7. Creating token...');
     const token = jwt.sign(
       { userId: user._id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
+    console.log('🔍 8. Sending success response...');
     res.json({
       success: true,
       message: 'Login successful',
       user: {
-        id: user._id,
+        _id: user._id,  // CHANGED from 'id' to '_id'
         email: user.email,
         fullName: user.fullName,
         balance: user.balance,
@@ -121,8 +131,12 @@ router.post('/login', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed' });
+    console.error('❌ 9. Login error caught:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Login failed',
+      details: error.message  // This will show us the real problem
+    });
   }
 });
 
@@ -176,4 +190,26 @@ router.put('/profile', authMiddleware, async (req, res, next) => {
     }
 });
 
+// TEST ROUTE - REMOVE AFTER DEBUGGING
+router.post('/login-test', (req, res) => {
+  console.log('🔍 Test login endpoint hit');
+  console.log('🔍 Email received:', req.body.email);
+  
+  // Just return a fake success response
+  res.json({
+    success: true,
+    message: 'Test login successful',
+    user: {
+      _id: 'test-admin-id-123',
+      email: req.body.email || 'test@admin.com',
+      fullName: 'Test Admin',
+      balance: 1000,
+      ethBalance: 10,
+      wethBalance: 10,
+      isAdmin: true,
+      lastLogin: new Date()
+    },
+    token: 'fake-jwt-token-for-testing'
+  });
+});
 module.exports = router;
