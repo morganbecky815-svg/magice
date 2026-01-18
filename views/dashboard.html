@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard | Magic Eden</title>
-    <!-- ✅ FIXED: Use absolute paths (starting with /) -->
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -17,6 +16,11 @@
             <div class="welcome-section">
                 <h1 id="welcomeMessage">Welcome back!</h1>
                 <p>Your NFT marketplace dashboard</p>
+                <div class="dashboard-refresh">
+                    <button class="btn btn-small" onclick="refreshAllDashboard()">
+                        <i class="fas fa-sync-alt"></i> Refresh All
+                    </button>
+                </div>
             </div>
 
             <!-- Wallet Balances -->
@@ -134,80 +138,106 @@
                 <div class="dashboard-card">
                     <div class="card-header">
                         <h3><i class="fas fa-history"></i> Recent Activity</h3>
-                        <a href="activity.html" class="view-all">View All</a>
+                        <div class="header-actions">
+                            <button class="refresh-btn btn-icon" onclick="refreshRecentActivity()" title="Refresh">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                            <a href="/activity" class="view-all">View All</a>
+                        </div>
                     </div>
-                    <div class="activity-list" id="dashboardActivity">
-                        <div class="loading">Loading activity...</div>
+                    <div class="card-content">
+                        <div class="activity-list" id="recentActivity">
+                            <div class="loading">Loading activity...</div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Your NFT Portfolio -->
-                <div class="dashboard-card">
-                    <div class="card-header">
-                        <h3><i class="fas fa-gem"></i> Your NFT Portfolio</h3>
-                        <a href="/profile" class="view-all">View All</a>
-                    </div>
-                    <div class="nft-portfolio" id="dashboardNFTs">
-                        <div class="loading">Loading your NFTs...</div>
-                    </div>
-                </div>
+                <!-- Your Top NFTs Section -->
+<div class="dashboard-card">
+    <div class="card-header">
+        <h3><i class="fas fa-gem"></i> Your Top NFTs</h3>
+        <div class="header-actions">
+            <button class="refresh-btn btn-icon" onclick="refreshUserNFTs()" title="Refresh">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+            <a href="/profile#nfts" class="view-all">View All</a>
+        </div>
+    </div>
+    <div class="card-content">
+        <div class="nft-portfolio" id="userNFTs">
+            <div class="loading">Loading your NFTs...</div>
+        </div>
+    </div>
+</div>
 
                 <!-- Market Trends -->
                 <div class="dashboard-card">
                     <div class="card-header">
                         <h3><i class="fas fa-chart-line"></i> Market Trends</h3>
-                        <span class="trend-badge positive">+5.2%</span>
+                        <div class="header-actions">
+                            <button class="refresh-btn btn-icon" onclick="updateMarketTrends()" title="Refresh">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                            <span class="trend-badge positive" id="overallTrend">+5.2%</span>
+                        </div>
                     </div>
-                    <div class="market-trends">
-                        <div class="trend-item">
-                            <div class="trend-info">
-                                <span class="trend-name">Art Collection</span>
-                                <span class="trend-volume">1.2K ETH volume</span>
+                    <div class="card-content">
+                        <div class="market-trends" id="marketTrends">
+                            <div class="trend-item">
+                                <div class="trend-info">
+                                    <span class="trend-name">Art Collection</span>
+                                    <span class="trend-volume">1.2K ETH volume</span>
+                                </div>
+                                <div class="trend-change positive">
+                                    <i class="fas fa-arrow-up"></i> 12.5%
+                                </div>
                             </div>
-                            <div class="trend-change positive">
-                                <i class="fas fa-arrow-up"></i> 12.5%
+                            <div class="trend-item">
+                                <div class="trend-info">
+                                    <span class="trend-name">Gaming NFTs</span>
+                                    <span class="trend-volume">850 ETH volume</span>
+                                </div>
+                                <div class="trend-change positive">
+                                    <i class="fas fa-arrow-up"></i> 8.3%
+                                </div>
                             </div>
-                        </div>
-                        <div class="trend-item">
-                            <div class="trend-info">
-                                <span class="trend-name">Gaming NFTs</span>
-                                <span class="trend-volume">850 ETH volume</span>
-                            </div>
-                            <div class="trend-change positive">
-                                <i class="fas fa-arrow-up"></i> 8.3%
-                            </div>
-                        </div>
-                        <div class="trend-item">
-                            <div class="trend-info">
-                                <span class="trend-name">PFPs</span>
-                                <span class="trend-volume">2.1K ETH volume</span>
-                            </div>
-                            <div class="trend-change negative">
-                                <i class="fas fa-arrow-down"></i> 3.2%
+                            <div class="trend-item">
+                                <div class="trend-info">
+                                    <span class="trend-name">PFPs</span>
+                                    <span class="trend-volume">2.1K ETH volume</span>
+                                </div>
+                                <div class="trend-change negative">
+                                    <i class="fas fa-arrow-down"></i> 3.2%
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Recommended NFTs -->
-                <div class="dashboard-card">
-                    <div class="card-header">
-                        <h3><i class="fas fa-star"></i> Recommended For You</h3>
-                    </div>
-                    <div class="recommended-nfts" id="recommendedNFTs">
-                        <div class="loading">Loading recommendations...</div>
-                    </div>
-                </div>
+                <!-- Recommended For You Section -->
+<div class="dashboard-card">
+    <div class="card-header">
+        <h3><i class="fas fa-star"></i> Recommended For You</h3>
+        <div class="header-actions">
+            <button class="refresh-btn btn-icon" onclick="refreshRecommendedNFTs()" title="Refresh">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+            <a href="/discover" class="view-all">View All</a>
+        </div>
+    </div>
+    <div class="card-content">
+        <div class="recommended-nfts" id="recommendedNFTs">
+            <div class="loading">Loading recommendations...</div>
+        </div>
+    </div>
+</div>
             </div>
         </div>
     </main>
 
-    <!-- ✅ FIXED: Use absolute paths -->
     <script src="/js/app.js"></script>
     <script src="/js/eth-price-service.js"></script>
     <script src="/js/dashboard.js"></script>
 
-    <!-- ✅ FIXED: JavaScript code properly wrapped in script tags -->
-    
 </body>
 </html>

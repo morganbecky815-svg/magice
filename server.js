@@ -444,6 +444,149 @@ app.get('/api/crypto-prices', async (req, res) => {
 });
 
 // ========================
+// DASHBOARD DATA ENDPOINT
+// ========================
+app.get('/api/user/me/dashboard', auth, async (req, res) => {
+  try {
+      console.log('📊 Dashboard data request for user:', req.user.email);
+      
+      const userId = req.user._id;
+      
+      // Get user data
+      const user = await User.findById(userId).select('-password -__v');
+      
+      // Get recent activities (limit 5)
+      const recentActivities = await Activity.find({ userId: userId })
+          .sort({ createdAt: -1 })
+          .limit(5);
+      
+      // Get user's NFTs (limit 2 for dashboard)
+      const NFT = require('./models/NFT');
+      const userNFTs = await NFT.find({ owner: userId })
+          .sort({ price: -1, createdAt: -1 })
+          .limit(2);
+      
+      // Get recommended NFTs (from marketplace)
+      const recommendedNFTs = await NFT.find({ 
+          owner: { $ne: userId }, // Not owned by user
+          isListed: true 
+      })
+          .sort({ createdAt: -1 })
+          .limit(4)
+          .populate('owner', 'fullName profileImage');
+      
+      // Get ETH price
+      let ethPrice = 2500;
+      if (redisReady && redisClient) {
+          try {
+              const cachedPrice = await redisClient.get('eth:price');
+              if (cachedPrice) {
+                  ethPrice = parseFloat(cachedPrice);
+              }
+          } catch (redisErr) {
+              console.log('⚠️ Could not get ETH price from Redis:', redisErr.message);
+          }
+      }
+      
+      res.json({
+          success: true,
+          dashboard: {
+              user: {
+                  _id: user._id,
+                  email: user.email,
+                  fullName: user.fullName,
+                  bio: user.bio,
+                  twitter: user.twitter,
+                  website: user.website,
+                  profileImage: user.profileImage,
+                  ethBalance: user.ethBalance || 0,
+                  wethBalance: user.wethBalance || user.balance || 0,
+                  nftCount: user.nftCount || 0,
+                  createdAt: user.createdAt
+              },
+              recentActivities: recentActivities.map(activity => ({
+                  _id: activity._id,
+                  type: activity.type,
+                  title: activity.title,
+                  description: activity.description,
+                  amount: activity.amount,
+                  currency: activity.currency,
+                  icon: getActivityIcon(activity.type),
+                  createdAt: activity.createdAt
+              })),
+              userNFTs: userNFTs.map(nft => ({
+                  _id: nft._id,
+                  name: nft.name,
+                  collectionName: nft.collectionName,
+                  price: nft.price,
+                  image: nft.image,
+                  tokenId: nft.tokenId,
+                  isListed: nft.isListed || true,
+                  createdAt: nft.createdAt
+              })),
+              recommendedNFTs: recommendedNFTs.map(nft => ({
+                  _id: nft._id,
+                  name: nft.name,
+                  collectionName: nft.collectionName,
+                  price: nft.price,
+                  image: nft.image,
+                  tokenId: nft.tokenId,
+                  creator: nft.owner ? nft.owner.fullName || 'Anonymous' : 'Anonymous',
+                  createdAt: nft.createdAt
+              })),
+              marketData: {
+                  ethPrice: ethPrice,
+                  timestamp: Date.now()
+              }
+          }
+      });
+      
+  } catch (error) {
+      console.error('❌ Dashboard data error:', error);
+      res.status(500).json({
+          success: false,
+          error: 'Failed to fetch dashboard data',
+          message: error.message
+      });
+  }
+});
+
+// ========================
+// LATEST NFTS ENDPOINT (FOR RECOMMENDATIONS)
+// ========================
+app.get('/api/nft/latest', auth, async (req, res) => {
+  try {
+      const NFT = require('./models/NFT');
+      const latestNFTs = await NFT.find({ isListed: true })
+          .sort({ createdAt: -1 })
+          .limit(20)
+          .populate('owner', 'fullName profileImage');
+      
+      res.json({
+          success: true,
+          nfts: latestNFTs.map(nft => ({
+              _id: nft._id,
+              name: nft.name,
+              collectionName: nft.collectionName,
+              price: nft.price,
+              image: nft.image,
+              tokenId: nft.tokenId,
+              creator: nft.owner ? nft.owner.fullName || 'Anonymous' : 'Anonymous',
+              creatorImage: nft.owner?.profileImage,
+              createdAt: nft.createdAt
+          }))
+      });
+      
+  } catch (error) {
+      console.error('Latest NFTs error:', error);
+      res.status(500).json({ 
+          success: false,
+          error: 'Failed to fetch latest NFTs' 
+      });
+  }
+});
+
+// ========================
 // MARKETPLACE ACTIVITY ENDPOINT
 // ========================
 app.get('/api/activity/marketplace', async (req, res) => {
@@ -602,7 +745,8 @@ app.post('/api/nft/create', auth, upload.single('image'), async (req, res) => {
               width: cloudinaryResult.width,
               height: cloudinaryResult.height,
               bytes: cloudinaryResult.bytes
-          }
+          },
+          isListed: true // Automatically list when created
       });
       
       nft.tokenId = `NFT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -638,7 +782,8 @@ app.post('/api/nft/create', auth, upload.single('image'), async (req, res) => {
               image: nft.image,
               collectionName: nft.collectionName,
               tokenId: nft.tokenId,
-              createdAt: nft.createdAt
+              createdAt: nft.createdAt,
+              isListed: nft.isListed
           }
       });
       
@@ -722,13 +867,13 @@ app.put('/api/user/:userId/profile', auth, async (req, res) => {
 });
 
 // ========================
-// GET USER'S NFTS
+// GET USER'S NFTS (UPDATED WITH isListed FIELD)
 // ========================
 app.get('/api/user/:userId/nfts', auth, async (req, res) => {
     try {
         const NFT = require('./models/NFT');
         const nfts = await NFT.find({ owner: req.params.userId })
-            .sort({ createdAt: -1 });
+            .sort({ price: -1, createdAt: -1 });
         
         res.json({
             success: true,
@@ -740,12 +885,16 @@ app.get('/api/user/:userId/nfts', auth, async (req, res) => {
                 image: nft.image,
                 category: nft.category,
                 tokenId: nft.tokenId,
-                createdAt: nft.createdAt
+                createdAt: nft.createdAt,
+                isListed: nft.isListed || true // Include this field
             }))
         });
     } catch (error) {
         console.error('Get user NFTs error:', error);
-        res.status(500).json({ error: 'Failed to fetch NFTs' });
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to fetch NFTs' 
+        });
     }
 });
 
@@ -896,11 +1045,10 @@ app.use('*', (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`✅ REAL API Endpoints:`);
-    console.log(`   • GET  /api/user/:userId/activity - Get user activity (FIXED)`);
-    console.log(`   • POST /api/nft/create - Create NFT with activity logging`);
-    console.log(`   • PUT  /api/user/:userId/profile - Update profile with activity`);
-    console.log(`   • POST /api/user/:userId/add-funds - Add funds with activity`);
+    console.log(`✅ NEW DASHBOARD ENDPOINTS:`);
+    console.log(`   • GET  /api/user/me/dashboard - Get complete dashboard data`);
+    console.log(`   • GET  /api/nft/latest - Get latest NFTs for recommendations`);
+    console.log(`   • GET  /api/user/:userId/nfts - Get user's NFTs with isListed field`);
+    console.log(`🔗 Dashboard: http://localhost:${PORT}/dashboard`);
     console.log(`🔗 Activity Page: http://localhost:${PORT}/activity`);
-    console.log(`🔗 Test Activity: http://localhost:${PORT}/api/test/add-sample-activities/:userId`);
 });

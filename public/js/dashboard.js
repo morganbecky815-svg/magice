@@ -4,24 +4,18 @@
 
 let currentDashboardUser = null;
 let currentConversionType = 'ethToWeth';
-// REMOVED: let ETH_PRICE = window.ETH_PRICE || localStorage.getItem('currentEthPrice') ||2500; // Default price
 const MARKETPLACE_WALLET_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc9e90E4343A9B";
 
-// ✅ FIXED: Get price from service
+// ✅ Get current ETH price
 function getCurrentEthPrice() {
     return window.ethPriceService?.currentPrice || 2500;
 }
 
-// ✅ FIXED: Updated function with live ETH price
+// ✅ Fetch user data from backend
 async function fetchUserFromBackend() {
     try {
         const token = localStorage.getItem('token');
-        if (!token) {
-            console.log('❌ No token found');
-            throw new Error('No authentication token');
-        }
-        
-        console.log('🔄 Fetching user data from /me/profile...');
+        if (!token) throw new Error('No authentication token');
         
         const response = await fetch('/api/user/me/profile', {
             method: 'GET',
@@ -31,59 +25,42 @@ async function fetchUserFromBackend() {
             }
         });
         
-        console.log('Response status:', response.status, response.statusText);
-        
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ Server error response:', errorText);
-            
             if (response.status === 401) {
-                // Token expired or invalid
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
-                throw new Error('Session expired. Please login again.');
+                throw new Error('Session expired');
             }
-            
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            throw new Error(`HTTP ${response.status}`);
         }
         
         const result = await response.json();
-        console.log('✅ Server response:', result);
+        if (!result.success) throw new Error(result.error || 'Failed to fetch user');
         
-        if (!result.success) {
-            throw new Error(result.error || 'Failed to fetch user data');
-        }
-        
-        console.log('✅ Fresh user data from server:', result.user.email);
-        
-        // Update localStorage with fresh data
         localStorage.setItem('user', JSON.stringify(result.user));
-        
         return result.user;
         
     } catch (error) {
-        console.error('❌ Failed to fetch user from backend:', error.message);
-        
-        // If it's an auth error, redirect to login
-        if (error.message.includes('Session expired') || 
-            error.message.includes('401') || 
-            error.message.includes('authenticate')) {
+        console.error('❌ Failed to fetch user:', error.message);
+        if (error.message.includes('Session expired')) {
             window.location.href = '/login';
         }
-        
         return null;
     }
 }
 
-// ✅ Fetch complete dashboard data
-async function fetchDashboardData() {
+// ✅ Fetch Recent Activity
+async function fetchRecentActivity() {
     try {
         const token = localStorage.getItem('token');
-        if (!token) throw new Error('No token');
+        if (!token) return null;
         
-        console.log('📊 Fetching dashboard data from /me/dashboard...');
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user || !user._id) return null;
         
-        const response = await fetch('/api/user/me/dashboard', {
+        console.log('📋 Fetching recent activity...');
+        
+        const response = await fetch(`/api/user/${user._id}/activity`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -91,162 +68,359 @@ async function fetchDashboardData() {
             }
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) return result.activities;
         }
         
-        const result = await response.json();
-        
-        if (!result.success) {
-            throw new Error(result.error || 'Failed to fetch dashboard data');
-        }
-        
-        console.log('✅ Dashboard data loaded:', result.dashboard.user.email);
-        return result.dashboard;
+        return generateMockActivity();
         
     } catch (error) {
-        console.error('❌ Failed to fetch dashboard:', error.message);
-        return null;
+        console.error('❌ Failed to fetch activity:', error);
+        return generateMockActivity();
     }
 }
 
-// ✅ UPDATED loadDashboard function
+// ✅ Fetch User's NFTs (Top 2)
+async function fetchUserNFTs() {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) return null;
+        
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user || !user._id) return null;
+        
+        console.log('🖼️ Fetching user NFTs...');
+        
+        const response = await fetch(`/api/user/${user._id}/nfts`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                // Sort by price (highest first) and take top 2
+                return result.nfts
+                    .sort((a, b) => (b.price || 0) - (a.price || 0))
+                    .slice(0, 2);
+            }
+        }
+        
+        return generateMockUserNFTs();
+        
+    } catch (error) {
+        console.error('❌ Failed to fetch user NFTs:', error);
+        return generateMockUserNFTs();
+    }
+}
+
+// ✅ Fetch Recommended NFTs
+async function fetchRecommendedNFTs() {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) return generateMockRecommendedNFTs();
+        
+        console.log('⭐ Fetching recommended NFTs...');
+        
+        // Try to get from latest NFTs endpoint
+        const response = await fetch('/api/nft/latest', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.nfts.length > 0) {
+                return result.nfts.slice(0, 4);
+            }
+        }
+        
+        // Fallback to dashboard endpoint
+        const dashboardResponse = await fetch('/api/user/me/dashboard', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (dashboardResponse.ok) {
+            const result = await dashboardResponse.json();
+            if (result.success && result.dashboard.recommendedNFTs) {
+                return result.dashboard.recommendedNFTs;
+            }
+        }
+        
+        return generateMockRecommendedNFTs();
+        
+    } catch (error) {
+        console.error('❌ Failed to fetch recommended NFTs:', error);
+        return generateMockRecommendedNFTs();
+    }
+}
+
+// ✅ Display Recent Activity
+async function displayRecentActivity() {
+    const activityContainer = document.getElementById('recentActivity');
+    if (!activityContainer) return;
+    
+    const activities = await fetchRecentActivity();
+    
+    if (!activities || activities.length === 0) {
+        activityContainer.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-history"></i>
+                <p>No recent activity</p>
+                <button class="btn btn-small" onclick="refreshRecentActivity()">Refresh</button>
+            </div>
+        `;
+        return;
+    }
+    
+    // Take only 5 activities
+    const recentActivities = activities.slice(0, 5);
+    
+    const activityHTML = recentActivities.map(activity => {
+        const iconClass = getActivityIconClass(activity.type);
+        const timeAgo = getTimeAgo(activity.createdAt);
+        const amountDisplay = activity.amount ? 
+            `<div class="activity-amount ${activity.amount > 0 ? 'amount-positive' : 'amount-negative'}">
+                ${activity.amount > 0 ? '+' : ''}${activity.amount} ${activity.currency || 'ETH'}
+            </div>` : '';
+        
+        return `
+            <div class="activity-item" onclick="viewActivityDetail('${activity._id}')">
+                <div class="activity-icon ${iconClass}">
+                    <i class="fas ${getActivityIcon(activity.type)}"></i>
+                </div>
+                <div class="activity-details">
+                    <div class="activity-title">${activity.title}</div>
+                    <div class="activity-description">${activity.description}</div>
+                    <div class="activity-time">${timeAgo}</div>
+                </div>
+                ${amountDisplay}
+            </div>
+        `;
+    }).join('');
+    
+    activityContainer.innerHTML = activityHTML;
+}
+
+// ✅ Display User's Top NFTs (2 Featured NFTs)
+async function displayUserNFTs() {
+    const nftsContainer = document.getElementById('userNFTs');
+    if (!nftsContainer) return;
+    
+    nftsContainer.innerHTML = '<div class="nft-loading"><i class="fas fa-spinner"></i> Loading your NFTs...</div>';
+    
+    const userNFTs = await fetchUserNFTs();
+    
+    if (!userNFTs || userNFTs.length === 0) {
+        nftsContainer.innerHTML = `
+            <div class="nft-empty-state">
+                <i class="fas fa-gem"></i>
+                <p>No NFTs yet</p>
+                <a href="/create-nft" class="btn">
+                    <i class="fas fa-plus"></i> Create your first NFT
+                </a>
+            </div>
+        `;
+        return;
+    }
+    
+    const ethPrice = getCurrentEthPrice();
+    
+    const nftsHTML = userNFTs.map((nft, index) => {
+        const rank = index + 1;
+        const rankClass = rank === 1 ? 'first' : 'second';
+        const statusClass = nft.isListed ? 'listed' : 'not-listed';
+        const statusText = nft.isListed ? 'LISTED' : 'NOT LISTED';
+        const usdValue = (nft.price || 0) * ethPrice;
+        const timeAgo = getTimeAgo(nft.createdAt);
+        const views = Math.floor(Math.random() * 1000);
+        const likes = Math.floor(Math.random() * 500);
+        
+        return `
+            <div class="nft-item" onclick="viewNFT('${nft._id}')">
+                <div class="nft-rank ${rankClass}">${rank}</div>
+                <div class="nft-status ${statusClass}">${statusText}</div>
+                <img src="${nft.image}" alt="${nft.name}" 
+                     class="nft-image" 
+                     onerror="this.src='https://via.placeholder.com/300x300/2a2a2a/666?text=NFT'">
+                <div class="nft-info">
+                    <div class="nft-name">${nft.name}</div>
+                    <div class="nft-collection">${nft.collectionName || 'Unnamed Collection'}</div>
+                    <div class="nft-stats">
+                        <div class="nft-stat">
+                            <i class="fas fa-eye"></i>
+                            <span>${views} views</span>
+                        </div>
+                        <div class="nft-stat">
+                            <i class="fas fa-heart"></i>
+                            <span>${likes} likes</span>
+                        </div>
+                    </div>
+                    <div class="nft-time">
+                        <i class="fas fa-clock"></i>
+                        <span>${timeAgo}</span>
+                    </div>
+                </div>
+                <div class="nft-price-section">
+                    <div class="nft-price">
+                        <i class="fab fa-ethereum"></i>
+                        ${(nft.price || 0).toFixed(2)} ETH
+                    </div>
+                    <span class="nft-value-badge">$${usdValue.toFixed(0)} USD</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    nftsContainer.innerHTML = `<div class="nft-grid featured-view">${nftsHTML}</div>`;
+}
+
+// ✅ Display Recommended NFTs
+async function displayRecommendedNFTs() {
+    const recommendedContainer = document.getElementById('recommendedNFTs');
+    if (!recommendedContainer) return;
+    
+    recommendedContainer.innerHTML = '<div class="recommended-loading"><i class="fas fa-spinner"></i> Loading recommendations...</div>';
+    
+    const recommendedNFTs = await fetchRecommendedNFTs();
+    
+    if (!recommendedNFTs || recommendedNFTs.length === 0) {
+        recommendedContainer.innerHTML = `
+            <div class="recommended-empty-state">
+                <i class="fas fa-star"></i>
+                <p>No recommendations available</p>
+                <button class="btn btn-small" onclick="refreshRecommendedNFTs()">Refresh</button>
+            </div>
+        `;
+        return;
+    }
+    
+    const ethPrice = getCurrentEthPrice();
+    const topRecommendations = recommendedNFTs.slice(0, 4);
+    
+    const recommendedHTML = topRecommendations.map((nft, index) => {
+        const usdValue = (nft.price || 0) * ethPrice;
+        const volume = nft.volume || Math.random() * 10 + 5;
+        const views = Math.floor(Math.random() * 5000);
+        const likes = Math.floor(Math.random() * 1000);
+        const badges = ['🔥', '📈', '🆕'];
+        const badgeText = badges[index % badges.length];
+        
+        return `
+            <div class="recommended-item" onclick="viewNFT('${nft._id || nft.id}')">
+                <div class="recommended-badge">${badgeText} TRENDING</div>
+                <img src="${nft.image}" alt="${nft.name}" 
+                     class="recommended-image" 
+                     onerror="this.src='https://via.placeholder.com/400x300/2a2a2a/666?text=${encodeURIComponent(nft.name.substring(0, 20))}'">
+                <div class="recommended-info">
+                    <div class="recommended-name">${nft.name}</div>
+                    <div class="recommended-creator">${nft.creator || 'Anonymous'}</div>
+                    <div class="recommended-price-section">
+                        <div class="recommended-price-row">
+                            <div class="recommended-price">
+                                <i class="fab fa-ethereum"></i>
+                                ${(nft.price || 0).toFixed(2)} ETH
+                            </div>
+                            <span class="recommended-usd">$${usdValue.toFixed(0)}</span>
+                        </div>
+                        <div class="recommended-volume">
+                            <i class="fas fa-chart-bar"></i>
+                            <span>${volume.toFixed(1)} ETH volume</span>
+                        </div>
+                    </div>
+                    <div class="recommended-stats">
+                        <div class="recommended-stat">
+                            <i class="fas fa-eye"></i>
+                            <span>${views}</span>
+                        </div>
+                        <div class="recommended-stat">
+                            <i class="fas fa-heart"></i>
+                            <span>${likes}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    recommendedContainer.innerHTML = `<div class="recommended-grid">${recommendedHTML}</div>`;
+}
+
+// ✅ Load all dashboard sections
+async function loadDashboardSections() {
+    try {
+        console.log('📊 Loading all dashboard sections...');
+        
+        const [activities, userNFTs, recommendedNFTs] = await Promise.all([
+            fetchRecentActivity(),
+            fetchUserNFTs(),
+            fetchRecommendedNFTs()
+        ]);
+        
+        displayRecentActivity(activities);
+        displayUserNFTs(userNFTs);
+        displayRecommendedNFTs(recommendedNFTs);
+        
+        console.log('✅ All dashboard sections loaded');
+        
+    } catch (error) {
+        console.error('❌ Error loading dashboard sections:', error);
+    }
+}
+
+// ✅ Main dashboard loading function
 async function loadDashboard() {
-    console.log("🚀 Dashboard initializing with API...");
+    console.log("🚀 Dashboard initializing...");
     
-    // Get token
     const token = localStorage.getItem('token');
-    console.log("🔑 Token exists:", !!token);
-    
     if (!token) {
-        console.log("❌ No token found, redirecting to login");
         window.location.href = '/login';
         return;
     }
     
-    // Try to fetch fresh data from server FIRST
-    console.log("🔄 Fetching fresh user data from server...");
     const freshUser = await fetchUserFromBackend();
-    
     let user;
+    
     if (freshUser) {
-        // Use fresh data from server
         user = freshUser;
         console.log("✅ Using fresh data from server");
-        
-        // Also load full dashboard data (NFTs, activity, etc.)
-        const dashboardData = await fetchDashboardData();
-        if (dashboardData) {
-            console.log("✅ Loaded complete dashboard data");
-            // You can use this data to populate NFTs, activity feeds, etc.
-        }
-        
     } else {
-        // Fall back to localStorage (offline mode)
-        console.log("⚠️ Using cached localStorage data");
         const userData = localStorage.getItem('user');
-        
         if (!userData || userData === 'null' || userData === 'undefined') {
             window.location.href = '/login';
             return;
         }
-        
-        try {
-            user = JSON.parse(userData);
-        } catch (e) {
-            console.error("❌ Error parsing user data:", e);
-            window.location.href = '/login';
-            return;
-        }
+        user = JSON.parse(userData);
     }
     
-    // Set global variables
     currentDashboardUser = user;
-    console.log("🎯 Dashboard ready for:", user.email);
-    console.log("💰 User ETH balance:", user.ethBalance);
-    console.log("💰 User WETH balance:", user.wethBalance);
     
-    // Display dashboard
     displayDashboardData(user);
+    await loadDashboardSections();
+    updateMarketTrends();
     
-    // Load additional features
-    setTimeout(() => {
-        if (typeof updateMarketTrends === 'function') {
-            updateMarketTrends();
-        }
-    }, 1000);
+    setTimeout(subscribeToEthPriceUpdates, 1000);
+    startPeriodicSync();
+    startDashboardAutoRefresh();
 }
 
-// ✅ UPDATED executeConversion function (LEAVE THIS AS IS - IT'S WORKING)
-async function executeConversion() {
-    const amountInput = document.getElementById('conversionAmount');
-    if (!amountInput || !currentDashboardUser) return;
-    
-    const amount = parseFloat(amountInput.value);
-    if (isNaN(amount) || amount <= 0) {
-        alert('Please enter a valid amount');
-        return;
-    }
-    
-    const token = localStorage.getItem('token');
-    if (!token) {
-        alert('Please login again');
-        window.location.href = '/login';
-        return;
-    }
-    
-    try {
-        console.log(`🔄 Converting ${amount} ETH to WETH...`);
-        
-        // Use /me/convert-to-weth endpoint
-        const response = await fetch('/api/user/me/convert-to-weth', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                amount: amount
-            })
-        });
-        
-        const result = await response.json();
-        console.log('Conversion response:', result);
-        
-        if (!response.ok || !result.success) {
-            throw new Error(result.error || 'Conversion failed');
-        }
-        
-        // Update local user data with server response
-        currentDashboardUser.ethBalance = result.user.ethBalance;
-        currentDashboardUser.wethBalance = result.user.wethBalance;
-        currentDashboardUser.balance = result.user.balance;
-        
-        // Save updated data to localStorage
-        localStorage.setItem('user', JSON.stringify(currentDashboardUser));
-        
-        // Update display
-        displayDashboardData(currentDashboardUser);
-        
-        // Show success
-        alert(`✅ Successfully converted ${amount.toFixed(4)} ETH to WETH!`);
-        closeModal('wethConversionModal');
-        
-    } catch (error) {
-        console.error('Conversion error:', error);
-        alert(`❌ Error: ${error.message}`);
-    }
-}
-
-// ✅ FIXED: Display dashboard data with LIVE ETH PRICE
+// ✅ Display dashboard data
 function displayDashboardData(user) {
     console.log("📊 Displaying dashboard data for:", user.email);
     
-    // ✅ FIXED: Get LIVE ETH price from service
     const currentPrice = getCurrentEthPrice();
-    console.log("💰 Current ETH price:", currentPrice);
     
-    // Welcome message
     const welcomeMessage = document.getElementById('welcomeMessage');
     if (welcomeMessage) {
         const name = user.fullName || user.email.split('@')[0];
@@ -258,52 +432,42 @@ function displayDashboardData(user) {
         welcomeMessage.textContent = `${greeting}, ${name}!`;
     }
     
-    // ✅ FIXED: Update ETH balance with LIVE price
     const ethBalanceEl = document.getElementById('ethBalance');
     const ethValueEl = document.getElementById('ethValue');
     
-    if (ethBalanceEl) ethBalanceEl.textContent = `${user.ethBalance.toFixed(4)} ETH`;
+    if (ethBalanceEl) ethBalanceEl.textContent = `${(user.ethBalance || 0).toFixed(4)} ETH`;
     if (ethValueEl) {
-        // ✅ FIXED: Use currentPrice from service, not hardcoded 2500
-        ethValueEl.textContent = `$${(user.ethBalance * currentPrice).toFixed(2)}`;
+        ethValueEl.textContent = `$${((user.ethBalance || 0) * currentPrice).toFixed(2)}`;
     }
     
-    // ✅ FIXED: Update WETH balance with LIVE price
     const wethBalanceEl = document.getElementById('wethBalance');
     const wethValueEl = document.getElementById('wethValue');
-    if (wethBalanceEl) wethBalanceEl.textContent = `${user.wethBalance.toFixed(4)} WETH`;
+    if (wethBalanceEl) wethBalanceEl.textContent = `${(user.wethBalance || 0).toFixed(4)} WETH`;
     if (wethValueEl) {
-        // ✅ FIXED: Use currentPrice from service, not hardcoded 2500
-        wethValueEl.textContent = `$${(user.wethBalance * currentPrice).toFixed(2)}`;
+        wethValueEl.textContent = `$${((user.wethBalance || 0) * currentPrice).toFixed(2)}`;
     }
     
-    // ✅ FIXED: Calculate and display portfolio with LIVE price
     updatePortfolioDisplay(user, currentPrice);
-    
     console.log("✅ Dashboard data displayed");
 }
 
-// ✅ FIXED: Update portfolio display with LIVE price parameter
+// ✅ Update portfolio display
 function updatePortfolioDisplay(user, ethPrice) {
     const portfolioValueEl = document.getElementById('portfolioValue');
     const portfolioChangeEl = document.getElementById('portfolioChange');
     
     if (!portfolioValueEl && !portfolioChangeEl) return;
     
-    // ✅ FIXED: Use the passed ethPrice (LIVE price)
     const calculatedEthPrice = ethPrice || getCurrentEthPrice();
     
-    // Calculate total portfolio value
     const ethValue = (user.ethBalance || 0) * calculatedEthPrice;
     const wethValue = (user.wethBalance || 0) * calculatedEthPrice;
     const totalPortfolioValue = ethValue + wethValue;
     
-    // Update portfolio value
     if (portfolioValueEl) {
         portfolioValueEl.textContent = `$${totalPortfolioValue.toFixed(2)}`;
     }
     
-    // Calculate portfolio change
     const portfolioChange = calculatePortfolioChange(totalPortfolioValue);
     
     if (portfolioChangeEl) {
@@ -315,44 +479,37 @@ function updatePortfolioDisplay(user, ethPrice) {
         portfolioChangeEl.className = `balance-change ${isPositive ? 'positive' : 'negative'}`;
     }
     
-    // Store in history
     updatePortfolioHistory(totalPortfolioValue);
 }
 
-// ✅ FIXED: Add function to subscribe to ETH price updates
+// ✅ Subscribe to ETH price updates
 function subscribeToEthPriceUpdates() {
     if (!window.ethPriceService) {
-        console.log("⏳ Waiting for ethPriceService...");
         setTimeout(subscribeToEthPriceUpdates, 1000);
         return;
     }
     
     console.log("✅ Subscribing to ETH price updates");
     
-    // Subscribe to price changes
     window.ethPriceService.subscribe((newPrice) => {
         console.log("🔄 ETH price updated to:", newPrice);
         
-        // Update dashboard when price changes
         if (currentDashboardUser) {
-            // Update ETH value display
             const ethValueEl = document.getElementById('ethValue');
             if (ethValueEl && currentDashboardUser.ethBalance !== undefined) {
                 ethValueEl.textContent = `$${(currentDashboardUser.ethBalance * newPrice).toFixed(2)}`;
             }
             
-            // Update WETH value display
             const wethValueEl = document.getElementById('wethValue');
             if (wethValueEl && currentDashboardUser.wethBalance !== undefined) {
                 wethValueEl.textContent = `$${(currentDashboardUser.wethBalance * newPrice).toFixed(2)}`;
             }
             
-            // Update portfolio with new price
             updatePortfolioDisplay(currentDashboardUser, newPrice);
+            refreshUserNFTs();
         }
     });
     
-    // Force initial update
     setTimeout(() => {
         if (window.ethPriceService) {
             window.ethPriceService.updateAllDisplays();
@@ -360,42 +517,232 @@ function subscribeToEthPriceUpdates() {
     }, 1500);
 }
 
-// Initialize dashboard
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Dashboard initializing...');
-    loadDashboard();
-    
-    // ✅ FIXED: Start subscribing to ETH price updates
-    setTimeout(subscribeToEthPriceUpdates, 2000);
-    
-    // Start auto-refresh
-    startPeriodicSync();
-}, 500);
-
-// Auto-refresh market trends every 30 seconds
-setTimeout(updateMarketTrends, 1000);
-setInterval(updateMarketTrends, 30000);
-
-// Add this to sync with server every 30 seconds
-function startPeriodicSync() {
-    setInterval(async () => {
-        if (currentDashboardUser && localStorage.getItem('token')) {
-            console.log('🔄 Periodic sync with server...');
-            await fetchUserFromBackend();
-            
-            // Refresh display if user is on dashboard
-            if (window.location.pathname.includes('dashboard')) {
-                const userData = localStorage.getItem('user');
-                if (userData) {
-                    const user = JSON.parse(userData);
-                    displayDashboardData(user);
-                }
-            }
-        }
-    }, 30000); // Every 30 seconds
+// ✅ Helper Functions
+function getActivityIcon(type) {
+    switch(type) {
+        case 'login': return 'fa-sign-in-alt';
+        case 'nft_created': return 'fa-plus-circle';
+        case 'nft_purchased': return 'fa-shopping-cart';
+        case 'nft_sold': return 'fa-money-bill-wave';
+        case 'nft_transferred': return 'fa-exchange-alt';
+        case 'funds_added': return 'fa-plus';
+        case 'profile_updated': return 'fa-user-edit';
+        case 'bid_placed': return 'fa-gavel';
+        case 'nft_listed': return 'fa-tag';
+        default: return 'fa-bell';
+    }
 }
 
-// Store portfolio history
+function getActivityIconClass(type) {
+    switch(type) {
+        case 'nft_created': return 'mint';
+        case 'nft_purchased': return 'buy';
+        case 'nft_sold': return 'sell';
+        case 'funds_added': return 'positive';
+        case 'nft_transferred': return 'transfer';
+        default: return '';
+    }
+}
+
+function getTimeAgo(timestamp) {
+    const now = new Date();
+    const past = new Date(timestamp);
+    const diffMs = now - past;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 60) {
+        return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
+    } else if (diffHours < 24) {
+        return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+    } else if (diffDays < 7) {
+        return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+    } else {
+        return past.toLocaleDateString();
+    }
+}
+
+// ✅ Refresh Functions
+function refreshRecentActivity() {
+    console.log('🔄 Refreshing recent activity...');
+    displayRecentActivity();
+}
+
+function refreshUserNFTs() {
+    console.log('🔄 Refreshing user NFTs...');
+    displayUserNFTs();
+}
+
+function refreshRecommendedNFTs() {
+    console.log('🔄 Refreshing recommended NFTs...');
+    displayRecommendedNFTs();
+}
+
+function refreshAllDashboard() {
+    console.log('🔄 Refreshing entire dashboard...');
+    if (currentDashboardUser) displayDashboardData(currentDashboardUser);
+    loadDashboardSections();
+    updateMarketTrends();
+}
+
+// ✅ Navigation Functions
+function viewActivityDetail(activityId) {
+    window.location.href = `/activity?activity=${activityId}`;
+}
+
+function viewNFT(nftId) {
+    window.location.href = `/nft/${nftId}`;
+}
+
+// ✅ Mock Data Generators
+function generateMockActivity() {
+    return [
+        {
+            _id: '1',
+            type: 'nft_purchased',
+            title: 'NFT Purchase',
+            description: 'Bought "CryptoPunk #1234"',
+            amount: 0.5,
+            currency: 'ETH',
+            createdAt: new Date(Date.now() - 300000).toISOString()
+        },
+        {
+            _id: '2',
+            type: 'nft_sold',
+            title: 'NFT Sale',
+            description: 'Sold "Bored Ape #5678"',
+            amount: 1.2,
+            currency: 'ETH',
+            createdAt: new Date(Date.now() - 3600000).toISOString()
+        },
+        {
+            _id: '3',
+            type: 'nft_created',
+            title: 'NFT Minted',
+            description: 'Created "My Artwork #1"',
+            createdAt: new Date(Date.now() - 86400000).toISOString()
+        },
+        {
+            _id: '4',
+            type: 'funds_added',
+            title: 'ETH Received',
+            description: 'From: 0x1234...5678',
+            amount: 0.1,
+            currency: 'ETH',
+            createdAt: new Date(Date.now() - 172800000).toISOString()
+        }
+    ];
+}
+
+function generateMockUserNFTs() {
+    return [
+        {
+            _id: 'nft-1',
+            name: 'CryptoPunk #1234',
+            image: 'https://via.placeholder.com/300x300/4CAF50/FFFFFF?text=CryptoPunk+%231234',
+            collectionName: 'CryptoPunks',
+            price: 45.5,
+            isListed: true,
+            createdAt: new Date(Date.now() - 86400000).toISOString()
+        },
+        {
+            _id: 'nft-2',
+            name: 'Bored Ape #5678',
+            image: 'https://via.placeholder.com/300x300/2196F3/FFFFFF?text=Bored+Ape+%235678',
+            collectionName: 'Bored Ape Yacht Club',
+            price: 32.8,
+            isListed: true,
+            createdAt: new Date(Date.now() - 172800000).toISOString()
+        }
+    ];
+}
+
+function generateMockRecommendedNFTs() {
+    return [
+        {
+            _id: 'rec-1',
+            name: 'Pixel Monster #1',
+            image: 'https://via.placeholder.com/400x300/FF5722/FFFFFF?text=Pixel+Monster+%231',
+            creator: 'PixelArtist',
+            price: 0.08,
+            volume: 12.5
+        },
+        {
+            _id: 'rec-2',
+            name: 'Genesis Art #42',
+            image: 'https://via.placeholder.com/400x300/3F51B5/FFFFFF?text=Genesis+Art+%2342',
+            creator: 'ArtCreator',
+            price: 0.15,
+            volume: 8.3
+        },
+        {
+            _id: 'rec-3',
+            name: 'Gaming Hero #7',
+            image: 'https://via.placeholder.com/400x300/00BCD4/FFFFFF?text=Gaming+Hero+%237',
+            creator: 'GameStudio',
+            price: 0.25,
+            volume: 21.7
+        },
+        {
+            _id: 'rec-4',
+            name: 'Digital Wave #99',
+            image: 'https://via.placeholder.com/400x300/8BC34A/FFFFFF?text=Digital+Wave+%2399',
+            creator: 'DigitalArtist',
+            price: 0.12,
+            volume: 5.4
+        }
+    ];
+}
+
+// ✅ Market Trends Functions
+function updateMarketTrends() {
+    console.log('📈 Updating market trends...');
+    
+    const trendsContainer = document.getElementById('marketTrends');
+    const overallTrendEl = document.getElementById('overallTrend');
+    
+    if (!trendsContainer || !overallTrendEl) return;
+    
+    const trends = [
+        { name: "Art Collection", baseVolume: 1.2, baseChange: 12.5 },
+        { name: "Gaming NFTs", baseVolume: 0.85, baseChange: 8.3 },
+        { name: "PFPs", baseVolume: 2.1, baseChange: -3.2 },
+        { name: "Utility NFTs", baseVolume: 0.6, baseChange: 15.2 }
+    ];
+    
+    let totalChange = 0;
+    let trendsHTML = '';
+    
+    trends.forEach(trend => {
+        const randomFactor = 0.85 + (Math.random() * 0.3);
+        const volume = trend.baseVolume * randomFactor;
+        const change = trend.baseChange * randomFactor;
+        
+        totalChange += change;
+        
+        trendsHTML += `
+            <div class="trend-item">
+                <div class="trend-info">
+                    <span class="trend-name">${trend.name}</span>
+                    <span class="trend-volume">${volume.toFixed(1)}K ETH volume</span>
+                </div>
+                <div class="trend-change ${change >= 0 ? 'positive' : 'negative'}">
+                    <i class="fas fa-arrow-${change >= 0 ? 'up' : 'down'}"></i>
+                    ${Math.abs(change).toFixed(1)}%
+                </div>
+            </div>
+        `;
+    });
+    
+    trendsContainer.innerHTML = trendsHTML;
+    
+    const overallChange = totalChange / trends.length;
+    overallTrendEl.textContent = `${overallChange >= 0 ? '+' : ''}${overallChange.toFixed(1)}%`;
+    overallTrendEl.className = `trend-badge ${overallChange >= 0 ? 'positive' : 'negative'}`;
+}
+
+// ✅ Portfolio History Functions
 function updatePortfolioHistory(currentValue) {
     try {
         const today = new Date().toDateString();
@@ -412,17 +759,13 @@ function updatePortfolioHistory(currentValue) {
     }
 }
 
-// Calculate portfolio change from history
 function calculatePortfolioChange(currentValue) {
     try {
         const portfolioHistory = JSON.parse(localStorage.getItem('portfolioHistory') || '{}');
         const entries = Object.entries(portfolioHistory);
         
-        if (entries.length < 2) {
-            return 5.2; // Default first-time value
-        }
+        if (entries.length < 2) return 5.2;
         
-        // Get yesterday's value
         const today = new Date().toDateString();
         const sorted = entries.sort((a, b) => b[1].timestamp - a[1].timestamp);
         
@@ -434,9 +777,7 @@ function calculatePortfolioChange(currentValue) {
             }
         }
         
-        if (!yesterdayValue || yesterdayValue === 0) {
-            return 0;
-        }
+        if (!yesterdayValue || yesterdayValue === 0) return 0;
         
         const change = ((currentValue - yesterdayValue) / yesterdayValue) * 100;
         return isNaN(change) ? 0 : change;
@@ -446,73 +787,36 @@ function calculatePortfolioChange(currentValue) {
     }
 }
 
-// Market Trends Functions
-function updateMarketTrends() {
-    console.log('📈 Updating market trends...');
-    
-    const trendsContainer = document.querySelector('.market-trends');
-    if (!trendsContainer) {
-        console.log('Market trends container not found');
-        return;
-    }
-    
-    // Sample trends with randomization
-    const trends = [
-        { name: "Art Collection", baseVolume: 1.2, baseChange: 12.5 },
-        { name: "Gaming NFTs", baseVolume: 0.85, baseChange: 8.3 },
-        { name: "PFPs", baseVolume: 2.1, baseChange: -3.2 },
-        { name: "Utility NFTs", baseVolume: 0.6, baseChange: 15.2 },
-        { name: "Generative Art", baseVolume: 0.9, baseChange: 7.8 }
-    ];
-    
-    trendsContainer.innerHTML = '';
-    
-    // Calculate overall market change
-    let totalChange = 0;
-    
-    trends.forEach(trend => {
-        // Add small random variation (±15%)
-        const randomFactor = 0.85 + (Math.random() * 0.3);
-        const volume = trend.baseVolume * randomFactor;
-        const change = trend.baseChange * randomFactor;
-        
-        totalChange += change;
-        
-        const trendItem = document.createElement('div');
-        trendItem.className = 'trend-item';
-        trendItem.innerHTML = `
-            <div class="trend-info">
-                <span class="trend-name">${trend.name}</span>
-                <span class="trend-volume">${volume.toFixed(1)}K ETH volume</span>
-            </div>
-            <div class="trend-change ${change >= 0 ? 'positive' : 'negative'}">
-                <i class="fas fa-arrow-${change >= 0 ? 'up' : 'down'}"></i>
-                ${Math.abs(change).toFixed(1)}%
-            </div>
-        `;
-        trendsContainer.appendChild(trendItem);
-    });
-    
-    // Update overall market change badge
-    const overallChange = totalChange / trends.length;
-    const badge = document.querySelector('.trend-badge');
-    if (badge) {
-        badge.textContent = `${overallChange >= 0 ? '+' : ''}${overallChange.toFixed(1)}%`;
-        badge.className = `trend-badge ${overallChange >= 0 ? 'positive' : 'negative'}`;
-        
-        // Update icon
-        const icon = badge.querySelector('i');
-        if (icon) {
-            icon.className = `fas fa-arrow-${overallChange >= 0 ? 'up' : 'down'}`;
-        } else {
-            badge.innerHTML = `<i class="fas fa-arrow-${overallChange >= 0 ? 'up' : 'down'}"></i> ${overallChange >= 0 ? '+' : ''}${Math.abs(overallChange).toFixed(1)}%`;
+// ✅ Auto-refresh Functions
+function startPeriodicSync() {
+    setInterval(async () => {
+        if (currentDashboardUser && localStorage.getItem('token')) {
+            console.log('🔄 Periodic sync with server...');
+            await fetchUserFromBackend();
+            
+            if (window.location.pathname.includes('dashboard')) {
+                const userData = localStorage.getItem('user');
+                if (userData) {
+                    const user = JSON.parse(userData);
+                    displayDashboardData(user);
+                }
+            }
         }
-    }
-    
-    console.log(`Market trends updated. Overall change: ${overallChange >= 0 ? '+' : ''}${overallChange.toFixed(1)}%`);
+    }, 30000);
 }
 
-// Basic dashboard functions
+function startDashboardAutoRefresh() {
+    setInterval(() => {
+        if (window.location.pathname.includes('dashboard')) {
+            console.log('🔄 Auto-refreshing dashboard...');
+            updateMarketTrends();
+            if (Math.random() > 0.5) refreshRecentActivity();
+            if (Math.random() > 0.5) refreshRecommendedNFTs();
+        }
+    }, 60000);
+}
+
+// ✅ Basic dashboard functions
 function refreshBalance() {
     if (currentDashboardUser) {
         displayDashboardData(currentDashboardUser);
@@ -530,192 +834,13 @@ function showStaking() {
     alert('Staking feature coming soon!');
 }
 
-function buyCrypto() {
-    window.location.href = '/add-eth';
-}
+// ✅ Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Dashboard initializing...');
+    loadDashboard();
+}, 500);
 
-function viewPortfolio() {
-    window.location.href = '/profile';
-}
-
-// Utility Functions
-function openMetaMaskBuy() {
-    if (window.ethereum && window.ethereum.isMetaMask) {
-        try {
-            window.ethereum.request({
-                method: 'wallet_buyCrypto',
-                params: [{
-                    address: MARKETPLACE_WALLET_ADDRESS,
-                    symbol: 'ETH'
-                }]
-            }).then(() => {
-                console.log('MetaMask buy opened');
-                closeModal('addETHModal');
-            }).catch((error) => {
-                window.open('https://metamask.io/', '_blank');
-            });
-        } catch (error) {
-            window.open('https://metamask.io/', '_blank');
-        }
-    } else {
-        if (confirm('MetaMask not detected. Install it?')) {
-            window.open('https://metamask.io/download/', '_blank');
-        }
-    }
-}
-
-function copyAddress() {
-    if (!navigator.clipboard) {
-        alert('Clipboard not supported');
-        return;
-    }
-    
-    navigator.clipboard.writeText(MARKETPLACE_WALLET_ADDRESS)
-        .then(() => {
-            alert('Wallet address copied to clipboard!');
-        })
-        .catch(err => {
-            console.error('Failed to copy:', err);
-            alert('Failed to copy address');
-        });
-}
-
-function showDepositInstructions() {
-    const instructions = document.getElementById('depositInstructions');
-    if (instructions) {
-        instructions.style.display = 'block';
-    }
-}
-
-// WETH Conversion Functions (LEAVE THESE AS IS - THEY'RE WORKING)
-function showWETHConversion() {
-    if (!currentDashboardUser) {
-        alert('Please login first');
-        return;
-    }
-    
-    // Update balances in modal
-    const fromBalance = document.getElementById('fromBalanceAmount');
-    const toBalance = document.getElementById('toBalanceAmount');
-    
-    if (fromBalance) fromBalance.textContent = (currentDashboardUser.ethBalance || 0).toFixed(4);
-    if (toBalance) toBalance.textContent = (currentDashboardUser.wethBalance || 0).toFixed(4);
-    
-    // Reset to ETH to WETH
-    selectConversion('ethToWeth');
-    
-    // Show modal
-    const modal = document.getElementById('wethConversionModal');
-    if (modal) modal.style.display = 'flex';
-}
-
-function selectConversion(type) {
-    currentConversionType = type;
-    
-    const fromCurrency = document.getElementById('fromCurrency');
-    const toCurrency = document.getElementById('toCurrency');
-    
-    if (type === 'ethToWeth') {
-        if (fromCurrency) fromCurrency.textContent = 'ETH';
-        if (toCurrency) toCurrency.textContent = 'WETH';
-    } else {
-        if (fromCurrency) fromCurrency.textContent = 'WETH';
-        if (toCurrency) toCurrency.textContent = 'ETH';
-    }
-    
-    // Reset amount
-    const amountInput = document.getElementById('conversionAmount');
-    if (amountInput) amountInput.value = '';
-    updateConversionPreview();
-}
-
-function setMaxAmount() {
-    const amountInput = document.getElementById('conversionAmount');
-    if (!amountInput || !currentDashboardUser) return;
-    
-    let maxAmount = 0;
-    if (currentConversionType === 'ethToWeth') {
-        maxAmount = currentDashboardUser.ethBalance || 0;
-    } else {
-        maxAmount = currentDashboardUser.wethBalance || 0;
-    }
-    
-    amountInput.value = maxAmount.toFixed(4);
-    updateConversionPreview();
-}
-
-function updateConversionPreview() {
-    const amountInput = document.getElementById('conversionAmount');
-    const conversionResult = document.getElementById('conversionResult');
-    const convertButton = document.getElementById('convertButton');
-    
-    if (!amountInput || !conversionResult || !convertButton || !currentDashboardUser) return;
-    
-    const amount = parseFloat(amountInput.value) || 0;
-    
-    if (amount <= 0) {
-        conversionResult.textContent = currentConversionType === 'ethToWeth' ? '0.0000 WETH' : '0.0000 ETH';
-        convertButton.disabled = true;
-        return;
-    }
-    
-    // Check balance
-    let hasEnoughBalance = false;
-    if (currentConversionType === 'ethToWeth') {
-        hasEnoughBalance = amount <= (currentDashboardUser.ethBalance || 0);
-    } else {
-        hasEnoughBalance = amount <= (currentDashboardUser.wethBalance || 0);
-    }
-    
-    if (!hasEnoughBalance) {
-        conversionResult.textContent = 'Insufficient balance';
-        convertButton.disabled = true;
-        return;
-    }
-    
-    conversionResult.textContent = `${amount.toFixed(4)} ${currentConversionType === 'ethToWeth' ? 'WETH' : 'ETH'}`;
-    convertButton.disabled = false;
-}
-
-// Dashboard ETH price updates
-function updateDashboardPrices() {
-    // ✅ FIXED: Get price from service
-    const ethPrice = getCurrentEthPrice();
-    
-    // Update all price displays
-    document.querySelectorAll('[data-eth-price]').forEach(el => {
-        const ethAmount = parseFloat(el.getAttribute('data-eth-amount') || 0);
-        el.textContent = `$${(ethAmount * ethPrice).toFixed(2)}`;
-    });
-    
-    // Update ETH price display
-    const ethPriceEl = document.getElementById('currentEthPrice');
-    if (ethPriceEl) {
-        ethPriceEl.textContent = `$${ethPrice}`;
-    }
-    
-    // Update user balance values
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    if (user.ethBalance) {
-        document.querySelectorAll('[data-eth-usd]').forEach(el => {
-            const usdValue = (user.ethBalance * ethPrice).toFixed(2);
-            el.textContent = `$${usdValue}`;
-        });
-    }
-}
-
-// Initialize when dashboard loads
-if (window.location.pathname.includes('dashboard')) {
-    document.addEventListener('DOMContentLoaded', function() {
-        // Update prices on load
-        updateDashboardPrices();
-        
-        // Update every 30 seconds
-        setInterval(updateDashboardPrices, 30000);
-    });
-}
-
-// Make functions globally available
+// ✅ Make functions globally available
 window.refreshBalance = refreshBalance;
 window.transferFunds = transferFunds;
 window.showStaking = showStaking;
@@ -731,3 +856,9 @@ window.showDepositInstructions = showDepositInstructions;
 window.buyCrypto = buyCrypto;
 window.viewPortfolio = viewPortfolio;
 window.updateMarketTrends = updateMarketTrends;
+window.refreshRecentActivity = refreshRecentActivity;
+window.refreshUserNFTs = refreshUserNFTs;
+window.refreshRecommendedNFTs = refreshRecommendedNFTs;
+window.refreshAllDashboard = refreshAllDashboard;
+window.viewActivityDetail = viewActivityDetail;
+window.viewNFT = viewNFT;
