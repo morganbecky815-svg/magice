@@ -441,7 +441,7 @@
                 <div class="terms-checkbox">
                     <input type="checkbox" id="agreeTerms" required>
                     <label for="agreeTerms">
-                        I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+                        I agree to the <a href="terms-of-service.html">Terms of Service</a> and <a href="privacy-policy.html">Privacy Policy</a>.
                         I understand that I must be at least 18 years old to use this platform.
                     </label>
                 </div>
@@ -572,7 +572,7 @@
         
         if (response.ok && result.success) {
             // Registration successful
-            showSuccess('✅ Account created successfully! Redirecting to dashboard...');
+            showSuccess('✅ Account created successfully!');
             
             // Save to localStorage
             localStorage.setItem('token', result.token);

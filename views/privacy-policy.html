@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy | Magic Eden</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* ===== RESET & BASE ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: white;
+            line-height: 1.8;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* ===== PRIVACY POLICY PAGE ===== */
+        .privacy-page {
+            padding: 60px 20px;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a0a2e 100%);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .privacy-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .privacy-header .logo {
+            font-size: 32px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            color: #8a2be2;
+        }
+
+        .privacy-header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #8a2be2, #4169e1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .privacy-header p {
+            color: #888;
+            font-size: 16px;
+        }
+
+        /* Content Card */
+        .privacy-card {
+            background: rgba(26, 26, 26, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 50px;
+            border: 1px solid rgba(138, 43, 226, 0.3);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Back Button */
+        .back-button {
+            margin-bottom: 30px;
+        }
+
+        .back-button a {
+            color: #8a2be2;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border: 1px solid rgba(138, 43, 226, 0.3);
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+
+        .back-button a:hover {
+            background: rgba(138, 43, 226, 0.1);
+            transform: translateX(-5px);
+        }
+
+        /* Content Sections */
+        .privacy-section {
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .privacy-section:last-child {
+            border-bottom: none;
+        }
+
+        .section-title {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #8a2be2;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title i {
+            font-size: 20px;
+        }
+
+        .section-content {
+            color: #ccc;
+        }
+
+        .section-content h3 {
+            font-size: 18px;
+            margin: 25px 0 10px 0;
+            color: #ddd;
+        }
+
+        .section-content p {
+            margin-bottom: 15px;
+            color: #aaa;
+        }
+
+        .section-content ul {
+            margin: 15px 0 15px 30px;
+            color: #aaa;
+        }
+
+        .section-content li {
+            margin-bottom: 10px;
+        }
+
+        .highlight-box {
+            background: rgba(138, 43, 226, 0.1);
+            border: 1px solid rgba(138, 43, 226, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .highlight-box strong {
+            color: #8a2be2;
+        }
+
+        /* Info Box */
+        .info-box {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 30px 0;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .info-box i {
+            color: #3b82f6;
+            font-size: 24px;
+        }
+
+        /* Last Updated */
+        .last-updated {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .privacy-card {
+                padding: 30px 20px;
+            }
+
+            .privacy-header h1 {
+                font-size: 28px;
+            }
+
+            .section-title {
+                font-size: 20px;
+            }
+
+            .privacy-header .logo {
+                font-size: 28px;
+            }
+        }
+
+        /* Contact Link */
+        .contact-link {
+            color: #8a2be2;
+            text-decoration: none;
+            border-bottom: 1px dotted #8a2be2;
+        }
+
+        .contact-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="privacy-page">
+        <div class="container">
+            <div class="back-button">
+                <a href="/register">
+                    <i class="fas fa-arrow-left"></i> Back to Registration
+                </a>
+            </div>
+
+            <div class="privacy-header">
+                <div class="logo">
+                    <i class="fas fa-gem"></i>
+                    <span>Magic Eden</span>
+                </div>
+                <h1>Privacy Policy</h1>
+                <p>Last Updated: January 17, 2024</p>
+            </div>
+
+            <div class="privacy-card">
+                <!-- Introduction -->
+                <div class="privacy-section">
+                    <h2 class="section-title">
+                        <i class="fas fa-shield-alt"></i> Introduction
+                    </h2>
+                    <div class="section-content">
+                        <p>Welcome to Magic Eden ("we," "our," or "us"). We are committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our NFT marketplace platform.</p>
+                        
+                        <div class="highlight-box">
+                            <p><strong>Note:</strong> By using Magic Eden, you consent to the data practices described in this Privacy Policy. If you do not agree with our policies and practices, please do not use our services.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Information We Collect -->
+                <div class="privacy-section">
+                    <h2 class="section-title">
+                        <i class="fas fa-database"></i> Information We Collect
+                    </h2>
+                    <div class="section-content">
+                        <h3>Personal Information</h3>
+                        <p>When you register for an account, we collect:</p>
+                        <ul>
+                            <li>Email address</li>
+                            <li>Password (encrypted)</li>
+                            <li>Optional: Full name</li>
+                            <li>Wallet address (when connecting)</li>
+                            <li>Transaction history</li>
+                        </ul>
+
+                        <h3>Automatically Collected Information</h3>
+                        <p>We automatically collect certain information when you visit our platform:</p>
+                        <ul>
+                            <li>IP address and device information</li>
+                            <li>Browser type and version</li>
+                            <li>Pages visited and time spent</li>
+                            <li>Transaction data on the blockchain</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- How We Use Your Information -->
+                <div class="privacy-section">
+                    <h2 class="section-title">
+                        <i class="fas fa-cogs"></i> How We Use Your Information
+                    </h2>
+                    <div class="section-content">
+                        <p>We use the information we collect for various purposes:</p>
+                        <ul>
+                            <li>To create and manage your account</li>
+                            <li>To facilitate NFT transactions</li>
+                            <li>To provide customer support</li>
+                            <li>To improve our platform and services</li>
+                            <li>To send important updates and notifications</li>
+                            <li>To detect and prevent fraud</li>
+                            <li>To comply with legal obligations</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Information Sharing -->
+                <div class="privacy-section">
+                    <h2 class="section-title">
+                        <i class="fas fa-share-alt"></i> Information Sharing
+                    </h2>
+                    <div class="section-content">
+                        <p>We do not sell your personal information. We may share information in the following circumstances:</p>
+                        <ul>
+                            <li><strong>With Your Consent:</strong> We may disclose your information when you give us explicit permission.</li>
+                            <li><strong>Service Providers:</strong> We may share data with trusted third parties who assist in operating our platform.</li>
+                            <li><strong>Legal Requirements:</strong> We may disclose information if required by law or to protect our rights.</li>
+                            <li><strong>Business Transfers:</strong> In connection with any merger or acquisition.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Blockchain Transparency -->
+                <div class="privacy-section">
+                    <h2 class="section-title">
+                        <i class="fab fa-ethereum"></i> Blockchain Transparency
+                    </h2>
+                    <div class="section-content">
+                        <div class="highlight-box">
+                            <p><strong>Important:</strong> Transactions on the Ethereum blockchain are public and permanent. Once a transaction is recorded on the blockchain, it cannot be deleted or modified.</p>
+                        </div>
+                        <p>Please note that:</p>
+                        <ul>
+                            <li>Wallet addresses and transaction details are publicly visible on the blockchain</li>
+                            <li>We cannot delete or modify blockchain transactions</li>
+                            <li>Use wallet addresses carefully to maintain your privacy</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Data Security -->
+                <div class="privacy-section">
+                    <h2 class="section-title">
+                        <i class="fas fa-lock"></i> Data Security
+                    </h2>
+                    <div class="section-content">
+                        <p>We implement appropriate technical and organizational security measures to protect your personal information:</p>
+                        <ul>
+                            <li>Encryption of sensitive data</li>
+                            <li>Regular security assessments</li>
+                            <li>Secure server infrastructure</li>
+                            <li>Limited access to personal data</li>
+                        </ul>
+                        <p>However, no method of transmission over the Internet is 100% secure. We cannot guarantee absolute security.</p>
+                    </div>
+                </div>
+
+                <!-- Your Rights -->
+                <div class="privacy-section">
+                    <h2 class="section-title">
+                        <i class="fas fa-user-check"></i> Your Rights
+                    </h2>
+                    <div class="section-content">
+                        <p>Depending on your location, you may have the following rights regarding your personal data:</p>
+                        <ul>
+                            <li><strong>Access:</strong> Request access to your personal data</li>
+                            <li><strong>Correction:</strong> Request correction of inaccurate data</li>
+                            <li><strong>Deletion:</strong> Request deletion of your personal data</li>
+                            <li><strong>Objection:</strong> Object to processing of your data</li>
+                            <li><strong>Portability:</strong> Request transfer of your data</li>
+                        </ul>
+                        <p>To exercise these rights, please contact us at <a href="mailto:privacy@magiceden.io" class="contact-link">privacy@magiceden.io</a>.</p>
+                    </div>
+                </div>
+
+                <!-- Cookies -->
+                <div class="privacy-section">
+                    <h2 class="section-title">
+                        <i class="fas fa-cookie-bite"></i> Cookies & Tracking
+                    </h2>
+                    <div class="section-content">
+                        <p>We use cookies and similar tracking technologies to:</p>
+                        <ul>
+                            <li>Remember your preferences</li>
+                            <li>Understand how you use our platform</li>
+                            <li>Improve user experience</li>
+                            <li>Provide personalized content</li>
+                        </ul>
+                        <p>You can control cookies through your browser settings. Disabling cookies may affect platform functionality.</p>
+                    </div>
+                </div>
+
+                <!-- Children's Privacy -->
+                <div class="privacy-section">
+                    <h2 class="section-title">
+                        <i class="fas fa-child"></i> Children's Privacy
+                    </h2>
+                    <div class="section-content">
+                        <p>Our platform is not intended for users under the age of 18. We do not knowingly collect personal information from children. If you believe we have collected information from a child, please contact us immediately.</p>
+                    </div>
+                </div>
+
+                <!-- Changes to Policy -->
+                <div class="privacy-section">
+                    <h2 class="section-title">
+                        <i class="fas fa-sync-alt"></i> Changes to This Policy
+                    </h2>
+                    <div class="section-content">
+                        <p>We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last Updated" date.</p>
+                        <p>You are advised to review this Privacy Policy periodically for any changes.</p>
+                    </div>
+                </div>
+
+                <!-- Contact Information -->
+                <div class="privacy-section">
+                    <h2 class="section-title">
+                        <i class="fas fa-envelope"></i> Contact Us
+                    </h2>
+                    <div class="section-content">
+                        <p>If you have any questions about this Privacy Policy, please contact us:</p>
+                        <ul>
+                            <li>Email: <a href="mailto:privacy@magiceden.io" class="contact-link">privacy@magiceden.io</a></li>
+                            <li>Address: Magic Eden, NFT Marketplace, Digital Office</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <i class="fas fa-info-circle"></i>
+                    <div>
+                        <strong>Important Note:</strong> This Privacy Policy applies only to our platform. We are not responsible for the privacy practices of third-party websites or services that may be linked from our platform.
+                    </div>
+                </div>
+
+                <div class="last-updated">
+                    <p><i class="fas fa-clock"></i> This Privacy Policy was last updated on January 17, 2024</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
