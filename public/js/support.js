@@ -166,65 +166,140 @@ function closeSuccessModal() {
 
 // Load user info for ticket form
 function loadUserInfo() {
-    const user = JSON.parse(localStorage.getItem('magicEdenCurrentUser') || '{}');
-    if (user.email) {
-        const emailInput = document.getElementById('ticketEmail');
-        if (emailInput) {
-            emailInput.value = user.email;
+    try {
+        const userStr = localStorage.getItem('magicEdenCurrentUser');
+        let userEmail = '';
+        
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                userEmail = user.email || '';
+            } catch (jsonError) {
+                userEmail = userStr;
+            }
         }
+        
+        if (userEmail) {
+            const emailInput = document.getElementById('ticketEmail');
+            if (emailInput) {
+                emailInput.value = userEmail;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading user info:', error);
     }
 }
 
 // Submit support ticket
-function submitTicket(event) {
+async function submitTicket(event) {
     event.preventDefault();
     
     // Get form data
-    const subject = document.getElementById('ticketSubject').value;
-    const category = document.getElementById('ticketCategory').value;
-    const description = document.getElementById('ticketDescription').value;
-    const email = document.getElementById('ticketEmail').value;
-    const transactionHash = document.getElementById('transactionHash').value;
-    const urgent = document.getElementById('urgentCheckbox').checked;
+    const formData = {
+        subject: document.getElementById('ticketSubject').value.trim(),
+        category: document.getElementById('ticketCategory').value,
+        description: document.getElementById('ticketDescription').value.trim(),
+        email: document.getElementById('ticketEmail').value.trim(),
+        transactionHash: document.getElementById('transactionHash').value.trim(),
+        urgent: document.getElementById('urgentCheckbox').checked
+    };
     
-    // Generate ticket ID
-    const ticketId = 'ME-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+    // Validate
+    if (!formData.subject || !formData.category || !formData.description || !formData.email) {
+        showNotification('Please fill in all required fields', 'error');
+        return;
+    }
     
-    // Simulate submission (in real app, this would go to backend)
-    console.log('Submitting support ticket:', {
-        ticketId,
-        subject,
-        category,
-        description,
-        email,
-        transactionHash,
-        urgent
-    });
+    // Show loading state
+    const submitBtn = document.querySelector('#supportTicketForm button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+    submitBtn.disabled = true;
     
-    // Show success modal
-    document.getElementById('ticketId').textContent = ticketId;
-    closeTicketModal();
-    
-    setTimeout(() => {
-        document.getElementById('successModal').style.display = 'flex';
-        // Reset form
-        document.getElementById('supportTicketForm').reset();
-    }, 300);
-    
-    // Simulate sending email
-    simulateTicketConfirmation(email, ticketId);
+    try {
+        // Get auth token
+        let token = localStorage.getItem('authToken');
+        if (!token) token = localStorage.getItem('token');
+        
+        // Check user object for token
+        if (!token) {
+            const userStr = localStorage.getItem('magicEdenCurrentUser');
+            if (userStr) {
+                try {
+                    const user = JSON.parse(userStr);
+                    token = user.token;
+                } catch (e) {
+                    // Not JSON, skip
+                }
+            }
+        }
+        
+        if (!token) {
+            showNotification('Please log in to submit a ticket', 'error');
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 1500);
+            return;
+        }
+        
+        // Send to backend - try correct endpoint
+        const response = await fetch('/api/auth/support/ticket', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            // Success
+            document.getElementById('ticketId').textContent = result.ticket.ticketId;
+            closeTicketModal();
+            
+            setTimeout(() => {
+                document.getElementById('successModal').style.display = 'flex';
+                document.getElementById('supportTicketForm').reset();
+                loadUserInfo();
+            }, 300);
+            
+            showNotification('Ticket submitted successfully!', 'success');
+        } else {
+            throw new Error(result.error || result.message || 'Failed to submit ticket');
+        }
+        
+    } catch (error) {
+        console.error('Ticket submission error:', error);
+        showNotification(`Error: ${error.message}`, 'error');
+    } finally {
+        // Reset button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+}
+
+// Save ticket for offline submission
+function saveTicketForOffline(ticketData) {
+    try {
+        const offlineTickets = JSON.parse(localStorage.getItem('offlineTickets') || '[]');
+        offlineTickets.push({
+            ...ticketData,
+            id: Date.now(),
+            createdAt: new Date().toISOString(),
+            status: 'pending'
+        });
+        localStorage.setItem('offlineTickets', JSON.stringify(offlineTickets));
+    } catch (error) {
+        console.error('Error saving offline ticket:', error);
+    }
 }
 
 // Simulate ticket confirmation email
 function simulateTicketConfirmation(email, ticketId) {
     console.log('📧 Ticket confirmation sent to:', email);
     console.log('Ticket ID:', ticketId);
-    
-    // In a real app, you would:
-    // 1. Send email to user with ticket details
-    // 2. Save ticket to database
-    // 3. Notify support team
-    // 4. Update ticket status
 }
 
 // Scroll to section
@@ -233,7 +308,6 @@ function scrollToSection(sectionId) {
     if (element) {
         element.scrollIntoView({ behavior: 'smooth' });
     } else {
-        // Scroll to contact section if specific section not found
         document.querySelector('.contact-section').scrollIntoView({ behavior: 'smooth' });
     }
 }

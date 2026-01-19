@@ -589,227 +589,540 @@
             }
         }
         
-        // Load NFTs table
-        function loadNFTsTable() {
+        // ========================
+        // LOAD USERS TABLE - MISSING FUNCTION ADDED
+        // ========================
+        async function loadUsersTable() {
             try {
-                const nfts = JSON.parse(localStorage.getItem('magicEdenNFTs')) || [];
-                const tbody = document.getElementById('nftsTableBody');
+                console.log('👥 Loading users table from backend...');
                 
-                if (!tbody) return;
-                
-                tbody.innerHTML = '';
-                
-                if (nfts.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">No NFTs found</td></tr>';
+                const tbody = document.getElementById('usersTableBody');
+                if (!tbody) {
+                    console.error('❌ Users table body not found');
                     return;
                 }
                 
-                nfts.forEach(nft => {
+                // Show loading
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888; padding: 40px;"><i class="fas fa-spinner fa-spin"></i> Loading users...</td></tr>';
+                
+                // Get token
+                const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+                if (!token) {
+                    throw new Error('No authentication token found');
+                }
+                
+                // Fetch users from backend API
+                const response = await fetch('/api/auth/admin/users', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                // Check response status
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ API Error:', response.status, errorText);
+                    
+                    if (response.status === 401) {
+                        alert('Session expired. Please login again.');
+                        window.location.href = '/login';
+                        return;
+                    }
+                    
+                    throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}`);
+                }
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to load users from server');
+                }
+                
+                // Clear table
+                tbody.innerHTML = '';
+                
+                // Check if we have users
+                if (!result.users || result.users.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: #888; padding: 40px;">
+                                <i class="fas fa-users"></i><br>
+                                No users found in database
+                            </td>
+                        </tr>
+                    `;
+                    console.log('👥 No users found in database');
+                    return;
+                }
+                
+                console.log(`✅ Found ${result.users.length} users from database`);
+                
+                // Populate table with REAL data from database
+                result.users.forEach(user => {
                     const row = document.createElement('tr');
-                    row.innerHTML = '<td>' + (nft.id || 'N/A') + '</td>' +
-                        '<td>' + (nft.name || 'Unnamed') + '</td>' +
-                        '<td>' + (nft.collection || 'No collection') + '</td>' +
-                        '<td>' + (nft.price || '0') + ' WETH</td>' +
-                        '<td>' + (nft.owner || 'Unknown') + '</td>' +
-                        '<td>' +
-                        '<button class="action-btn btn-edit" onclick="editNFT(' + nft.id + ')">' +
-                        '<i class="fas fa-edit"></i> Edit</button> ' +
-                        '<button class="action-btn btn-delete" onclick="deleteNFT(' + nft.id + ')">' +
-                        '<i class="fas fa-trash"></i> Delete</button>' +
-                        '</td>';
+                    
+                    // Date formatting
+                    const joinedDate = user.createdAt 
+                        ? new Date(user.createdAt).toLocaleDateString() 
+                        : 'Unknown';
+                    
+                    row.innerHTML = `
+                        <td>
+                            <strong>${user.email || 'No email'}</strong><br>
+                            ${user.fullName ? `<small style="color: #888;">${user.fullName}</small>` : ''}
+                        </td>
+                        <td>
+                            ${user.ethBalance || 0} ETH
+                        </td>
+                        <td>
+                            ${user.wethBalance || user.balance || 0} WETH
+                        </td>
+                        <td>${joinedDate}</td>
+                        <td>
+                            ${user.isAdmin ? 
+                                '<span style="color: #10b981;"><i class="fas fa-crown"></i> Admin</span>' : 
+                                '<span style="color: #888;"><i class="fas fa-user"></i> User</span>'}
+                        </td>
+                        <td>
+                            <button class="action-btn btn-edit" 
+                                    onclick="editEthBalance('${user._id}', '${user.email || ''}', '${user.ethBalance || 0}')" 
+                                    title="Edit ETH Balance">
+                                <i class="fas fa-ethereum"></i> ETH
+                            </button>
+                            <button class="action-btn btn-edit" 
+                                    onclick="editWethBalance('${user._id}', '${user.email || ''}', '${user.wethBalance || user.balance || 0}')" 
+                                    title="Edit WETH Balance">
+                                <i class="fas fa-coins"></i> WETH
+                            </button>
+                            ${!user.isAdmin ? 
+                                `<button class="action-btn btn-delete" 
+                                        onclick="deleteUser('${user._id}')" 
+                                        title="Delete User">
+                                    <i class="fas fa-trash"></i>
+                                </button>` 
+                                : ''
+                            }
+                        </td>
+                    `;
                     tbody.appendChild(row);
                 });
+                
+                console.log('✅ Users table loaded successfully');
+                
             } catch (error) {
-                console.error('Error loading NFTs table:', error);
-                alert('Error loading NFTs data');
-            }
-        }
-        
-       // Load tickets table with REAL data from backend
-async function loadTicketsTable() {
-    try {
-        console.log('🔍 Loading tickets table from backend...');
-        
-        const tbody = document.getElementById('ticketsTableBody');
-        if (!tbody) {
-            console.error('❌ Tickets table body not found');
-            return;
-        }
-        
-        // Show loading
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888; padding: 40px;"><i class="fas fa-spinner fa-spin"></i> Loading tickets...</td></tr>';
-        
-        // Get token
-        const token = localStorage.getItem('token');
-        if (!token) {
-            throw new Error('No authentication token found');
-        }
-        
-        // Fetch tickets from backend API
-        const response = await fetch('/api/auth/admin/tickets', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        // Check response status
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ API Error:', response.status, errorText);
-            
-            if (response.status === 401) {
-                alert('Session expired. Please login again.');
-                window.location.href = '/login';
-                return;
-            }
-            
-            throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}`);
-        }
-        
-        const result = await response.json();
-        
-        if (!result.success) {
-            throw new Error(result.error || 'Failed to load tickets from server');
-        }
-        
-        // Clear table
-        tbody.innerHTML = '';
-        
-        // Check if we have tickets
-        if (!result.tickets || result.tickets.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="6" style="text-align: center; color: #888; padding: 40px;">
-                        <i class="fas fa-inbox"></i><br>
-                        No support tickets found in database
-                    </td>
-                </tr>
-            `;
-            console.log('📭 No tickets found in database');
-            return;
-        }
-        
-        console.log(`✅ Found ${result.tickets.length} tickets from database`);
-        
-        // Populate table with REAL data from database
-        result.tickets.forEach(ticket => {
-            const row = document.createElement('tr');
-            
-            // Format message (shorten if too long)
-            const shortMessage = ticket.message 
-                ? (ticket.message.length > 50 
-                    ? ticket.message.substring(0, 50) + '...' 
-                    : ticket.message)
-                : 'No message';
-            
-            // Status color
-            let statusColor = '#888';
-            let statusText = ticket.status || 'open';
-            
-            if (ticket.status === 'open') {
-                statusColor = '#ef4444'; // Red
-            } else if (ticket.status === 'resolved') {
-                statusColor = '#10b981'; // Green
-            } else if (ticket.status === 'closed') {
-                statusColor = '#6b7280'; // Gray
-            }
-            
-            // Date formatting
-            const createdDate = ticket.createdAt 
-                ? new Date(ticket.createdAt).toLocaleDateString() 
-                : 'Unknown';
-            
-            row.innerHTML = `
-                <td style="font-family: monospace; font-size: 12px;">
-                    ${ticket._id ? ticket._id.substring(0, 10) + '...' : 'N/A'}
-                </td>
-                <td>
-                    <strong>${ticket.userName || 'Unknown'}</strong><br>
-                    <small style="color: #888;">${ticket.userEmail || 'No email'}</small>
-                </td>
-                <td title="${ticket.message || ''}">
-                    ${shortMessage}
-                </td>
-                <td>
-                    <span style="color: ${statusColor}; font-weight: 600;">
-                        ${statusText.toUpperCase()}
-                    </span>
-                </td>
-                <td>${createdDate}</td>
-                <td>
-                    ${ticket.status === 'open' ? 
-                        `<button class="action-btn btn-resolve" onclick="resolveTicketReal('${ticket._id}')" title="Mark as resolved">
-                            <i class="fas fa-check"></i> Resolve
-                        </button>
-                        <button class="action-btn" style="background: #6b7280; color: white; margin-left: 5px;" 
-                                onclick="closeTicketReal('${ticket._id}')" title="Close ticket">
-                            <i class="fas fa-times"></i> Close
-                        </button>` 
-                        : 
-                        `<span style="color: #10b981; font-size: 12px;">
-                            <i class="fas fa-check-circle"></i> ${ticket.status === 'resolved' ? 'Resolved' : 'Closed'}
-                        </span>`
+                console.error('❌ Error loading users table:', error);
+                
+                // Fallback to localStorage if backend fails
+                try {
+                    console.log('⚠️ Falling back to localStorage data...');
+                    
+                    const users = JSON.parse(localStorage.getItem('magicEdenUsers')) || [];
+                    const tbody = document.getElementById('usersTableBody');
+                    
+                    if (!tbody) return;
+                    
+                    tbody.innerHTML = '';
+                    
+                    if (users.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">No users found in local storage</td></tr>';
+                        return;
                     }
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
+                    
+                    users.forEach(user => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = '<td>' + (user.email || 'No email') + '</td>' +
+                            '<td>' + (user.ethBalance || 0) + ' ETH</td>' +
+                            '<td>' + (user.wethBalance || user.balance || 0) + ' WETH</td>' +
+                            '<td>' + (user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown') + '</td>' +
+                            '<td>' + (user.isAdmin ? '<span style="color: #10b981;">Admin</span>' : '<span style="color: #888;">User</span>') + '</td>' +
+                            '<td>' +
+                            '<button class="action-btn btn-edit" onclick="editUserBalance(\'' + user.email + '\')">' +
+                            '<i class="fas fa-edit"></i> Edit Balance</button> ' +
+                            (!user.isAdmin ? '<button class="action-btn btn-delete" onclick="deleteUser(\'' + user.email + '\')">' +
+                            '<i class="fas fa-trash"></i> Delete</button>' : '') +
+                            '</td>';
+                        tbody.appendChild(row);
+                    });
+                    
+                    // Show warning
+                    const warning = document.createElement('div');
+                    warning.className = 'admin-message error';
+                    warning.style.margin = '10px 0';
+                    warning.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Using local storage data. Backend connection failed: ' + error.message;
+                    document.querySelector('#usersTab').prepend(warning);
+                    
+                } catch (localError) {
+                    console.error('❌ Local storage fallback also failed:', localError);
+                    const tbody = document.getElementById('usersTableBody');
+                    if (tbody) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #ef4444; padding: 40px;"><i class="fas fa-exclamation-circle"></i> Error loading users</td></tr>';
+                    }
+                }
+            }
+        }
         
-        console.log('✅ Tickets table loaded successfully');
+        // ========================
+        // LOAD NFTs TABLE - UPDATED
+        // ========================
+        async function loadNFTsTable() {
+            try {
+                console.log('🖼️ Loading NFTs table from backend...');
+                
+                const tbody = document.getElementById('nftsTableBody');
+                if (!tbody) {
+                    console.error('❌ NFTs table body not found');
+                    return;
+                }
+                
+                // Show loading
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888; padding: 40px;"><i class="fas fa-spinner fa-spin"></i> Loading NFTs...</td></tr>';
+                
+                // Get token
+                const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+                if (!token) {
+                    throw new Error('No authentication token found');
+                }
+                
+                // Fetch NFTs from backend API
+                const response = await fetch('/api/auth/admin/nfts', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                // Check response status
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ API Error:', response.status, errorText);
+                    
+                    if (response.status === 401) {
+                        alert('Session expired. Please login again.');
+                        window.location.href = '/login';
+                        return;
+                    }
+                    
+                    throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}`);
+                }
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to load NFTs from server');
+                }
+                
+                // Clear table
+                tbody.innerHTML = '';
+                
+                // Check if we have NFTs
+                if (!result.nfts || result.nfts.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: #888; padding: 40px;">
+                                <i class="fas fa-gem"></i><br>
+                                No NFTs found in database
+                            </td>
+                        </tr>
+                    `;
+                    console.log('🖼️ No NFTs found in database');
+                    return;
+                }
+                
+                console.log(`✅ Found ${result.nfts.length} NFTs from database`);
+                
+                // Populate table with REAL data from database
+                result.nfts.forEach(nft => {
+                    const row = document.createElement('tr');
+                    
+                    // Shorten token ID for display
+                    const shortTokenId = nft.tokenId 
+                        ? nft.tokenId.substring(0, 10) + (nft.tokenId.length > 10 ? '...' : '')
+                        : 'N/A';
+                    
+                    row.innerHTML = `
+                        <td style="font-family: monospace; font-size: 12px;" title="${nft.tokenId || ''}">
+                            ${shortTokenId}
+                        </td>
+                        <td>
+                            <strong>${nft.name || 'Unnamed NFT'}</strong><br>
+                            <small style="color: #888;">${nft.category || 'No category'}</small>
+                        </td>
+                        <td>${nft.collectionName || 'No collection'}</td>
+                        <td>
+                            <strong>${nft.price || 0} WETH</strong>
+                        </td>
+                        <td>
+                            ${nft.owner && nft.owner.email ? 
+                                `<strong>${nft.owner.email}</strong>` : 
+                                'Unknown Owner'}
+                        </td>
+                        <td>
+                            <button class="action-btn btn-edit" onclick="editNFT('${nft._id}')" title="Edit NFT">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="action-btn btn-delete" onclick="deleteNFT('${nft._id}')" title="Delete NFT">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                
+                console.log('✅ NFTs table loaded successfully');
+                
+            } catch (error) {
+                console.error('❌ Error loading NFTs table:', error);
+                
+                // Fallback to localStorage if backend fails
+                try {
+                    console.log('⚠️ Falling back to localStorage data...');
+                    
+                    const nfts = JSON.parse(localStorage.getItem('magicEdenNFTs')) || [];
+                    const tbody = document.getElementById('nftsTableBody');
+                    
+                    if (!tbody) return;
+                    
+                    tbody.innerHTML = '';
+                    
+                    if (nfts.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">No NFTs found in local storage</td></tr>';
+                        return;
+                    }
+                    
+                    nfts.forEach(nft => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = '<td>' + (nft.id || 'N/A') + '</td>' +
+                            '<td>' + (nft.name || 'Unnamed') + '</td>' +
+                            '<td>' + (nft.collection || 'No collection') + '</td>' +
+                            '<td>' + (nft.price || '0') + ' WETH</td>' +
+                            '<td>' + (nft.owner || 'Unknown') + '</td>' +
+                            '<td>' +
+                            '<button class="action-btn btn-edit" onclick="editNFT(' + nft.id + ')">' +
+                            '<i class="fas fa-edit"></i> Edit</button> ' +
+                            '<button class="action-btn btn-delete" onclick="deleteNFT(' + nft.id + ')">' +
+                            '<i class="fas fa-trash"></i> Delete</button>' +
+                            '</td>';
+                        tbody.appendChild(row);
+                    });
+                    
+                    // Show warning
+                    const warning = document.createElement('div');
+                    warning.className = 'admin-message error';
+                    warning.style.margin = '10px 0';
+                    warning.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Using local storage data. Backend connection failed: ' + error.message;
+                    document.querySelector('#nftsTab').prepend(warning);
+                    
+                } catch (localError) {
+                    console.error('❌ Local storage fallback also failed:', localError);
+                    const tbody = document.getElementById('nftsTableBody');
+                    if (tbody) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #ef4444; padding: 40px;"><i class="fas fa-exclamation-circle"></i>  Error loading NFTs</td></tr>';
+                    }
+                }
+            }
+        }
         
-    } catch (error) {
-        console.error('❌ Error loading tickets table:', error);
+        // ========================
+        // LOAD TICKETS TABLE
+        // ========================
+        async function loadTicketsTable() {
+            try {
+                console.log('🔍 Loading tickets table from backend...');
+                
+                const tbody = document.getElementById('ticketsTableBody');
+                if (!tbody) {
+                    console.error('❌ Tickets table body not found');
+                    return;
+                }
+                
+                // Show loading
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888; padding: 40px;"><i class="fas fa-spinner fa-spin"></i> Loading tickets...</td></tr>';
+                
+                // Get token
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('No authentication token found');
+                }
+                
+                // Fetch tickets from backend API
+                const response = await fetch('/api/auth/admin/tickets', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                // Check response status
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ API Error:', response.status, errorText);
+                    
+                    if (response.status === 401) {
+                        alert('Session expired. Please login again.');
+                        window.location.href = '/login';
+                        return;
+                    }
+                    
+                    throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}`);
+                }
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to load tickets from server');
+                }
+                
+                // Clear table
+                tbody.innerHTML = '';
+                
+                // Check if we have tickets
+                if (!result.tickets || result.tickets.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: #888; padding: 40px;">
+                                <i class="fas fa-inbox"></i><br>
+                                No support tickets found in database
+                            </td>
+                        </tr>
+                    `;
+                    console.log('📭 No tickets found in database');
+                    return;
+                }
+                
+                console.log(`✅ Found ${result.tickets.length} tickets from database`);
+                
+                // Populate table with REAL data from database
+                result.tickets.forEach(ticket => {
+                    const row = document.createElement('tr');
+                    
+                    // Format message (shorten if too long)
+                    const shortMessage = ticket.message 
+                        ? (ticket.message.length > 50 
+                            ? ticket.message.substring(0, 50) + '...' 
+                            : ticket.message)
+                        : 'No message';
+                    
+                    // Status color
+                    let statusColor = '#888';
+                    let statusText = ticket.status || 'open';
+                    
+                    if (ticket.status === 'open') {
+                        statusColor = '#ef4444'; // Red
+                    } else if (ticket.status === 'resolved') {
+                        statusColor = '#10b981'; // Green
+                    } else if (ticket.status === 'closed') {
+                        statusColor = '#6b7280'; // Gray
+                    }
+                    
+                    // Date formatting
+                    const createdDate = ticket.createdAt 
+                        ? new Date(ticket.createdAt).toLocaleDateString() 
+                        : 'Unknown';
+                    
+                    row.innerHTML = `
+                        <td style="font-family: monospace; font-size: 12px;">
+                            ${ticket._id ? ticket._id.substring(0, 10) + '...' : 'N/A'}
+                        </td>
+                        <td>
+                            <strong>${ticket.userName || 'Unknown'}</strong><br>
+                            <small style="color: #888;">${ticket.userEmail || 'No email'}</small>
+                        </td>
+                        <td title="${ticket.message || ''}">
+                            ${shortMessage}
+                        </td>
+                        <td>
+                            <span style="color: ${statusColor}; font-weight: 600;">
+                                ${statusText.toUpperCase()}
+                            </span>
+                        </td>
+                        <td>${createdDate}</td>
+                        <td>
+                            ${ticket.status === 'open' ? 
+                                `<button class="action-btn btn-resolve" onclick="resolveTicketReal('${ticket._id}')" title="Mark as resolved">
+                                    <i class="fas fa-check"></i> Resolve
+                                </button>
+                                <button class="action-btn" style="background: #6b7280; color: white; margin-left: 5px;" 
+                                        onclick="closeTicketReal('${ticket._id}')" title="Close ticket">
+                                    <i class="fas fa-times"></i> Close
+                                </button>` 
+                                : 
+                                `<span style="color: #10b981; font-size: 12px;">
+                                    <i class="fas fa-check-circle"></i> ${ticket.status === 'resolved' ? 'Resolved' : 'Closed'}
+                                </span>`
+                            }
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                
+                console.log('✅ Tickets table loaded successfully');
+                
+            } catch (error) {
+                console.error('❌ Error loading tickets table:', error);
+                
+                // Fallback to localStorage if backend fails
+                try {
+                    console.log('⚠️ Falling back to localStorage data...');
+                    
+                    const tickets = JSON.parse(localStorage.getItem('magicEdenSupportTickets')) || [];
+                    const tbody = document.getElementById('ticketsTableBody');
+                    
+                    if (!tbody) return;
+                    
+                    tbody.innerHTML = '';
+                    
+                    if (tickets.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">No support tickets in local storage</td></tr>';
+                        return;
+                    }
+                    
+                    tickets.forEach(ticket => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = '<td>' + (ticket.id || 'N/A') + '</td>' +
+                            '<td>' + (ticket.userEmail || 'Anonymous') + '</td>' +
+                            '<td>' + (ticket.message ? (ticket.message.substring(0, 50) + (ticket.message.length > 50 ? '...' : '')) : 'No message') + '</td>' +
+                            '<td><span style="color: ' + (ticket.status === 'open' ? '#ef4444' : '#10b981') + '">' + 
+                            (ticket.status || 'open') + '</span></td>' +
+                            '<td>' + new Date(ticket.createdAt).toLocaleDateString() + '</td>' +
+                            '<td>' + 
+                            ((ticket.status === 'open') ? 
+                                '<button class="action-btn btn-resolve" onclick="resolveTicket(\'' + ticket.id + '\')">' +
+                                '<i class="fas fa-check"></i> Resolve</button>' : 'Resolved') +
+                            '</td>';
+                        tbody.appendChild(row);
+                    });
+                    
+                    // Show warning
+                    const warning = document.createElement('div');
+                    warning.className = 'admin-message error';
+                    warning.style.margin = '10px 0';
+                    warning.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Using local storage data. Backend connection failed: ' + error.message;
+                    document.querySelector('#supportTab').prepend(warning);
+                    
+                } catch (localError) {
+                    console.error('❌ Local storage fallback also failed:', localError);
+                    const tbody = document.getElementById('ticketsTableBody');
+                    if (tbody) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #ef4444; padding: 40px;"><i class="fas fa-exclamation-circle"></i> Error loading tickets</td></tr>';
+                    }
+                }
+            }
+        }
         
-        // Fallback to localStorage if backend fails
-        try {
-            console.log('⚠️ Falling back to localStorage data...');
-            
-            const tickets = JSON.parse(localStorage.getItem('magicEdenSupportTickets')) || [];
-            const tbody = document.getElementById('ticketsTableBody');
-            
-            if (!tbody) return;
-            
-            tbody.innerHTML = '';
-            
-            if (tickets.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">No support tickets in local storage</td></tr>';
+        // ========================
+        // DELETE USER FUNCTION - MISSING FUNCTION ADDED
+        // ========================
+        function deleteUser(userId) {
+            if (!confirm('⚠️ WARNING: This will permanently delete the user and all their data!\n\nAre you sure you want to delete this user?')) {
                 return;
             }
             
-            tickets.forEach(ticket => {
-                const row = document.createElement('tr');
-                row.innerHTML = '<td>' + (ticket.id || 'N/A') + '</td>' +
-                    '<td>' + (ticket.userEmail || 'Anonymous') + '</td>' +
-                    '<td>' + (ticket.message ? (ticket.message.substring(0, 50) + (ticket.message.length > 50 ? '...' : '')) : 'No message') + '</td>' +
-                    '<td><span style="color: ' + (ticket.status === 'open' ? '#ef4444' : '#10b981') + '">' + 
-                    (ticket.status || 'open') + '</span></td>' +
-                    '<td>' + new Date(ticket.createdAt).toLocaleDateString() + '</td>' +
-                    '<td>' + 
-                    ((ticket.status === 'open') ? 
-                        '<button class="action-btn btn-resolve" onclick="resolveTicket(\'' + ticket.id + '\')">' +
-                        '<i class="fas fa-check"></i> Resolve</button>' : 'Resolved') +
-                    '</td>';
-                tbody.appendChild(row);
-            });
-            
-            // Show warning
-            const warning = document.createElement('div');
-            warning.className = 'admin-message error';
-            warning.style.margin = '10px 0';
-            warning.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Using local storage data. Backend connection failed: ' + error.message;
-            document.querySelector('#supportTab').prepend(warning);
-            
-        } catch (localError) {
-            console.error('❌ Local storage fallback also failed:', localError);
-            const tbody = document.getElementById('ticketsTableBody');
-            if (tbody) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #ef4444; padding: 40px;"><i class="fas fa-exclamation-circle"></i> Error loading tickets</td></tr>';
-            }
+            alert('❌ User deletion not implemented yet.\n\nTo delete a user, you would need to:\n1. Delete their NFTs\n2. Delete their tickets\n3. Delete user record from database\n\nThis feature will be added in a future update.');
         }
-    }
-}
         
         // Admin create NFT
         function adminCreateNFT(event) {
@@ -1084,135 +1397,137 @@ async function loadTicketsTable() {
                 alert('❌ Failed to update WETH balance: ' + error.message);
             }
         }
+        
         // Resolve ticket with REAL backend API
-async function resolveTicketReal(ticketId) {
-    try {
-        if (!confirm('Are you sure you want to mark this ticket as RESOLVED?\n\nThis will change its status to "resolved".')) {
-            return;
-        }
-        
-        console.log(`🔍 Resolving ticket: ${ticketId}`);
-        
-        // Get token
-        const token = localStorage.getItem('token');
-        if (!token) {
-            throw new Error('No authentication token found');
-        }
-        
-        // Show loading
-        const button = event?.target?.closest('button');
-        if (button) {
-            const originalHTML = button.innerHTML;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resolving...';
-            button.disabled = true;
-        }
-        
-        // Update via backend API
-        const response = await fetch(`/api/auth/admin/tickets/${ticketId}/resolve`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+        async function resolveTicketReal(ticketId) {
+            try {
+                if (!confirm('Are you sure you want to mark this ticket as RESOLVED?\n\nThis will change its status to "resolved".')) {
+                    return;
+                }
+                
+                console.log(`🔍 Resolving ticket: ${ticketId}`);
+                
+                // Get token
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('No authentication token found');
+                }
+                
+                // Show loading
+                const button = event?.target?.closest('button');
+                if (button) {
+                    const originalHTML = button.innerHTML;
+                    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resolving...';
+                    button.disabled = true;
+                }
+                
+                // Update via backend API
+                const response = await fetch(`/api/auth/admin/tickets/${ticketId}/resolve`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to resolve ticket');
+                }
+                
+                // Show success
+                alert('✅ Ticket marked as RESOLVED successfully!');
+                
+                // Refresh the tickets table
+                await loadTicketsTable();
+                
+                // Also refresh dashboard stats (to update open tickets count)
+                loadDashboard();
+                
+            } catch (error) {
+                console.error('❌ Error resolving ticket:', error);
+                alert('❌ Failed to resolve ticket: ' + error.message);
+                
+                // Re-enable button if it exists
+                const button = event?.target?.closest('button');
+                if (button) {
+                    button.innerHTML = '<i class="fas fa-check"></i> Resolve';
+                    button.disabled = false;
+                }
             }
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
-        
-        const result = await response.json();
-        
-        if (!result.success) {
-            throw new Error(result.error || 'Failed to resolve ticket');
-        }
-        
-        // Show success
-        alert('✅ Ticket marked as RESOLVED successfully!');
-        
-        // Refresh the tickets table
-        await loadTicketsTable();
-        
-        // Also refresh dashboard stats (to update open tickets count)
-        loadDashboard();
-        
-    } catch (error) {
-        console.error('❌ Error resolving ticket:', error);
-        alert('❌ Failed to resolve ticket: ' + error.message);
-        
-        // Re-enable button if it exists
-        const button = event?.target?.closest('button');
-        if (button) {
-            button.innerHTML = '<i class="fas fa-check"></i> Resolve';
-            button.disabled = false;
-        }
-    }
-}
 
-// Close ticket with REAL backend API
-async function closeTicketReal(ticketId) {
-    try {
-        if (!confirm('Are you sure you want to CLOSE this ticket?\n\nThis will change its status to "closed".')) {
-            return;
-        }
-        
-        console.log(`🔍 Closing ticket: ${ticketId}`);
-        
-        // Get token
-        const token = localStorage.getItem('token');
-        if (!token) {
-            throw new Error('No authentication token found');
-        }
-        
-        // Show loading
-        const button = event?.target?.closest('button');
-        if (button) {
-            const originalHTML = button.innerHTML;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Closing...';
-            button.disabled = true;
-        }
-        
-        // Update via backend API
-        const response = await fetch(`/api/auth/admin/tickets/${ticketId}/close`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+        // Close ticket with REAL backend API
+        async function closeTicketReal(ticketId) {
+            try {
+                if (!confirm('Are you sure you want to CLOSE this ticket?\n\nThis will change its status to "closed".')) {
+                    return;
+                }
+                
+                console.log(`🔍 Closing ticket: ${ticketId}`);
+                
+                // Get token
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('No authentication token found');
+                }
+                
+                // Show loading
+                const button = event?.target?.closest('button');
+                if (button) {
+                    const originalHTML = button.innerHTML;
+                    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Closing...';
+                    button.disabled = true;
+                }
+                
+                // Update via backend API
+                const response = await fetch(`/api/auth/admin/tickets/${ticketId}/close`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to close ticket');
+                }
+                
+                // Show success
+                alert('✅ Ticket CLOSED successfully!');
+                
+                // Refresh the tickets table
+                await loadTicketsTable();
+                
+                // Also refresh dashboard stats
+                loadDashboard();
+                
+            } catch (error) {
+                console.error('❌ Error closing ticket:', error);
+                alert('❌ Failed to close ticket: ' + error.message);
+                
+                // Re-enable button if it exists
+                const button = event?.target?.closest('button');
+                if (button) {
+                    button.innerHTML = '<i class="fas fa-times"></i> Close';
+                    button.disabled = false;
+                }
             }
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
         
-        const result = await response.json();
-        
-        if (!result.success) {
-            throw new Error(result.error || 'Failed to close ticket');
-        }
-        
-        // Show success
-        alert('✅ Ticket CLOSED successfully!');
-        
-        // Refresh the tickets table
-        await loadTicketsTable();
-        
-        // Also refresh dashboard stats
-        loadDashboard();
-        
-    } catch (error) {
-        console.error('❌ Error closing ticket:', error);
-        alert('❌ Failed to close ticket: ' + error.message);
-        
-        // Re-enable button if it exists
-        const button = event?.target?.closest('button');
-        if (button) {
-            button.innerHTML = '<i class="fas fa-times"></i> Close';
-            button.disabled = false;
-        }
-    }
-}
         function resolveTicket(id) {
             try {
                 let tickets = JSON.parse(localStorage.getItem('magicEdenSupportTickets')) || [];
@@ -1241,6 +1556,47 @@ async function closeTicketReal(ticketId) {
             }
         }
         
+        // Function to refresh token if expired
+        async function refreshTokenIfNeeded() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    console.log('No token found, redirecting to login');
+                    window.location.href = '/login';
+                    return null;
+                }
+                
+                // Try to refresh token
+                const response = await fetch('/api/auth/refresh', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        console.log('✅ Token refreshed successfully');
+                        localStorage.setItem('token', result.token);
+                        localStorage.setItem('user', JSON.stringify(result.user));
+                        return result.token;
+                    }
+                }
+                
+                // If refresh failed, token is invalid
+                console.log('Token refresh failed, clearing storage');
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                localStorage.removeItem('magicEdenCurrentUser');
+                window.location.href = '/login';
+                return null;
+                
+            } catch (error) {
+                console.error('Token refresh error:', error);
+                return null;
+            }
+        }
+        
         // Initialize admin panel
         document.addEventListener('DOMContentLoaded', function() {
             if (checkAdminAccess()) {
@@ -1249,48 +1605,13 @@ async function closeTicketReal(ticketId) {
             }
         });
         
-         // Function to refresh token if expired
-async function refreshTokenIfNeeded() {
-    try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            console.log('No token found, redirecting to login');
-            window.location.href = '/login';
-            return null;
-        }
-        
-        // Try to refresh token
-        const response = await fetch('/api/auth/refresh', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token })
-        });
-        
-        if (response.ok) {
-            const result = await response.json();
-            if (result.success) {
-                console.log('✅ Token refreshed successfully');
-                localStorage.setItem('token', result.token);
-                localStorage.setItem('user', JSON.stringify(result.user));
-                return result.token;
-            }
-        }
-        
-        // If refresh failed, token is invalid
-        console.log('Token refresh failed, clearing storage');
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('magicEdenCurrentUser');
-        window.location.href = '/login';
-        return null;
-        
-    } catch (error) {
-        console.error('Token refresh error:', error);
-        return null;
-    }
-}
-
-        // Make functions globally available
+        // ========================
+        // MAKE ALL FUNCTIONS AVAILABLE GLOBALLY
+        // ========================
+        window.loadUsersTable = loadUsersTable;
+        window.loadNFTsTable = loadNFTsTable;
+        window.loadTicketsTable = loadTicketsTable;
+        window.deleteUser = deleteUser;
         window.showAdminTab = showAdminTab;
         window.adminCreateNFT = adminCreateNFT;
         window.deleteNFT = deleteNFT;

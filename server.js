@@ -7,6 +7,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
 const axios = require('axios');
+const ticketRoutes = require('./routes/ticketRoutes');
 const Redis = require('redis');
 const { auth } = require('./middleware/auth');
 const userRoutes = require('./routes/user');
@@ -246,6 +247,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/nft', nftRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/collection', collectionRoutes);
+app.use('/api/support/tickets', ticketRoutes);
 
 // ========================
 // API TEST ROUTES
@@ -1012,6 +1014,40 @@ mongoose.connect(MONGODB_URI)
         console.log('⚠️ MongoDB Connection Note:', err.message);
         console.log('⚠️ App will continue without database');
     });
+
+    // ========================
+// TEST TICKET ENDPOINT
+// ========================
+app.get('/api/test-ticket', async (req, res) => {
+    try {
+        const Ticket = require('./models/Ticket');
+        
+        // Count total tickets
+        const totalTickets = await Ticket.countDocuments();
+        
+        // Get sample tickets
+        const sampleTickets = await Ticket.find({})
+            .limit(5)
+            .sort({ createdAt: -1 });
+        
+        res.json({
+            success: true,
+            message: 'Ticket system test',
+            totalTickets,
+            sampleTickets: sampleTickets.map(t => ({
+                ticketId: t.ticketId,
+                subject: t.subject,
+                status: t.status,
+                createdAt: t.createdAt
+            }))
+        });
+    } catch (error) {
+        res.json({
+            success: false,
+            error: error.message
+        });
+    }
+});
 
 // ========================
 // ERROR HANDLING
