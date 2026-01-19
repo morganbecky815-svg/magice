@@ -180,4 +180,37 @@ router.put('/tickets/:id/resolve', adminAuth, async (req, res) => {
     }
 });
 
+// Admin Dashboard Stats
+router.get('/admin/stats', adminAuth, async (req, res) => {
+    try {
+      console.log('🔍 Admin stats requested by:', req.user.email);
+      
+      // Get counts from database
+      const totalUsers = await User.countDocuments();
+      const totalNFTs = await NFT.countDocuments(); // You'll need an NFT model
+      const totalTickets = await SupportTicket.countDocuments({ status: 'open' });
+      
+      // Calculate total volume (sum of all NFT prices)
+      const nfts = await NFT.find({}, 'price');
+      let totalVolume = 0;
+      nfts.forEach(nft => {
+        totalVolume += parseFloat(nft.price) || 0;
+      });
+      
+      res.json({
+        success: true,
+        stats: {
+          totalUsers,
+          totalNFTs,
+          totalVolume: totalVolume.toFixed(2),
+          openTickets: totalTickets
+        },
+        recentActivity: [] // We'll add this later
+      });
+      
+    } catch (error) {
+      console.error('Admin stats error:', error);
+      res.status(500).json({ error: 'Failed to get admin stats' });
+    }
+  });
 module.exports = router;

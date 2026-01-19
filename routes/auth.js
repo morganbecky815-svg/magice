@@ -3,6 +3,55 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
+const Ticket = require('../models/Ticket');
+const NFT = require('../models/NFT');
+
+// ========================
+// ADMIN AUTH MIDDLEWARE
+// ========================
+const adminAuth = async (req, res, next) => {
+  try {
+    // Get token from header
+    const authHeader = req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Find user
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+    
+    // Check if admin
+    if (!user.isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    // Attach user to request
+    req.user = user;
+    next();
+    
+  } catch (error) {
+    console.error('Admin auth error:', error.message);
+    
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expired' });
+    }
+    
+    res.status(500).json({ error: 'Authentication failed' });
+  }
+};
+// ========================
 
 // Authentication middleware
 const authMiddleware = (req, res, next) => {
@@ -140,6 +189,56 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Refresh token
+router.post('/auth/refresh', async (req, res) => {
+  try {
+    const { token } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({ error: 'Token required' });
+    }
+    
+    // Verify old token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Find user
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+    
+    // Create new token
+    const newToken = jwt.sign(
+      { userId: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    res.json({
+      success: true,
+      token: newToken,
+      user: {
+        _id: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        isAdmin: user.isAdmin
+      }
+    });
+    
+  } catch (error) {
+    console.error('Token refresh error:', error.message);
+    
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expired. Please login again.' });
+    }
+    
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    res.status(500).json({ error: 'Token refresh failed' });
+  }
+});
 
 
 // Get Current User
@@ -212,4 +311,286 @@ router.post('/login-test', (req, res) => {
     token: 'fake-jwt-token-for-testing'
   });
 });
+// ========================
+// ADMIN ROUTES
+// ========================
+
+// Admin Dashboard Stats
+router.get('/admin/stats', adminAuth, async (req, res) => {
+  try {
+    console.log('🔍 Admin stats requested by:', req.user.email);
+    
+    // Get counts from database
+    const totalUsers = await User.countDocuments();
+    const totalNFTs = await NFT.countDocuments();
+    
+    // Count open tickets
+    const openTickets = await Ticket.countDocuments({ status: 'open' });
+    
+    // Calculate total volume
+    const volumeResult = await NFT.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalVolume: { $sum: "$price" }
+        }
+      }
+    ]);
+    
+    const totalVolume = volumeResult.length > 0 ? volumeResult[0].totalVolume : 0;
+    
+    res.json({
+      success: true,
+      stats: {
+        totalUsers,
+        totalNFTs,
+        totalVolume: totalVolume.toFixed(2),
+        openTickets
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Admin stats error:', error);
+    res.status(500).json({ 
+      error: 'Failed to get admin stats',
+      details: error.message
+    });
+  }
+});
+
+// ========================
+// ADMIN USER MANAGEMENT
+// ========================
+
+// Get all users (admin only)
+router.get('/admin/users', adminAuth, async (req, res) => {
+  try {
+    console.log('🔍 Admin fetching all users');
+    
+    const users = await User.find({})
+      .select('-password') // Exclude passwords
+      .sort({ createdAt: -1 });
+    
+    res.json({
+      success: true,
+      users: users.map(user => ({
+        _id: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        balance: user.balance,
+        ethBalance: user.ethBalance,
+        wethBalance: user.wethBalance,
+        isAdmin: user.isAdmin,
+        createdAt: user.createdAt,
+        lastLogin: user.lastLogin
+      }))
+    });
+    
+  } catch (error) {
+    console.error('❌ Admin users error:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch users',
+      details: error.message 
+    });
+  }
+});
+
+// Update user WETH balance (admin only)
+router.put('/admin/users/:userId/balance', adminAuth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { balance, wethBalance } = req.body;
+    
+    // Support both 'balance' and 'wethBalance' parameters
+    const newWethBalance = wethBalance !== undefined ? wethBalance : balance;
+    
+    console.log(`🔍 Admin updating user ${userId} WETH balance to ${newWethBalance}`);
+    
+    if (newWethBalance === undefined || newWethBalance < 0) {
+      return res.status(400).json({ error: 'Valid WETH balance required' });
+    }
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Update WETH balance
+    user.wethBalance = parseFloat(newWethBalance);
+    await user.save();
+    
+    res.json({
+      success: true,
+      message: 'WETH balance updated successfully',
+      user: {
+        _id: user._id,
+        email: user.email,
+        wethBalance: user.wethBalance
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Update WETH balance error:', error);
+    res.status(500).json({ 
+      error: 'Failed to update WETH balance',
+      details: error.message 
+    });
+  }
+});
+
+// Update user ETH balance (admin only)
+router.put('/admin/users/:userId/eth-balance', adminAuth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { ethBalance } = req.body;
+    
+    console.log(`🔍 Admin updating user ${userId} ETH balance to ${ethBalance}`);
+    
+    if (ethBalance === undefined || ethBalance < 0) {
+      return res.status(400).json({ error: 'Valid ETH balance required' });
+    }
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Update ETH balance
+    user.ethBalance = parseFloat(ethBalance);
+    await user.save();
+    
+    res.json({
+      success: true,
+      message: 'ETH balance updated successfully',
+      user: {
+        _id: user._id,
+        email: user.email,
+        ethBalance: user.ethBalance
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Update ETH balance error:', error);
+    res.status(500).json({ 
+      error: 'Failed to update ETH balance',
+      details: error.message 
+    });
+  }
+});
+
+// ========================
+// ADMIN TICKET MANAGEMENT
+// ========================
+
+// Get all support tickets (admin only)
+router.get('/admin/tickets', adminAuth, async (req, res) => {
+  try {
+    console.log('🔍 Admin fetching all tickets');
+    
+    const tickets = await Ticket.find({})
+      .populate('user', 'email fullName') // Get user email and name
+      .sort({ createdAt: -1 }); // Newest first
+    
+    res.json({
+      success: true,
+      tickets: tickets.map(ticket => ({
+        _id: ticket._id,
+        userId: ticket.user?._id,
+        userEmail: ticket.user?.email || 'Unknown',
+        userName: ticket.user?.fullName || 'Unknown',
+        message: ticket.message,
+        status: ticket.status,
+        createdAt: ticket.createdAt,
+        resolvedAt: ticket.resolvedAt
+      }))
+    });
+    
+  } catch (error) {
+    console.error('❌ Admin tickets error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch tickets',
+      details: error.message 
+    });
+  }
+});
+
+// Resolve a ticket (admin only)
+router.put('/admin/tickets/:ticketId/resolve', adminAuth, async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    
+    console.log(`🔍 Admin resolving ticket ${ticketId}`);
+    
+    const ticket = await Ticket.findById(ticketId);
+    if (!ticket) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Ticket not found' 
+      });
+    }
+    
+    // Update ticket status
+    ticket.status = 'resolved';
+    ticket.resolvedAt = new Date();
+    await ticket.save();
+    
+    res.json({
+      success: true,
+      message: 'Ticket resolved successfully',
+      ticket: {
+        _id: ticket._id,
+        status: ticket.status,
+        resolvedAt: ticket.resolvedAt
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Resolve ticket error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to resolve ticket',
+      details: error.message 
+    });
+  }
+});
+
+// Close a ticket (admin only)
+router.put('/admin/tickets/:ticketId/close', adminAuth, async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    
+    console.log(`🔍 Admin closing ticket ${ticketId}`);
+    
+    const ticket = await Ticket.findById(ticketId);
+    if (!ticket) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Ticket not found' 
+      });
+    }
+    
+    // Update ticket status
+    ticket.status = 'closed';
+    await ticket.save();
+    
+    res.json({
+      success: true,
+      message: 'Ticket closed successfully',
+      ticket: {
+        _id: ticket._id,
+        status: ticket.status
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Close ticket error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to close ticket',
+      details: error.message 
+    });
+  }
+});
+
 module.exports = router;
