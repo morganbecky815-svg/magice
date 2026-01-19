@@ -1,4 +1,3 @@
-const { ref } = require('joi');
 const mongoose = require('mongoose');
 
 const nftSchema = new mongoose.Schema({
@@ -68,6 +67,40 @@ const nftSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    
+    // ========================
+    // BOOST & PROMOTION FIELDS
+    // ========================
+    views: {
+        type: Number,
+        default: 0
+    },
+    boostedViews: {
+        type: Number,
+        default: 0
+    },
+    likes: {
+        type: Number,
+        default: 0
+    },
+    boostedLikes: {
+        type: Number,
+        default: 0
+    },
+    isFeatured: {
+        type: Boolean,
+        default: false
+    },
+    isPromoted: {
+        type: Boolean,
+        default: false
+    },
+    promotedUntil: {
+        type: Date,
+        default: null
+    },
+    // ========================
+    
     createdAt: {
         type: Date,
         default: Date.now
@@ -78,8 +111,26 @@ const nftSchema = new mongoose.Schema({
     }
 });
 
-// ⚠️ TEMPORARY: REMOVE THE MIDDLEWARE COMPLETELY for testing
-// Delete or comment out the pre-save middleware
+// CORRECTED middleware - remove or fix the syntax
+// Option 1: Remove middleware completely (simplest fix)
+// Option 2: Fix the middleware syntax
+
+// OPTION 1: COMMENT OUT OR REMOVE THE MIDDLEWARE (Recommended for now)
+/*
+nftSchema.pre('save', function(next) {
+    this.updatedAt = Date.now();
+    next();
+});
+*/
+
+// OPTION 2: Use async middleware (if you need it)
+/*
+nftSchema.pre('save', async function() {
+    this.updatedAt = Date.now();
+});
+*/
+
+// OPTION 3: Use callback correctly
 /*
 nftSchema.pre('save', function(next) {
     this.updatedAt = Date.now();

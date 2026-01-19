@@ -272,6 +272,65 @@ function resolveTicket(id) {
     }
 }
 
+// Boost NFT views/likes
+router.post('/nfts/:id/boost', adminAuth, async (req, res) => {
+    try {
+        const { type, amount } = req.body;
+        const nft = await NFT.findById(req.params.id);
+        
+        if (!nft) {
+            return res.status(404).json({ error: 'NFT not found' });
+        }
+        
+        if (type === 'views') {
+            nft.boostedViews = (nft.boostedViews || 0) + parseInt(amount);
+            nft.isPromoted = true;
+        } else if (type === 'likes') {
+            nft.boostedLikes = (nft.boostedLikes || 0) + parseInt(amount);
+            nft.isPromoted = true;
+        } else {
+            return res.status(400).json({ error: 'Invalid boost type' });
+        }
+        
+        await nft.save();
+        
+        res.json({
+            success: true,
+            message: `Boosted ${type} by ${amount}`,
+            nft
+        });
+        
+    } catch (error) {
+        console.error('Boost NFT error:', error);
+        res.status(500).json({ error: 'Failed to boost NFT' });
+    }
+});
+
+// Feature/unfeature NFT
+router.post('/nfts/:id/feature', adminAuth, async (req, res) => {
+    try {
+        const { featured } = req.body;
+        const nft = await NFT.findById(req.params.id);
+        
+        if (!nft) {
+            return res.status(404).json({ error: 'NFT not found' });
+        }
+        
+        nft.isFeatured = featured;
+        await nft.save();
+        
+        res.json({
+            success: true,
+            message: `NFT ${featured ? 'featured' : 'unfeatured'} successfully`,
+            nft
+        });
+        
+    } catch (error) {
+        console.error('Feature NFT error:', error);
+        res.status(500).json({ error: 'Failed to feature NFT' });
+    }
+});
+
 // Logout function
 function adminLogout() {
     localStorage.removeItem('magicEdenCurrentUser');
@@ -287,6 +346,8 @@ document.addEventListener('DOMContentLoaded', function() {
         loadTicketsTable();
     }
 });
+
+
 
 // Make functions globally available
 window.showAdminTab = showAdminTab;

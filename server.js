@@ -241,12 +241,14 @@ app.get('/nft/:nftId', (req, res) => {
 // ========================
 const authRoutes = require('./routes/auth');
 const nftRoutes = require('./routes/nft');
+const adminRoutes = require('./routes/admin');
 
 // Register API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/nft', nftRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/collection', collectionRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/support/tickets', ticketRoutes);
 
 // ========================
@@ -1081,10 +1083,13 @@ app.use('*', (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`✅ NEW DASHBOARD ENDPOINTS:`);
-    console.log(`   • GET  /api/user/me/dashboard - Get complete dashboard data`);
-    console.log(`   • GET  /api/nft/latest - Get latest NFTs for recommendations`);
-    console.log(`   • GET  /api/user/:userId/nfts - Get user's NFTs with isListed field`);
+    console.log(`✅ API Endpoints:`);
+    console.log(`   • GET  /api/test - Test API`);
+    console.log(`   • GET  /api/admin/* - Admin routes`);
+    console.log(`   • GET  /api/user/me/dashboard - Dashboard data`);
+    console.log(`   • GET  /api/nft/latest - Latest NFTs`);
+    console.log(`   • POST /api/nft/create - Create NFT`);
     console.log(`🔗 Dashboard: http://localhost:${PORT}/dashboard`);
+    console.log(`🔗 Admin Panel: http://localhost:${PORT}/admin.html`);
     console.log(`🔗 Activity Page: http://localhost:${PORT}/activity`);
 });
