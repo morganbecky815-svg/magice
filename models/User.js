@@ -74,7 +74,6 @@ const userSchema = new mongoose.Schema(
       type: Date
     },
 
-    // Social links (optional)
     twitter: {
       type: String,
       trim: true,
@@ -87,14 +86,12 @@ const userSchema = new mongoose.Schema(
       default: ""
     },
 
-    // Wallet address (for crypto)
     walletAddress: {
       type: String,
       trim: true,
       default: ""
     },
 
-    // Activity stats
     totalTrades: {
       type: Number,
       default: 0
@@ -106,31 +103,22 @@ const userSchema = new mongoose.Schema(
     }
   },
   {
-    timestamps: true // This automatically adds createdAt and updatedAt
+    timestamps: true
   }
 );
 
-// ========== VIRTUAL FIELDS ==========
-// Get registration date (from createdAt)
-userSchema.virtual('joinDate').get(function() {
-  return this.createdAt;
-});
-
-// Get formatted display name
-userSchema.virtual('displayName').get(function() {
-  return this.fullName || this.email.split('@')[0];
-});
-
 // ========== PASSWORD HASHING ==========
-userSchema.pre("save", async function() {
+// CORRECT: Password hashing middleware
+userSchema.pre("save", async function(next) {
   // Only hash the password if it has been modified (or is new)
-  if (!this.isModified("password")) return;
+  if (!this.isModified("password")) return next();
   
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
+    next();
   } catch (error) {
-    throw new Error("Error hashing password");
+    next(error);
   }
 });
 
@@ -144,7 +132,6 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
 };
 
 // ========== TO JSON TRANSFORM ==========
-// Remove password when converting to JSON
 userSchema.set("toJSON", {
   transform: function(doc, ret) {
     delete ret.password;

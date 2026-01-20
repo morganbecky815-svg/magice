@@ -231,6 +231,117 @@ const NFTsPerPage = 12; // NFTs to load per page
 let isLoading = false; // Loading state
 
 // ============================================
+// NFT CARD FUNCTION - NO "CAN AFFORD" DISPLAY
+// ============================================
+
+// FIXED: Create enhanced NFT card - NO CAN AFFORD DISPLAY
+function createEnhancedNFTCard(nft) {
+    const price = nft.price || 0;
+    const ethPrice = window.ETH_PRICE || 2500;
+    const priceUSD = (price * ethPrice).toFixed(2);
+    const likes = nft.likes || 0;
+    const views = nft.views || 0;
+    const createdAt = nft.createdAt || nft.created_at || new Date().toISOString();
+    const timeAgo = getTimeAgo(createdAt);
+    
+    // Get user data safely
+    let user = {};
+    let userStr = '';
+    try {
+        userStr = localStorage.getItem('user');
+        user = userStr ? JSON.parse(userStr) : {};
+    } catch (error) {
+        console.log('Error parsing user data:', error);
+        user = {};
+    }
+    
+    // Check conditions safely
+    const isOwner = user._id && nft.owner && nft.owner._id && (nft.owner._id.toString() === user._id.toString());
+    const canAfford = user.wethBalance >= price;
+    
+    // Determine button text
+    let buttonText = 'Buy Now';
+    let buttonDisabled = false;
+    
+    if (!user._id) {
+        buttonText = 'Login to Buy';
+        buttonDisabled = true;
+    } else if (isOwner) {
+        buttonText = 'Your NFT';
+        buttonDisabled = true;
+    } else if (!canAfford) {
+        buttonText = 'Need WETH';
+        buttonDisabled = true;
+    }
+    
+    return `
+        <div class="nft-card enhanced-card ${currentView === 'list' ? 'list-view' : ''}" 
+             onclick="viewNFTDetails('${nft._id}')">
+            <div class="nft-image-container">
+                <img src="${nft.image || 'https://via.placeholder.com/300x200'}" 
+                     alt="${nft.name}" 
+                     class="nft-image"
+                     loading="lazy">
+                ${nft.isFeatured ? '<span class="featured-badge">Featured</span>' : ''}
+                <button class="like-btn" onclick="event.stopPropagation(); likeNFT('${nft._id}')">
+                    <i class="far fa-heart"></i>
+                </button>
+            </div>
+            
+            <div class="nft-info">
+                <div class="nft-header">
+                    <h3 class="nft-name">${nft.name || 'Unnamed NFT'}</h3>
+                    <span class="nft-category">${nft.category || 'Art'}</span>
+                </div>
+                
+                <p class="nft-description">${(nft.description || '').substring(0, 100)}${nft.description && nft.description.length > 100 ? '...' : ''}</p>
+                
+                <div class="nft-collection">
+                    <div class="collection-info">
+                        <div class="collection-avatar">
+                            ${(nft.collectionName || 'C').charAt(0)}
+                        </div>
+                        <span class="collection-name">${nft.collectionName || 'Collection'}</span>
+                    </div>
+                </div>
+                
+                <div class="nft-stats">
+                    <div class="stat">
+                        <i class="fas fa-heart"></i>
+                        <span>${likes}</span>
+                    </div>
+                    <div class="stat">
+                        <i class="fas fa-eye"></i>
+                        <span>${views}</span>
+                    </div>
+                    <div class="stat">
+                        <i class="fas fa-clock"></i>
+                        <span>${timeAgo}</span>
+                    </div>
+                </div>
+                
+                <div class="nft-price-section">
+                    <div class="price-info">
+                        <div class="price-eth">${price} WETH</div>
+                        <div class="price-usd">$${priceUSD}</div>
+                    </div>
+                    <button class="buy-btn" 
+                            onclick="event.stopPropagation(); buyNFT('${nft._id}')" 
+                            ${buttonDisabled ? 'disabled' : ''}>
+                        ${buttonText}
+                    </button>
+                </div>
+                
+                <div class="nft-owner">
+                    <span>Owned by:</span>
+                    <span class="owner-name">${nft.owner?.fullName || nft.owner?.email || 'Unknown'}</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ============================================
 // ENHANCED NFT LOADING (extends loadNFTs from app.js)
 // ============================================
 
@@ -323,6 +434,7 @@ async function updateMarketplaceStats(nfts) {
         console.error('❌ Error loading marketplace stats:', error);
     }
 }
+
 // ============================================
 // FILTER & SORT FUNCTIONS
 // ============================================
@@ -480,82 +592,6 @@ function displayNFTs(nfts) {
     nftGrid.innerHTML = nfts.map(nft => createEnhancedNFTCard(nft)).join('');
 }
 
-// Create enhanced NFT card
-function createEnhancedNFTCard(nft) {
-    const price = nft.price || 0;
-    const ethPrice = window.ETH_PRICE || 2500;
-    const priceUSD = (price * ethPrice).toFixed(2);
-    const likes = nft.likes || 0;
-    const views = nft.views || 0;
-    const createdAt = nft.createdAt || nft.created_at || new Date().toISOString();
-    const timeAgo = getTimeAgo(createdAt);
-    
-    return `
-        <div class="nft-card enhanced-card ${currentView === 'list' ? 'list-view' : ''}" 
-             onclick="viewNFTDetails('${nft._id}')">
-            <div class="nft-image-container">
-                <img src="${nft.image || 'https://via.placeholder.com/300x200'}" 
-                     alt="${nft.name}" 
-                     class="nft-image"
-                     loading="lazy">
-                ${nft.isFeatured ? '<span class="featured-badge">Featured</span>' : ''}
-                <button class="like-btn" onclick="event.stopPropagation(); likeNFT('${nft._id}')">
-                    <i class="far fa-heart"></i>
-                </button>
-            </div>
-            
-            <div class="nft-info">
-                <div class="nft-header">
-                    <h3 class="nft-name">${nft.name || 'Unnamed NFT'}</h3>
-                    <span class="nft-category">${nft.category || 'Art'}</span>
-                </div>
-                
-                <p class="nft-description">${(nft.description || '').substring(0, 100)}${nft.description && nft.description.length > 100 ? '...' : ''}</p>
-                
-                <div class="nft-collection">
-                    <div class="collection-info">
-                        <div class="collection-avatar">
-                            ${(nft.collectionName || 'C').charAt(0)}
-                        </div>
-                        <span class="collection-name">${nft.collectionName || 'Collection'}</span>
-                    </div>
-                </div>
-                
-                <div class="nft-stats">
-                    <div class="stat">
-                        <i class="fas fa-heart"></i>
-                        <span>${likes}</span>
-                    </div>
-                    <div class="stat">
-                        <i class="fas fa-eye"></i>
-                        <span>${views}</span>
-                    </div>
-                    <div class="stat">
-                        <i class="fas fa-clock"></i>
-                        <span>${timeAgo}</span>
-                    </div>
-                </div>
-                
-                <div class="nft-price-section">
-                    <div class="price-info">
-                        <div class="price-eth">${price} WETH</div>
-                        <div class="price-usd">$${priceUSD}</div>
-                    </div>
-                    <button class="buy-btn" onclick="event.stopPropagation(); buyNFT('${nft._id}')" 
-                            ${!currentUser ? 'disabled' : ''}>
-                        ${currentUser ? 'Buy Now' : 'Login to Buy'}
-                    </button>
-                </div>
-                
-                <div class="nft-owner">
-                    <span>Owned by:</span>
-                    <span class="owner-name">${nft.owner?.fullName || nft.owner?.email || 'Unknown'}</span>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
 // Display featured NFTs
 function displayFeaturedNFTs(nfts) {
     const featuredGrid = document.getElementById('featuredGrid');
@@ -649,9 +685,6 @@ function displayCollections(nfts) {
         .sort((a, b) => b.count - a.count)
         .slice(0, 4);
     
-    // Collections count is now handled by updateMarketplaceStats()
-    // Don't update totalCollections here anymore
-    
     collectionsGrid.innerHTML = collections.map(collection => `
         <div class="collection-card">
             <div class="collection-image">
@@ -738,7 +771,8 @@ function viewNFTDetails(nftId) {
 
 // Like NFT
 async function likeNFT(nftId) {
-    if (!currentUser) {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (!user._id) {
         showNotification('Please login to like NFTs', 'error');
         return;
     }
@@ -962,7 +996,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Make functions available globally
+// ============================================
+// EXPORT FUNCTIONS TO GLOBAL SCOPE
+// ============================================
+
 window.filterNFTs = filterNFTs;
 window.sortNFTs = sortNFTs;
 window.changeView = changeView;
@@ -977,9 +1014,7 @@ window.viewNFTDetails = viewNFTDetails;
 window.likeNFT = likeNFT;
 window.viewCollection = viewCollection;
 
-// ============================================
-// EXPORT WETH FUNCTIONS
-// ============================================
+// WETH balance functions
 window.loadExploreWethBalance = loadExploreWethBalance;
 window.updateExploreWethDisplay = updateExploreWethDisplay;
 window.hideExploreWethBalance = hideExploreWethBalance;

@@ -4,7 +4,9 @@ const { auth } = require('../middleware/auth');
 const NFT = require('../models/NFT');
 const User = require('../models/User');
 
-// Get all NFTs
+// ========================
+// GET ALL NFTs
+// ========================
 router.get('/', async (req, res) => {
     try {
         const nfts = await NFT.find()
@@ -18,7 +20,9 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Get NFT by ID
+// ========================
+// GET NFT BY ID
+// ========================
 router.get('/:id', async (req, res) => {
     try {
         const nft = await NFT.findById(req.params.id)
@@ -35,7 +39,9 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// Create NFT (Authenticated)
+// ========================
+// CREATE NFT (ORIGINAL - NO ETH DEDUCTION)
+// ========================
 router.post('/', auth, async (req, res) => {
     try {
         const { name, collectionName, price, category, image } = req.body;
@@ -70,65 +76,202 @@ router.post('/', auth, async (req, res) => {
     }
 });
 
-// Purchase NFT
-router.post('/:id/purchase', auth, async (req, res) => {
+// ========================
+// MINT NFT (WITH ETH DEDUCTION)
+// ========================
+router.post('/mint', auth, async (req, res) => {
     try {
-        const nft = await NFT.findById(req.params.id);
+        const { name, collectionName, price, category, image } = req.body;
+        const mintingFee = 0.01; // 0.01 ETH minting fee
         
-        if (!nft) {
-            return res.status(404).json({ error: 'NFT not found' });
-        }
+        console.log('🎨 Minting NFT:', name);
         
-        // Check if user already owns the NFT
-        if (nft.owner.toString() === req.user._id.toString()) {
-            return res.status(400).json({ error: 'You already own this NFT' });
-        }
-        
-        // Check buyer's balance
-        if (req.user.balance < nft.price) {
+        // 1. Check creator's ETH balance
+        if (req.user.ethBalance < mintingFee) {
             return res.status(400).json({ 
-                error: `Insufficient balance. You have ${req.user.balance} WETH, need ${nft.price} WETH` 
+                success: false,
+                error: 'Insufficient ETH for minting fee',
+                currentETH: req.user.ethBalance,
+                required: mintingFee
             });
         }
         
-        // Find seller
-        const seller = await User.findById(nft.owner);
-        if (!seller) {
-            return res.status(404).json({ error: 'Seller not found' });
-        }
+        // 2. Deduct minting fee - FIXED: Use findByIdAndUpdate instead of .save()
+        const newEthBalance = req.user.ethBalance - mintingFee;
+        await User.findByIdAndUpdate(req.user._id, {
+            ethBalance: newEthBalance
+        });
         
-        // Transfer funds
-        req.user.balance -= nft.price;
-        seller.balance += nft.price;
+        // 3. Generate unique token ID
+        const tokenId = 'ME' + Date.now().toString(36).toUpperCase();
         
-        // Transfer ownership
-        nft.owner = req.user._id;
+        // 4. Create NFT
+        const nft = new NFT({
+            name,
+            collectionName: collectionName || 'Unnamed Collection',
+            price: parseFloat(price) || 0.01,
+            category: category || 'art',
+            image,
+            owner: req.user._id,
+            tokenId,
+            isListed: true
+        });
         
-        // Save all changes
-        await Promise.all([
-            req.user.save(),
-            seller.save(),
-            nft.save()
-        ]);
+        await nft.save();
         
-        // Get updated NFT with owner info
-        const updatedNFT = await NFT.findById(nft._id)
+        const populatedNFT = await NFT.findById(nft._id)
             .populate('owner', 'email fullName');
         
-        res.json({
+        res.status(201).json({
             success: true,
-            message: "Successfully purchased `${nft.name}`!",
-            nft: updatedNFT,
-            newBalance: req.user.balance
+            message: `NFT minted successfully! ${mintingFee} ETH deducted for minting fee.`,
+            nft: populatedNFT,
+            newETHBalance: newEthBalance,
+            user: {
+                _id: req.user._id,
+                email: req.user.email,
+                ethBalance: newEthBalance
+            }
         });
         
     } catch (error) {
-        console.error('Purchase error:', error);
-        res.status(500).json({ error: 'Purchase failed' });
+        console.error('❌ Minting error:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Minting failed',
+            message: error.message 
+        });
     }
 });
 
-// Get user's NFTs
+// ========================
+// PURCHASE NFT (WORKING VERSION) - FIXED
+// ========================
+router.post('/:id/purchase', auth, async (req, res) => {
+    try {
+        console.log('🛒 Purchase request for NFT:', req.params.id);
+        console.log('Buyer:', req.user.email);
+        console.log('Buyer WETH:', req.user.wethBalance);
+        
+        // 1. Find NFT
+        const nft = await NFT.findById(req.params.id);
+        if (!nft) {
+            console.log('❌ NFT not found');
+            return res.status(404).json({ 
+                success: false, 
+                error: 'NFT not found' 
+            });
+        }
+        
+        console.log('✅ NFT found:', nft.name, 'Price:', nft.price);
+        console.log('NFT Owner ID:', nft.owner);
+        
+        // 2. Check if NFT is for sale
+        if (!nft.isListed) {
+            console.log('❌ NFT not listed');
+            return res.status(400).json({ 
+                success: false, 
+                error: 'NFT is not for sale' 
+            });
+        }
+        
+        // 3. Prevent buying own NFT
+        if (nft.owner.toString() === req.user._id.toString()) {
+            console.log('❌ User trying to buy own NFT');
+            return res.status(400).json({ 
+                success: false, 
+                error: 'You cannot buy your own NFT' 
+            });
+        }
+        
+        // 4. Check buyer's WETH balance
+        if (req.user.wethBalance < nft.price) {
+            console.log('❌ Insufficient WETH');
+            return res.status(400).json({ 
+                success: false,
+                error: 'Insufficient WETH balance',
+                currentBalance: req.user.wethBalance,
+                required: nft.price
+            });
+        }
+        
+        // 5. Find seller
+        const seller = await User.findById(nft.owner);
+        if (!seller) {
+            console.log('❌ Seller not found');
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Seller not found' 
+            });
+        }
+        
+        console.log('✅ Seller found:', seller.email);
+        console.log('Seller WETH before:', seller.wethBalance);
+        
+        // 6. Process payment - FIXED: Using findByIdAndUpdate instead of .save()
+        // Deduct from buyer
+        const oldBuyerBalance = req.user.wethBalance;
+        const newBuyerWethBalance = req.user.wethBalance - nft.price;
+        
+        await User.findByIdAndUpdate(req.user._id, {
+            wethBalance: newBuyerWethBalance,
+            balance: newBuyerWethBalance
+        });
+        
+        console.log('✅ Buyer debited:', oldBuyerBalance, '→', newBuyerWethBalance);
+        
+        // Credit to seller
+        const oldSellerBalance = seller.wethBalance;
+        const newSellerWethBalance = seller.wethBalance + nft.price;
+        
+        await User.findByIdAndUpdate(seller._id, {
+            wethBalance: newSellerWethBalance,
+            balance: newSellerWethBalance
+        });
+        
+        console.log('✅ Seller credited:', oldSellerBalance, '→', newSellerWethBalance);
+        
+        // 7. Transfer ownership
+        const oldOwner = nft.owner;
+        nft.owner = req.user._id;
+        nft.isListed = false;
+        await nft.save();
+        
+        console.log('✅ Ownership transferred:', oldOwner, '→', req.user._id);
+        
+        res.json({
+            success: true,
+            message: `Successfully purchased "${nft.name}" for ${nft.price} WETH!`,
+            nft: {
+                _id: nft._id,
+                name: nft.name
+            },
+            newBalance: newBuyerWethBalance,
+            user: {
+                _id: req.user._id,
+                email: req.user.email,
+                wethBalance: newBuyerWethBalance,
+                balance: newBuyerWethBalance
+            }
+        });
+        
+        console.log('✅ Purchase completed successfully!');
+        
+    } catch (error) {
+        console.error('❌ Purchase error:', error);
+        console.error('Error stack:', error.stack);
+        
+        res.status(500).json({ 
+            success: false,
+            error: 'Purchase failed',
+            message: error.message
+        });
+    }
+});
+
+// ========================
+// GET USER'S NFTs
+// ========================
 router.get('/user/my-nfts', auth, async (req, res) => {
     try {
         const nfts = await NFT.find({ owner: req.user._id })

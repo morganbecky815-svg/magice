@@ -258,7 +258,7 @@ function updateAuthUI() {
                 </div>
                 <span>${currentUser.fullName || currentUser.email}</span>
                 <span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">
-                    ${currentUser.balance || 0} WETH
+                    ${currentUser.wethBalance || currentUser.balance || 0} WETH
                 </span>
                 <button class="btn" onclick="logout()">
                     <i class="fas fa-sign-out-alt"></i> Logout
@@ -368,7 +368,7 @@ function logout() {
 }
 
 // ========================
-// NFT FUNCTIONS
+// NFT FUNCTIONS - FIXED CASH FLOW VERSION
 // ========================
 
 // Load NFTs from backend
@@ -413,7 +413,10 @@ function displayNFTs(nfts) {
     `).join('');
 }
 
-// Buy NFT
+// ========================
+// FIXED: COMPLETE NFT PURCHASE WITH CASH FLOW
+// ========================
+
 async function buyNFT(nftId) {
     if (!currentUser) {
         showNotification('Please login to purchase NFTs', 'error');
@@ -422,28 +425,258 @@ async function buyNFT(nftId) {
     }
     
     try {
-        const data = await apiRequest(`/nft/${nftId}/purchase`, {
-            method: 'POST'
+        console.log('🛒 Starting NFT purchase for ID:', nftId);
+        
+        // Get NFT details first
+        const nftResponse = await fetch(`${API_BASE_URL}/nft/${nftId}`);
+        if (!nftResponse.ok) throw new Error('Failed to load NFT details');
+        
+        const nftData = await nftResponse.json();
+        if (!nftData.success || !nftData.nft) {
+            throw new Error('Could not load NFT details');
+        }
+        
+        const nft = nftData.nft;
+        const price = nft.price || 0;
+        
+        console.log('NFT Price:', price, 'WETH');
+        console.log('User WETH Balance:', currentUser.wethBalance);
+        
+        // Check if user is trying to buy their own NFT
+        if (nft.owner && nft.owner._id === currentUser._id) {
+            showNotification('You cannot buy your own NFT', 'error');
+            return;
+        }
+        
+        // Check WETH balance
+        if (currentUser.wethBalance < price) {
+            const shortage = price - currentUser.wethBalance;
+            
+            const convert = confirm(
+                `❌ Insufficient WETH Balance!\n\n` +
+                `NFT Price: ${price} WETH\n` +
+                `Your WETH Balance: ${currentUser.wethBalance} WETH\n` +
+                `Shortage: ${shortage} WETH\n\n` +
+                `Would you like to convert ETH to WETH?\n` +
+                `(1 ETH = 1 WETH)`
+            );
+            
+            if (convert) {
+                window.location.href = '/convert-weth';
+                return;
+            }
+            return;
+        }
+        
+        // Confirm purchase
+        const confirmPurchase = confirm(
+            `💰 Confirm NFT Purchase\n\n` +
+            `NFT: ${nft.name}\n` +
+            `Price: ${price} WETH\n` +
+            `Seller: ${nft.owner?.email || nft.owner?.fullName || 'Unknown'}\n\n` +
+            `Your WETH balance: ${currentUser.wethBalance} → ${currentUser.wethBalance - price} WETH\n\n` +
+            `Proceed with purchase?`
+        );
+        
+        if (!confirmPurchase) return;
+        
+        // Show loading
+        const button = event?.target;
+        const originalText = button ? button.innerHTML : '';
+        if (button) {
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            button.disabled = true;
+        }
+        
+        // Make purchase API call
+        console.log('Making purchase API call...');
+        const response = await fetch(`${API_BASE_URL}/nft/${nftId}/purchase`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            }
         });
         
-        if (data.success) {
-            showNotification(data.message, 'success');
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.error || `Purchase failed: ${response.status}`);
+        }
+        
+        if (result.success) {
+            console.log('✅ Purchase successful!', result);
             
-            // Refresh user data
-            if (data.user) {
-                localStorage.setItem('user', JSON.stringify(data.user));
-                currentUser = data.user;
-                updateAuthUI();
-                
-                // Also update balance displays
-                updateAllBalanceDisplays();
+            // Update user data with new balance
+            if (result.user) {
+                localStorage.setItem('user', JSON.stringify(result.user));
+                currentUser = result.user;
+            } else if (result.newBalance !== undefined) {
+                // Update user's WETH balance
+                currentUser.wethBalance = result.newBalance;
+                currentUser.balance = result.newBalance;
+                localStorage.setItem('user', JSON.stringify(currentUser));
             }
             
-            // Reload NFTs
-            loadNFTs();
+            // Update balances in UI
+            updateAllBalanceDisplays();
+            updateAuthUI();
+            
+            // Show success message
+            showNotification(result.message || `✅ Successfully purchased "${nft.name}"!`, 'success');
+            
+            // Refresh NFT display
+            setTimeout(() => {
+                loadNFTs();
+            }, 1000);
+            
+            console.log('✅ NFT Purchase Completed:', {
+                nftId,
+                price,
+                buyer: currentUser.email,
+                newBalance: currentUser.wethBalance
+            });
+        } else {
+            throw new Error(result.error || 'Purchase failed');
         }
+        
     } catch (error) {
-        console.error('Purchase failed:', error);
+        console.error('Purchase error:', error);
+        showNotification(error.message || 'Failed to purchase NFT', 'error');
+    } finally {
+        // Reset button state
+        if (event?.target) {
+            event.target.innerHTML = originalText || 'Buy Now';
+            event.target.disabled = false;
+        }
+    }
+}
+
+// ========================
+// FIXED: NFT CREATION WITH ETH DEDUCTION
+// ========================
+
+// MINT NFT (Deducts ETH from user)
+async function mintNFT(formData) {
+    try {
+        if (!currentUser) {
+            showNotification('Please login to create NFTs', 'error');
+            window.location.href = '/login';
+            return;
+        }
+        
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('Authentication required');
+        }
+        
+        const mintingFee = 0.01; // 0.01 ETH minting fee
+        
+        // Check ETH balance
+        if (currentUser.ethBalance < mintingFee) {
+            const choice = confirm(
+                `❌ Insufficient ETH for minting fee!\n\n` +
+                `Minting Fee: ${mintingFee} ETH\n` +
+                `Your ETH Balance: ${currentUser.ethBalance} ETH\n` +
+                `Shortage: ${mintingFee - currentUser.ethBalance} ETH\n\n` +
+                `Would you like to add ETH?`
+            );
+            
+            if (choice) {
+                window.location.href = '/add-eth';
+            }
+            return;
+        }
+        
+        // Get form values
+        const name = formData.get('name');
+        const collectionName = formData.get('collectionName');
+        const price = formData.get('price');
+        
+        // Confirm minting
+        const confirmMint = confirm(
+            `🎨 Mint NFT Confirmation\n\n` +
+            `NFT Name: ${name}\n` +
+            `Collection: ${collectionName || 'Default'}\n` +
+            `Price: ${price || 0.01} WETH\n\n` +
+            `Minting Fee: ${mintingFee} ETH\n` +
+            `Your ETH balance: ${currentUser.ethBalance} → ${currentUser.ethBalance - mintingFee} ETH\n\n` +
+            `Proceed with minting?`
+        );
+        
+        if (!confirmMint) return;
+        
+        // Show loading
+        const createButton = document.getElementById('createNFTBtn');
+        if (createButton) {
+            createButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Minting...';
+            createButton.disabled = true;
+        }
+        
+        // Prepare NFT data
+        const nftData = {
+            name: name,
+            collectionName: collectionName,
+            price: parseFloat(price) || 0.01,
+            category: formData.get('category') || 'art',
+            image: formData.get('image')
+        };
+        
+        console.log('Minting NFT with data:', nftData);
+        
+        // Send to backend minting endpoint
+        const response = await fetch(`${API_BASE_URL}/nft/mint`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(nftData)
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.error || 'Minting failed');
+        }
+        
+        if (result.success) {
+            console.log('✅ NFT minted successfully!', result);
+            
+            // Update user balance
+            if (result.user) {
+                localStorage.setItem('user', JSON.stringify(result.user));
+                currentUser = result.user;
+                updateAllBalanceDisplays();
+                updateAuthUI();
+            } else if (result.newETHBalance !== undefined) {
+                // Update ETH balance
+                currentUser.ethBalance = result.newETHBalance;
+                localStorage.setItem('user', JSON.stringify(currentUser));
+                updateAllBalanceDisplays();
+                updateAuthUI();
+            }
+            
+            showNotification(`✅ NFT minted successfully! ${mintingFee} ETH deducted for minting fee.`, 'success');
+            
+            // Redirect to homepage after 2 seconds
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000);
+            
+        } else {
+            throw new Error(result.error || 'Minting failed');
+        }
+        
+    } catch (error) {
+        console.error('Minting error:', error);
+        showNotification(error.message || 'Failed to mint NFT', 'error');
+    } finally {
+        const createButton = document.getElementById('createNFTBtn');
+        if (createButton) {
+            createButton.innerHTML = 'Create & List NFT';
+            createButton.disabled = false;
+        }
     }
 }
 
@@ -509,7 +742,7 @@ function setupEventListeners() {
 setupEventListeners();
 
 // ============================================
-// USER BALANCE FUNCTIONS
+// USER BALANCE FUNCTIONS - UPDATED FOR CASH FLOW
 // ============================================
 
 // Load user balance from backend
@@ -634,6 +867,7 @@ async function addETH(amount) {
                 localStorage.setItem('user', JSON.stringify(updatedUser));
                 currentUser = updatedUser;
                 updateAllBalanceDisplays();
+                updateAuthUI();
             }
             
             showNotification(data.message || 'ETH added successfully', 'success');
@@ -683,6 +917,7 @@ async function convertToWETH(amount) {
                 localStorage.setItem('user', JSON.stringify(updatedUser));
                 currentUser = updatedUser;
                 updateAllBalanceDisplays();
+                updateAuthUI();
             }
             
             showNotification(data.message || 'Converted to WETH successfully', 'success');
@@ -747,7 +982,10 @@ function setupBalancePages() {
     }
 }
 
-// NFT Creation with Cloudinary
+// ========================
+// UPDATED NFT CREATION FORM HANDLER WITH ETH DEDUCTION
+// ========================
+
 document.addEventListener('DOMContentLoaded', function() {
     const createNFTForm = document.getElementById('createNFTForm');
     const imagePreview = document.getElementById('imagePreview');
@@ -796,66 +1034,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Show loading
-        if (createButton && loadingSpinner) {
-            createButton.disabled = true;
-            createButton.innerHTML = 'Creating NFT...';
-            loadingSpinner.style.display = 'block';
-        }
-        
-        try {
-            // Get token from localStorage
-            const token = localStorage.getItem('token');
-            if (!token) {
-                throw new Error('Authentication required');
-            }
-            
-            console.log('📤 Uploading NFT to backend...');
-            
-            // Send to backend
-            const response = await fetch(`${API_BASE_URL}/nft/create`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
-                body: formData
-            });
-            
-            const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to create NFT');
-            }
-            
-            if (data.success) {
-                showNotification('NFT created successfully!', 'success');
-                console.log('✅ NFT Created:', data.nft);
-                
-                // Reset form
-                createNFTForm.reset();
-                if (imagePreview) {
-                    imagePreview.innerHTML = '<p>No image selected</p>';
-                }
-                
-                // Redirect to explore page after 2 seconds
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 2000);
-            } else {
-                throw new Error(data.error || 'Failed to create NFT');
-            }
-            
-        } catch (error) {
-            console.error('❌ NFT creation failed:', error);
-            showNotification(error.message || 'Failed to create NFT', 'error');
-        } finally {
-            // Reset button
-            if (createButton && loadingSpinner) {
-                createButton.disabled = false;
-                createButton.innerHTML = 'Create & List NFT';
-                loadingSpinner.style.display = 'none';
-            }
-        }
+        // Use the new mintNFT function that deducts ETH
+        await mintNFT(formData);
     });
     
     // Price validation
@@ -894,3 +1074,4 @@ window.loadUserBalance = loadUserBalance;
 window.addETH = addETH;
 window.convertToWETH = convertToWETH;
 window.updateAllBalanceDisplays = updateAllBalanceDisplays;
+window.mintNFT = mintNFT;
