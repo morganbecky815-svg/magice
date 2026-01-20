@@ -243,8 +243,8 @@ async function loadNFTs() {
         // Store all NFTs globally
         allNFTs = data.nfts || [];
         
-        // Update stats
-        updateMarketplaceStats(allNFTs);
+        // ✅ FIXED: Call the NEW async updateMarketplaceStats function
+        await updateMarketplaceStats(allNFTs);
         
         // Display featured NFTs
         displayFeaturedNFTs(allNFTs);
@@ -269,6 +269,60 @@ async function loadNFTs() {
     }
 }
 
+// ============================================
+// MARKETPLACE STATS FIX - UPDATED FUNCTION
+// ============================================
+
+async function updateMarketplaceStats(nfts) {
+    console.log('📊 Loading marketplace stats...');
+    
+    try {
+        // ✅ CORRECT URL (tested and working)
+        const response = await fetch('/api/marketplace/stats', {
+            cache: 'no-cache',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        console.log('📊 Response status:', response.status, response.statusText);
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Got stats from API:', result);
+            
+            if (result.success && result.stats) {
+                // Update the DOM
+                document.getElementById('totalNFTs').textContent = 
+                    result.stats.nfts.toLocaleString();
+                document.getElementById('totalUsers').textContent = 
+                    result.stats.users.toLocaleString();
+                document.getElementById('totalVolume').textContent = 
+                    result.stats.volume + ' WETH';
+                document.getElementById('totalCollections').textContent = 
+                    result.stats.collections.toLocaleString();
+                
+                console.log('✅ Marketplace stats updated!');
+                return;
+            }
+        }
+        
+        console.warn('⚠️ API failed, using NFT calculations');
+        
+        // Fallback: Calculate from NFTs
+        if (nfts && nfts.length > 0) {
+            document.getElementById('totalNFTs').textContent = nfts.length;
+            
+            const totalVolume = nfts.reduce((sum, nft) => sum + (nft.price || 0), 0);
+            document.getElementById('totalVolume').textContent = totalVolume.toFixed(2);
+            
+            // ... rest of fallback calculations
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading marketplace stats:', error);
+    }
+}
 // ============================================
 // FILTER & SORT FUNCTIONS
 // ============================================
@@ -595,11 +649,8 @@ function displayCollections(nfts) {
         .sort((a, b) => b.count - a.count)
         .slice(0, 4);
     
-    // Update collections count
-    const totalCollectionsEl = document.getElementById('totalCollections');
-    if (totalCollectionsEl) {
-        totalCollectionsEl.textContent = Object.keys(collectionsMap).length;
-    }
+    // Collections count is now handled by updateMarketplaceStats()
+    // Don't update totalCollections here anymore
     
     collectionsGrid.innerHTML = collections.map(collection => `
         <div class="collection-card">
@@ -619,37 +670,6 @@ function displayCollections(nfts) {
             </div>
         </div>
     `).join('');
-}
-
-// Update marketplace stats
-function updateMarketplaceStats(nfts) {
-    // Update total NFTs
-    const totalNFTsEl = document.getElementById('totalNFTs');
-    if (totalNFTsEl) {
-        totalNFTsEl.textContent = nfts.length;
-    }
-    
-    // Calculate total volume
-    const totalVolume = nfts.reduce((sum, nft) => sum + (nft.price || 0), 0);
-    const totalVolumeEl = document.getElementById('totalVolume');
-    if (totalVolumeEl) {
-        totalVolumeEl.textContent = totalVolume.toFixed(2);
-    }
-    
-    // Get unique owners for user count
-    const uniqueOwners = new Set();
-    nfts.forEach(nft => {
-        if (nft.owner?._id) {
-            uniqueOwners.add(nft.owner._id);
-        } else if (nft.owner?.email) {
-            uniqueOwners.add(nft.owner.email);
-        }
-    });
-    
-    const totalUsersEl = document.getElementById('totalUsers');
-    if (totalUsersEl) {
-        totalUsersEl.textContent = uniqueOwners.size || nfts.length > 0 ? Math.floor(nfts.length * 0.3) : 0;
-    }
 }
 
 // ============================================

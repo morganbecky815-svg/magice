@@ -43,6 +43,76 @@
             </button>
         </div>
         
+         <!-- Add to admin tabs -->
+<button class="admin-tab" data-tab="marketplace">
+    <i class="fas fa-chart-line"></i> Marketplace Stats
+</button>
+
+<!-- Add to admin content -->
+<div id="marketplaceTab" class="admin-content">
+    <h2>Marketplace Display Stats</h2>
+    <div class="admin-message" id="marketplaceMessage"></div>
+    
+    <div class="stats-grid">
+        <div class="stat-box">
+            <h3>NFTs Listed</h3>
+            <div class="stat-value" id="displayNfts">0</div>
+            <div class="stat-edit">
+                <input type="number" id="editNfts" value="0" style="width: 80px;">
+                <button onclick="updateStat('nfts')" class="action-btn btn-edit">
+                    <i class="fas fa-save"></i> Update
+                </button>
+            </div>
+            <small>Actual: <span id="actualNfts">0</span></small>
+        </div>
+        
+        <div class="stat-box">
+            <h3>Active Users</h3>
+            <div class="stat-value" id="displayUsers">0</div>
+            <div class="stat-edit">
+                <input type="number" id="editUsers" value="0" style="width: 80px;">
+                <button onclick="updateStat('users')" class="action-btn btn-edit">
+                    <i class="fas fa-save"></i> Update
+                </button>
+            </div>
+            <small>Actual: <span id="actualUsers">0</span></small>
+        </div>
+        
+        <div class="stat-box">
+            <h3>WETH Volume</h3>
+            <div class="stat-value" id="displayVolume">0 WETH</div>
+            <div class="stat-edit">
+                <input type="number" id="editVolume" value="0" step="0.1" style="width: 100px;">
+                <button onclick="updateStat('volume')" class="action-btn btn-edit">
+                    <i class="fas fa-save"></i> Update
+                </button>
+            </div>
+            <small>Actual: <span id="actualVolume">0</span> WETH</small>
+        </div>
+        
+        <div class="stat-box">
+            <h3>Collections</h3>
+            <div class="stat-value" id="displayCollections">0</div>
+            <div class="stat-edit">
+                <input type="number" id="editCollections" value="0" style="width: 80px;">
+                <button onclick="updateStat('collections')" class="action-btn btn-edit">
+                    <i class="fas fa-save"></i> Update
+                </button>
+            </div>
+            <small>Actual: <span id="actualCollections">0</span></small>
+        </div>
+    </div>
+    
+    <div style="margin-top: 30px;">
+        <button class="btn btn-primary" onclick="resetToActual()">
+            <i class="fas fa-sync-alt"></i> Reset to Actual Counts
+        </button>
+        <button class="btn" onclick="loadMarketplaceStats()" style="margin-left: 10px;">
+            <i class="fas fa-redo"></i> Refresh
+        </button>
+    </div>
+</div>
+
         <!-- Dashboard Tab -->
         <div id="dashboardTab" class="admin-content active">
             <div class="stats-grid">
@@ -269,39 +339,50 @@
         // ========================
         
         // TAB SWITCHING FUNCTION
-        function showAdminTab(tab, event) {
-            console.log('Switching to tab:', tab);
-            
-            // Update active tab button
-            const tabButtons = document.querySelectorAll('.admin-tab');
-            tabButtons.forEach(button => button.classList.remove('active'));
-            
-            if (event && event.target) {
-                event.target.classList.add('active');
-            }
-            
-            // Show the selected tab content
-            const tabContents = document.querySelectorAll('.admin-content');
-            tabContents.forEach(content => content.classList.remove('active'));
-            
-            const selectedTab = document.getElementById(tab + 'Tab');
-            if (selectedTab) {
-                selectedTab.classList.add('active');
-                
-                // Load data for the selected tab
-                if (tab === 'dashboard') {
-                    loadDashboard();
-                } else if (tab === 'nfts') {
-                    loadNFTsTable();
-                } else if (tab === 'users') {
-                    loadUsersTable();
-                } else if (tab === 'support') {
-                    loadTicketsTable();
-                }
-            }
-            
-            console.log('✅ Switched to tab:', tab);
-        }
+function showAdminTab(tab, event) {
+    console.log('Switching to tab:', tab);
+    
+    // 1. Update active tab button
+    const tabButtons = document.querySelectorAll('.admin-tab');
+    tabButtons.forEach(button => {
+        button.classList.remove('active');
+    });
+    
+    // Add active class to clicked button
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
+    
+    // 2. Show the selected tab content
+    const tabContents = document.querySelectorAll('.admin-content');
+    tabContents.forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    const selectedTab = document.getElementById(tab + 'Tab');
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    } else {
+        console.error('Tab not found:', tab + 'Tab');
+        return;
+    }
+    
+    // 3. Load data for the selected tab
+    if (tab === 'dashboard') {
+        loadDashboard();
+    } else if (tab === 'nfts') {
+        loadNFTsTable();
+    } else if (tab === 'users') {
+        loadUsersTable();
+    } else if (tab === 'support') {
+        loadTicketsTable();
+    } else if (tab === 'marketplace') { // ← ADD THIS
+        loadMarketplaceStats();
+    }
+    // 'create' tab doesn't need data loading
+    
+    console.log('✅ Switched to tab:', tab);
+}
         
         // Check if user is admin
         function checkAdminAccess() {
@@ -337,6 +418,197 @@
             return true;
         }
         
+        // ========================
+// MARKETPLACE STATS FUNCTIONS
+// ========================
+
+// Load marketplace stats
+async function loadMarketplaceStats() {
+    try {
+        console.log('📊 Loading marketplace stats...');
+        
+        const token = localStorage.getItem('token');
+        if (!token) throw new Error('No authentication token');
+        
+        const response = await fetch('/api/admin/marketplace-stats', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load stats');
+        const result = await response.json();
+        
+        if (result.success) {
+            const stats = result.stats;
+            
+            // Update display values
+            document.getElementById('displayNfts').textContent = stats.displayed.nfts.toLocaleString();
+            document.getElementById('displayUsers').textContent = stats.displayed.users.toLocaleString();
+            document.getElementById('displayVolume').textContent = stats.displayed.volume + ' WETH';
+            document.getElementById('displayCollections').textContent = stats.displayed.collections.toLocaleString();
+            
+            // Update input fields
+            document.getElementById('editNfts').value = stats.displayed.nfts;
+            document.getElementById('editUsers').value = stats.displayed.users;
+            document.getElementById('editVolume').value = stats.displayed.volume;
+            document.getElementById('editCollections').value = stats.displayed.collections;
+            
+            // Update actual values
+            document.getElementById('actualNfts').textContent = stats.actual.nfts.toLocaleString();
+            document.getElementById('actualUsers').textContent = stats.actual.users.toLocaleString();
+            document.getElementById('actualVolume').textContent = stats.actual.volume + ' WETH';
+            document.getElementById('actualCollections').textContent = stats.actual.collections.toLocaleString();
+            
+            console.log('✅ Marketplace stats loaded');
+        } else {
+            throw new Error(result.error);
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading marketplace stats:', error);
+        alert('Failed to load marketplace stats: ' + error.message);
+    }
+}
+
+// Update a specific stat
+async function updateStat(field) {
+    try {
+        const inputId = `edit${field.charAt(0).toUpperCase() + field.slice(1)}`;
+        const value = document.getElementById(inputId).value;
+        
+        if (!value && value !== '0') {
+            alert('Please enter a value');
+            return;
+        }
+        
+        const token = localStorage.getItem('token');
+        if (!token) throw new Error('No authentication token');
+        
+        // Show loading
+        const button = event.target;
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+        button.disabled = true;
+        
+        const response = await fetch(`/api/admin/marketplace-stats/${field}`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ value: parseFloat(value) || parseInt(value) })
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Update display
+            document.getElementById(`display${field.charAt(0).toUpperCase() + field.slice(1)}`).textContent = 
+                field === 'volume' ? 
+                `${parseFloat(value).toFixed(1)} WETH` : 
+                parseInt(value).toLocaleString();
+            
+            // Show success message
+            const messageEl = document.getElementById('marketplaceMessage');
+            messageEl.textContent = `✅ ${result.message}`;
+            messageEl.className = 'admin-message success';
+            messageEl.style.display = 'block';
+            
+            // Hide message after 3 seconds
+            setTimeout(() => {
+                messageEl.style.display = 'none';
+            }, 3000);
+            
+            console.log('✅ Stat updated:', result);
+        } else {
+            throw new Error(result.error);
+        }
+        
+    } catch (error) {
+        console.error('❌ Error updating stat:', error);
+        alert('Failed to update stat: ' + error.message);
+    } finally {
+        // Reset button
+        if (event && event.target) {
+            const button = event.target;
+            button.innerHTML = '<i class="fas fa-save"></i> Update';
+            button.disabled = false;
+        }
+    }
+}
+
+// Reset all stats to actual counts
+async function resetToActual() {
+    try {
+        if (!confirm('Are you sure you want to reset all display stats to actual database counts?')) {
+            return;
+        }
+        
+        const token = localStorage.getItem('token');
+        if (!token) throw new Error('No authentication token');
+        
+        // Show loading
+        const button = event.target;
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resetting...';
+        button.disabled = true;
+        
+        const response = await fetch('/api/admin/marketplace-stats/reset', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Reload stats
+            await loadMarketplaceStats();
+            
+            // Show success message
+            const messageEl = document.getElementById('marketplaceMessage');
+            messageEl.textContent = `✅ ${result.message}`;
+            messageEl.className = 'admin-message success';
+            messageEl.style.display = 'block';
+            
+            // Hide message after 3 seconds
+            setTimeout(() => {
+                messageEl.style.display = 'none';
+            }, 3000);
+            
+            console.log('✅ Stats reset:', result);
+        } else {
+            throw new Error(result.error);
+        }
+        
+    } catch (error) {
+        console.error('❌ Error resetting stats:', error);
+        alert('Failed to reset stats: ' + error.message);
+    } finally {
+        // Reset button
+        if (event && event.target) {
+            const button = event.target;
+            button.innerHTML = '<i class="fas fa-sync-alt"></i> Reset to Actual Counts';
+            button.disabled = false;
+        }
+    }
+}
+
+
         // Load dashboard stats
         async function loadDashboard() {
             try {
@@ -845,6 +1117,10 @@
         window.editUserBalance = editUserBalance;
         window.resolveTicket = resolveTicket;
         window.adminLogout = adminLogout;
+        // Add to your existing window.* assignments:
+        window.loadMarketplaceStats = loadMarketplaceStats;
+        window.updateStat = updateStat;
+        window.resetToActual = resetToActual;
     </script>
 </body>
 </html>

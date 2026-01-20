@@ -447,6 +447,58 @@ app.get('/api/crypto-prices', async (req, res) => {
   }
 });
 
+// Add to server.js (not admin routes - this is public)
+app.get('/api/marketplace/stats', async (req, res) => {
+    try {
+        const MarketplaceStats = require('./models/MarketplaceStats');
+        const stats = await MarketplaceStats.getStats();
+        
+        res.json({
+            success: true,
+            stats: {
+                nfts: stats.displayedNFTs,
+                users: stats.displayedUsers,
+                volume: stats.displayedVolume.toFixed(1),
+                collections: stats.displayedCollections,
+                lastUpdated: stats.lastUpdated
+            }
+        });
+        
+    } catch (error) {
+        console.error('Public marketplace stats error:', error);
+        // Fallback to actual counts
+        try {
+            const NFT = require('./models/NFT');
+            const User = require('./models/User');
+            
+            const actualNFTs = await NFT.countDocuments({ isListed: true });
+            const actualUsers = await User.countDocuments({ isActive: true });
+            
+            res.json({
+                success: true,
+                stats: {
+                    nfts: actualNFTs,
+                    users: actualUsers,
+                    volume: '0.0',
+                    collections: 0,
+                    lastUpdated: new Date()
+                }
+            });
+        } catch (fallbackError) {
+            res.json({
+                success: true,
+                stats: {
+                    nfts: 0,
+                    users: 0,
+                    volume: '0.0',
+                    collections: 0,
+                    lastUpdated: new Date()
+                }
+            });
+        }
+    }
+});
+
 // ========================
 // DASHBOARD DATA ENDPOINT
 // ========================
@@ -1051,6 +1103,44 @@ app.get('/api/test-ticket', async (req, res) => {
     }
 });
 
+// Debug: List all registered routes
+app.get('/api/debug/routes', (req, res) => {
+    const routes = [];
+    
+    // Check main routes
+    app._router.stack.forEach((middleware) => {
+        if (middleware.route) {
+            routes.push({
+                path: middleware.route.path,
+                methods: Object.keys(middleware.route.methods)
+            });
+        } else if (middleware.name === 'router') {
+            // Check mounted routers
+            if (middleware.handle && middleware.handle.stack) {
+                middleware.handle.stack.forEach((handler) => {
+                    if (handler.route) {
+                        const basePath = middleware.regexp.toString()
+                            .replace('/^', '')
+                            .replace('\\/?(?=\\/|$)/i', '')
+                            .replace(/\\\//g, '/');
+                        
+                        routes.push({
+                            path: basePath + handler.route.path,
+                            methods: Object.keys(handler.route.methods)
+                        });
+                    }
+                });
+            }
+        }
+    });
+    
+    res.json({
+        success: true,
+        totalRoutes: routes.length,
+        routes: routes.filter(route => route.path.includes('/api/')).sort((a, b) => a.path.localeCompare(b.path))
+    });
+});
+
 // ========================
 // ERROR HANDLING
 // ========================
@@ -1085,11 +1175,13 @@ app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     console.log(`✅ API Endpoints:`);
     console.log(`   • GET  /api/test - Test API`);
+    console.log(`   • GET  /api/marketplace/stats - Public Marketplace stats`);
     console.log(`   • GET  /api/admin/* - Admin routes`);
     console.log(`   • GET  /api/user/me/dashboard - Dashboard data`);
     console.log(`   • GET  /api/nft/latest - Latest NFTs`);
     console.log(`   • POST /api/nft/create - Create NFT`);
     console.log(`🔗 Dashboard: http://localhost:${PORT}/dashboard`);
     console.log(`🔗 Admin Panel: http://localhost:${PORT}/admin.html`);
+    console.log(`🔗 Explore page: htp://localhost:${PORT}/`);
     console.log(`🔗 Activity Page: http://localhost:${PORT}/activity`);
 });

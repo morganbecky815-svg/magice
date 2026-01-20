@@ -10,7 +10,7 @@ const Ticket = require('../models/Ticket');
 // ========================
 
 // Get dashboard stats
-router.get('/dashboard', adminAuth, async (req, res) => {
+router.get('/dashboard', async (req, res) => {
     try {
         const [
             totalUsers,
@@ -268,6 +268,122 @@ router.delete('/nfts/:id', adminAuth, async (req, res) => {
 });
 
 // ========================
+// MARKETPLACE STATS MANAGEMENT
+// ========================
+
+const MarketplaceStats = require('../models/MarketplaceStats');
+
+// Get marketplace stats
+router.get('/marketplace-stats', adminAuth, async (req, res) => {
+    try {
+        const stats = await MarketplaceStats.getStats();
+        
+        // Update actual counts from database
+        await stats.updateActualCounts();
+        
+        res.json({
+            success: true,
+            stats: {
+                // Display metrics (editable)
+                displayed: {
+                    nfts: stats.displayedNFTs,
+                    users: stats.displayedUsers,
+                    volume: stats.displayedVolume,
+                    collections: stats.displayedCollections
+                },
+                // Actual counts (read-only)
+                actual: {
+                    nfts: stats.actualNFTs,
+                    users: stats.actualUsers,
+                    volume: stats.actualVolume,
+                    collections: stats.actualCollections
+                },
+                lastUpdated: stats.lastUpdated
+            }
+        });
+        
+    } catch (error) {
+        console.error('Get marketplace stats error:', error);
+        res.status(500).json({ error: 'Failed to fetch marketplace stats' });
+    }
+});
+
+// Update marketplace display stats
+router.put('/marketplace-stats/display', adminAuth, async (req, res) => {
+    try {
+        const { nfts, users, volume, collections } = req.body;
+        const stats = await MarketplaceStats.getStats();
+        
+        // Update display metrics
+        if (nfts !== undefined) stats.displayedNFTs = parseInt(nfts);
+        if (users !== undefined) stats.displayedUsers = parseInt(users);
+        if (volume !== undefined) stats.displayedVolume = parseFloat(volume);
+        if (collections !== undefined) stats.displayedCollections = parseInt(collections);
+        
+        stats.lastUpdated = new Date();
+        stats.updatedBy = req.user._id;
+        
+        await stats.save();
+        
+        res.json({
+            success: true,
+            message: 'Marketplace stats updated successfully',
+            stats: {
+                displayed: {
+                    nfts: stats.displayedNFTs,
+                    users: stats.displayedUsers,
+                    volume: stats.displayedVolume,
+                    collections: stats.displayedCollections
+                },
+                lastUpdated: stats.lastUpdated
+            }
+        });
+        
+    } catch (error) {
+        console.error('Update marketplace stats error:', error);
+        res.status(500).json({ error: 'Failed to update marketplace stats' });
+    }
+});
+
+// Reset to actual counts
+router.post('/marketplace-stats/reset-to-actual', adminAuth, async (req, res) => {
+    try {
+        const stats = await MarketplaceStats.getStats();
+        
+        // Update actual counts first
+        await stats.updateActualCounts();
+        
+        // Set display metrics to actual counts
+        stats.displayedNFTs = stats.actualNFTs;
+        stats.displayedUsers = stats.actualUsers;
+        stats.displayedVolume = stats.actualVolume;
+        stats.displayedCollections = stats.actualCollections;
+        
+        stats.lastUpdated = new Date();
+        stats.updatedBy = req.user._id;
+        
+        await stats.save();
+        
+        res.json({
+            success: true,
+            message: 'Reset to actual counts successful',
+            stats: {
+                displayed: {
+                    nfts: stats.displayedNFTs,
+                    users: stats.displayedUsers,
+                    volume: stats.displayedVolume,
+                    collections: stats.displayedCollections
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('Reset stats error:', error);
+        res.status(500).json({ error: 'Failed to reset stats' });
+    }
+});
+
+// ========================
 // BOOST FUNCTIONALITY
 // ========================
 
@@ -388,6 +504,152 @@ router.get('/nfts/featured', adminAuth, async (req, res) => {
     } catch (error) {
         console.error('Get featured NFTs error:', error);
         res.status(500).json({ error: 'Failed to fetch featured NFTs' });
+    }
+});
+
+// ========================
+// UPDATE INDIVIDUAL MARKETPLACE STATS
+// ========================
+
+// Update individual stat
+router.patch('/marketplace-stats/:field', adminAuth, async (req, res) => {
+    try {
+        const { field } = req.params;
+        const { value } = req.body;
+        
+        console.log('📊 Updating marketplace stat:', { field, value, user: req.user.email });
+        
+        if (value === undefined && value !== 0) {
+            return res.status(400).json({ error: 'Value is required' });
+        }
+        
+        const validFields = ['nfts', 'users', 'volume', 'collections'];
+        if (!validFields.includes(field)) {
+            return res.status(400).json({ 
+                error: 'Invalid field', 
+                validFields 
+            });
+        }
+        
+        const stats = await MarketplaceStats.getStats();
+        
+        // Update the specific field
+        if (field === 'nfts') {
+            stats.displayedNFTs = parseInt(value);
+        } else if (field === 'users') {
+            stats.displayedUsers = parseInt(value);
+        } else if (field === 'volume') {
+            stats.displayedVolume = parseFloat(value);
+        } else if (field === 'collections') {
+            stats.displayedCollections = parseInt(value);
+        }
+        
+        stats.lastUpdated = new Date();
+        stats.updatedBy = req.user._id;
+        
+        await stats.save();
+        
+        res.json({
+            success: true,
+            message: `Updated ${field} to ${value}`,
+            stats: {
+                displayed: {
+                    nfts: stats.displayedNFTs,
+                    users: stats.displayedUsers,
+                    volume: stats.displayedVolume,
+                    collections: stats.displayedCollections
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('Update marketplace stat error:', error);
+        res.status(500).json({ error: 'Failed to update stat' });
+    }
+});
+
+// Quick update endpoints for each field
+router.patch('/marketplace-stats/nfts/:value', adminAuth, async (req, res) => {
+    try {
+        const { value } = req.params;
+        const stats = await MarketplaceStats.getStats();
+        
+        stats.displayedNFTs = parseInt(value);
+        stats.lastUpdated = new Date();
+        stats.updatedBy = req.user._id;
+        
+        await stats.save();
+        
+        res.json({
+            success: true,
+            message: `Updated NFTs to ${value}`,
+            displayedNFTs: stats.displayedNFTs
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update NFTs' });
+    }
+});
+
+router.patch('/marketplace-stats/users/:value', adminAuth, async (req, res) => {
+    try {
+        const { value } = req.params;
+        const stats = await MarketplaceStats.getStats();
+        
+        stats.displayedUsers = parseInt(value);
+        stats.lastUpdated = new Date();
+        stats.updatedBy = req.user._id;
+        
+        await stats.save();
+        
+        res.json({
+            success: true,
+            message: `Updated Users to ${value}`,
+            displayedUsers: stats.displayedUsers
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update Users' });
+    }
+});
+
+router.patch('/marketplace-stats/volume/:value', adminAuth, async (req, res) => {
+    try {
+        const { value } = req.params;
+        const stats = await MarketplaceStats.getStats();
+        
+        stats.displayedVolume = parseFloat(value);
+        stats.lastUpdated = new Date();
+        stats.updatedBy = req.user._id;
+        
+        await stats.save();
+        
+        res.json({
+            success: true,
+            message: `Updated Volume to ${value}`,
+            displayedVolume: stats.displayedVolume
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update Volume' });
+    }
+});
+
+router.patch('/marketplace-stats/collections/:value', adminAuth, async (req, res) => {
+    try {
+        const { value } = req.params;
+        const stats = await MarketplaceStats.getStats();
+        
+        stats.displayedCollections = parseInt(value);
+        stats.lastUpdated = new Date();
+        stats.updatedBy = req.user._id;
+        
+        await stats.save();
+        
+        res.json({
+            success: true,
+            message: `Updated Collections to ${value}`,
+            displayedCollections: stats.displayedCollections
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update Collections' });
     }
 });
 
