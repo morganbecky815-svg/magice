@@ -1043,12 +1043,142 @@ async function resetToActual() {
             alert('Edit NFT functionality would be implemented here');
         }
         
-        function editUserBalance(userId, email) {
-            const newBalance = prompt(`Enter new WETH balance for ${email}:`, '0');
-            if (newBalance !== null) {
-                alert(`Balance update for ${email} would be implemented here`);
+        // Add this function to create a proper edit modal
+function showEditBalanceModal(userId, email, currentEth, currentWeth) {
+    // Create modal HTML
+    const modalHTML = `
+        <div id="editBalanceModal" class="modal" style="display: block;">
+            <div class="modal-content" style="max-width: 400px;">
+                <div class="modal-header">
+                    <h3>Edit Balances for ${email}</h3>
+                    <span class="close-modal" onclick="closeModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>ETH Balance</label>
+                        <input type="number" id="editEthBalance" value="${currentEth || 0}" step="0.001" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>WETH Balance</label>
+                        <input type="number" id="editWethBalance" value="${currentWeth || 0}" step="0.001" min="0">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn" onclick="closeModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveBalances('${userId}', '${email}')">
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to page
+    const modalContainer = document.createElement('div');
+    modalContainer.innerHTML = modalHTML;
+    document.body.appendChild(modalContainer);
+    
+    // Add modal styles if not already present
+    if (!document.querySelector('#modalStyles')) {
+        const styles = document.createElement('style');
+        styles.id = 'modalStyles';
+        styles.textContent = `
+            .modal {
+                display: none;
+                position: fixed;
+                z-index: 1000;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0,0,0,0.5);
             }
+            .modal-content {
+                background-color: white;
+                margin: 10% auto;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+            .modal-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+            }
+            .close-modal {
+                font-size: 24px;
+                cursor: pointer;
+            }
+            .modal-footer {
+                display: flex;
+                justify-content: flex-end;
+                gap: 10px;
+                margin-top: 20px;
+            }
+        `;
+        document.head.appendChild(styles);
+    }
+}
+
+// Function to close modal
+function closeModal() {
+    const modal = document.getElementById('editBalanceModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Function to save balances
+async function saveBalances(userId, email) {
+    try {
+        const newEthBalance = parseFloat(document.getElementById('editEthBalance').value) || 0;
+        const newWethBalance = parseFloat(document.getElementById('editWethBalance').value) || 0;
+        
+        const token = localStorage.getItem('token');
+        if (!token) throw new Error('No authentication token');
+        
+        // Update ETH balance
+        const ethResponse = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/eth-balance`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ethBalance: newEthBalance })
+        });
+        
+        // Update WETH balance
+        const wethResponse = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/balance`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ balance: newWethBalance })
+        });
+        
+        const ethResult = await ethResponse.json();
+        const wethResult = await wethResponse.json();
+        
+        if (ethResult.success && wethResult.success) {
+            alert(`✅ Balances updated for ${email}`);
+            closeModal();
+            loadUsersTable();
+        } else {
+            throw new Error(ethResult.error || wethResult.error);
         }
+        
+    } catch (error) {
+        console.error('Save error:', error);
+        alert('❌ Failed to save balances: ' + error.message);
+    }
+}
+
+// Update the editUserBalance function to use the modal
+function editUserBalance(userId, email, currentEth = 0, currentWeth = 0) {
+    showEditBalanceModal(userId, email, currentEth, currentWeth);
+}
         
         async function resolveTicket(ticketId) {
             try {
