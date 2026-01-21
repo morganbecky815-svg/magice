@@ -55,7 +55,7 @@ const nftSchema = new mongoose.Schema({
     },
     cloudinaryId: {
         type: String,
-        required: true
+        default: ""
     },
     metadata: {
         format: String,
@@ -116,12 +116,6 @@ const nftSchema = new mongoose.Schema({
 // Option 2: Fix the middleware syntax
 
 // OPTION 1: COMMENT OUT OR REMOVE THE MIDDLEWARE (Recommended for now)
-/*
-nftSchema.pre('save', function(next) {
-    this.updatedAt = Date.now();
-    next();
-});
-*/
 
 // OPTION 2: Use async middleware (if you need it)
 /*

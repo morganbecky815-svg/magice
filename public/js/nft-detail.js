@@ -6,6 +6,7 @@ console.log('🖼️ NFT Detail page JavaScript loaded');
 let currentNFTId = null;
 let currentNFT = null;
 let ethPrice = 2500; // Default ETH price in USD
+let isPurchasing = false;
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
@@ -73,54 +74,26 @@ async function loadNFT(nftId) {
     try {
         showLoading();
         
-        // Try to fetch NFT from API
-        // Note: You need to create an API endpoint for this
-        // For now, we'll use a mock approach
-        
         const token = localStorage.getItem('token');
         const headers = token ? {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
         } : { 'Content-Type': 'application/json' };
         
-        // Try your NFT endpoint - adjust if you have a different endpoint
-        let response;
+        // Fetch NFT from API
+        const response = await fetch(`/api/nft/${nftId}`, { headers });
         
-        // Try different possible endpoints
-        const endpoints = [
-            `/api/nft/${nftId}`,
-            `/api/nfts/${nftId}`,
-            `/api/user/nft/${nftId}`
-        ];
-        
-        let data = null;
-        
-        for (const endpoint of endpoints) {
-            try {
-                response = await fetch(endpoint, { headers });
-                if (response.ok) {
-                    data = await response.json();
-                    if (data.nft || data.success) {
-                        break;
-                    }
-                }
-            } catch (error) {
-                console.log(`Endpoint ${endpoint} failed:`, error.message);
-            }
+        if (!response.ok) {
+            throw new Error('NFT not found or access denied');
         }
         
-        // If no API endpoint works, try to get from user's NFTs
-        if (!data || (!data.nft && !data.success)) {
-            console.log('No direct NFT endpoint found, trying user NFTs...');
-            data = await getNFTFromUserCollections(nftId);
-        }
+        const data = await response.json();
         
-        if (data && (data.nft || (data.success && data.nfts))) {
-            const nftData = data.nft || (data.nfts && data.nfts[0]) || data;
-            currentNFT = nftData;
-            displayNFT(nftData);
+        if (data.success && data.nft) {
+            currentNFT = data.nft;
+            displayNFT(data.nft);
         } else {
-            throw new Error('NFT not found');
+            throw new Error('NFT data not available');
         }
         
     } catch (error) {
@@ -128,42 +101,6 @@ async function loadNFT(nftId) {
         showError(error.message);
     } finally {
         hideLoading();
-    }
-}
-
-// Try to get NFT from user's collections
-async function getNFTFromUserCollections(nftId) {
-    const token = localStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    
-    if (!token || !user._id) {
-        throw new Error('Please login to view NFT details');
-    }
-    
-    try {
-        // Get user's NFTs
-        const response = await fetch(`/api/user/${user._id}/nfts`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success && data.nfts) {
-                // Find the NFT by ID
-                const nft = data.nfts.find(n => n._id === nftId);
-                if (nft) {
-                    return { nft: nft, success: true };
-                }
-            }
-        }
-        
-        throw new Error('NFT not found in your collection');
-        
-    } catch (error) {
-        throw new Error('Failed to load NFT: ' + error.message);
     }
 }
 
@@ -187,30 +124,30 @@ function displayNFT(nft) {
         <span>${nft.collectionName || 'No Collection'}</span>
     `;
     
-    // Set owner info - match explore.js format
-const ownerInfo = document.getElementById('ownerInfo');
-const ownerName = nft.owner?.fullName || nft.owner?.email || nft.ownerName || 'Unknown';
-ownerInfo.innerHTML = `
-    <i class="fas fa-user"></i>
-    <span>Owned by <strong>${ownerName}</strong></span>
-`;
+    // Set owner info
+    const ownerInfo = document.getElementById('ownerInfo');
+    const ownerName = nft.owner?.fullName || nft.owner?.email || 'Unknown';
+    ownerInfo.innerHTML = `
+        <i class="fas fa-user"></i>
+        <span>Owned by <strong>${ownerName}</strong></span>
+    `;
     
     // Set price
     const price = nft.price || 0;
-    document.getElementById('nftPrice').textContent = price.toFixed(2);
+    document.getElementById('nftPrice').textContent = price.toFixed(4);
     
     // Calculate and display USD price
     const usdPrice = price * ethPrice;
     document.getElementById('usdPrice').textContent = `$${usdPrice.toFixed(2)} USD`;
     
     // Set token ID
-    document.getElementById('tokenId').textContent = nft.tokenId || '#0000';
+    document.getElementById('tokenId').textContent = nft.tokenId || `#${nft._id.slice(-4)}`;
     
     // Set category
     document.getElementById('nftCategory').textContent = 
         (nft.category || 'Art').charAt(0).toUpperCase() + (nft.category || 'Art').slice(1);
     
-    // Set royalty
+    // Set royalty (default 5%)
     document.getElementById('royalty').textContent = `${nft.royalty || 5}%`;
     
     // Set dates
@@ -228,205 +165,172 @@ ownerInfo.innerHTML = `
     const description = document.getElementById('nftDescription');
     description.textContent = nft.description || 'No description provided.';
     
-    // Set properties/traits
-    displayProperties(nft.properties || nft.metadata || {});
-    
-    // Load activity
-    loadNFTActivity(nft._id);
-    
     // Update button states based on ownership
     updateButtonStates(nft);
-}
-
-// Display NFT properties/traits
-function displayProperties(properties) {
-    const propertiesGrid = document.getElementById('propertiesGrid');
-    propertiesGrid.innerHTML = '';
-    
-    // If no properties, show message
-    if (!properties || Object.keys(properties).length === 0) {
-        propertiesGrid.innerHTML = `
-            <div class="property-item" style="grid-column: 1 / -1; text-align: center;">
-                <div class="property-type">No Properties</div>
-                <div class="property-value">This NFT has no traits</div>
-            </div>
-        `;
-        return;
-    }
-    
-    // Add standard properties
-    const standardProps = {
-        'Rarity': 'Common',
-        'Edition': '1/1',
-        'Blockchain': 'Ethereum',
-        'Format': 'Image'
-    };
-    
-    // Combine with NFT properties
-    const allProperties = { ...standardProps, ...properties };
-    
-    // Display each property
-    for (const [key, value] of Object.entries(allProperties)) {
-        // Skip if value is object or array
-        if (typeof value === 'object' || Array.isArray(value)) {
-            continue;
-        }
-        
-        const propertyItem = document.createElement('div');
-        propertyItem.className = 'property-item';
-        propertyItem.innerHTML = `
-            <div class="property-type">${key}</div>
-            <div class="property-value">${value}</div>
-        `;
-        propertiesGrid.appendChild(propertyItem);
-    }
-}
-
-// Load NFT activity
-async function loadNFTActivity(nftId) {
-    const activityList = document.getElementById('activityList');
-    
-    try {
-        // Try to fetch activity for this NFT
-        const response = await fetch(`/api/activity/nft/${nftId}`);
-        
-        if (response.ok) {
-            const data = await response.json();
-            
-            if (data.success && data.activities && data.activities.length > 0) {
-                displayActivity(data.activities);
-                return;
-            }
-        }
-        
-        // If no specific activity, show marketplace activity
-        const marketplaceResponse = await fetch('/api/activity/marketplace');
-        
-        if (marketplaceResponse.ok) {
-            const marketplaceData = await marketplaceResponse.json();
-            
-            if (marketplaceData.success && marketplaceData.activities) {
-                // Filter for this NFT or show general activity
-                const filteredActivity = marketplaceData.activities.filter(activity => 
-                    activity.metadata && activity.metadata.nftId === nftId
-                );
-                
-                if (filteredActivity.length > 0) {
-                    displayActivity(filteredActivity.slice(0, 5));
-                } else {
-                    showNoActivity();
-                }
-            } else {
-                showNoActivity();
-            }
-        } else {
-            showNoActivity();
-        }
-        
-    } catch (error) {
-        console.error('Error loading activity:', error);
-        showNoActivity();
-    }
-}
-
-// Display activity
-function displayActivity(activities) {
-    const activityList = document.getElementById('activityList');
-    activityList.innerHTML = '';
-    
-    activities.forEach(activity => {
-        const activityItem = document.createElement('div');
-        activityItem.className = 'activity-item';
-        
-        const iconMap = {
-            'nft_created': { icon: 'fas fa-plus-circle', color: '#9C27B0' },
-            'nft_purchased': { icon: 'fas fa-shopping-cart', color: '#4CAF50' },
-            'nft_sold': { icon: 'fas fa-tag', color: '#FF9800' },
-            'nft_listed': { icon: 'fas fa-list', color: '#2196F3' },
-            'bid_placed': { icon: 'fas fa-gavel', color: '#FF5722' },
-            'default': { icon: 'fas fa-history', color: '#6c63ff' }
-        };
-        
-        const iconInfo = iconMap[activity.type] || iconMap.default;
-        const time = new Date(activity.createdAt).toLocaleString();
-        
-        activityItem.innerHTML = `
-            <div class="activity-icon">
-                <i class="${iconInfo.icon}"></i>
-            </div>
-            <div class="activity-content">
-                <div class="activity-title">${activity.title || 'Activity'}</div>
-                <div class="activity-description">${activity.description || ''}</div>
-                <div class="activity-time">${time}</div>
-            </div>
-        `;
-        
-        activityList.appendChild(activityItem);
-    });
-}
-
-// Show no activity message
-function showNoActivity() {
-    const activityList = document.getElementById('activityList');
-    activityList.innerHTML = `
-        <div class="activity-placeholder">
-            <i class="fas fa-history"></i>
-            <p>No activity yet for this NFT</p>
-        </div>
-    `;
 }
 
 // Update button states based on ownership
 function updateButtonStates(nft) {
     const buyBtn = document.getElementById('buyBtn');
     const makeOfferBtn = document.getElementById('makeOfferBtn');
-    
-    // Check if current user is the owner
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     
-    if (nft.owner && user._id && nft.owner.toString() === user._id) {
+    // Check if current user is the owner
+    if (nft.owner && user._id && (nft.owner._id === user._id || nft.owner.toString() === user._id)) {
         // User owns this NFT
         if (buyBtn) {
             buyBtn.innerHTML = '<i class="fas fa-edit"></i> Edit Listing';
             buyBtn.onclick = editNFT;
+            buyBtn.disabled = false;
         }
         
         if (makeOfferBtn) {
             makeOfferBtn.innerHTML = '<i class="fas fa-trash"></i> Remove';
             makeOfferBtn.onclick = removeNFT;
             makeOfferBtn.className = 'btn btn-secondary';
+            makeOfferBtn.disabled = false;
         }
     } else {
         // User doesn't own this NFT
         if (buyBtn) {
             buyBtn.innerHTML = '<i class="fas fa-shopping-cart"></i> Buy Now';
             buyBtn.onclick = buyNFT;
+            buyBtn.disabled = !nft.isListed;
+            
+            if (!nft.isListed) {
+                buyBtn.title = 'This NFT is not for sale';
+                buyBtn.style.opacity = '0.5';
+                buyBtn.style.cursor = 'not-allowed';
+            }
         }
         
         if (makeOfferBtn) {
             makeOfferBtn.innerHTML = '<i class="fas fa-tag"></i> Make Offer';
             makeOfferBtn.onclick = makeOffer;
+            makeOfferBtn.disabled = !nft.isListed;
         }
     }
 }
 
-// Action functions
-function buyNFT() {
-    if (!currentNFT) return;
+// ========================
+// PURCHASE NFT FUNCTION
+// ========================
+async function buyNFT() {
+    if (isPurchasing) return;
     
+    if (!currentNFT) {
+        alert('NFT data not loaded');
+        return;
+    }
+    
+    // Check if user is logged in
     const token = localStorage.getItem('token');
-    if (!token) {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    
+    if (!token || !user._id) {
         alert('Please login to purchase NFTs');
         window.location.href = '/login';
         return;
     }
     
-    if (confirm(`Buy "${currentNFT.name}" for ${currentNFT.price || 0} WETH?`)) {
-        alert('Purchase feature coming soon!');
-        // In the future: Call API to purchase NFT
+    // Check if NFT is listed for sale
+    if (!currentNFT.isListed) {
+        alert('This NFT is not for sale');
+        return;
+    }
+    
+    // Check if user is trying to buy their own NFT
+    if (currentNFT.owner && user._id && 
+        (currentNFT.owner._id === user._id || currentNFT.owner.toString() === user._id)) {
+        alert('You cannot buy your own NFT');
+        return;
+    }
+    
+    // Get user's balance for confirmation
+    const userBalance = user.wethBalance || user.balance || 0;
+    const price = currentNFT.price || 0;
+    
+    if (userBalance < price) {
+        alert(`Insufficient balance!\n\nYour balance: ${userBalance.toFixed(4)} WETH\nNFT price: ${price.toFixed(4)} WETH\n\nPlease add more WETH to your balance.`);
+        return;
+    }
+    
+    // Confirm purchase
+    const confirmPurchase = confirm(
+        `Buy "${currentNFT.name}" for ${price.toFixed(4)} WETH?\n\n` +
+        `Your balance: ${userBalance.toFixed(4)} WETH\n` +
+        `After purchase: ${(userBalance - price).toFixed(4)} WETH`
+    );
+    
+    if (!confirmPurchase) return;
+    
+    isPurchasing = true;
+    const buyBtn = document.getElementById('buyBtn');
+    const originalText = buyBtn.innerHTML;
+    buyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    buyBtn.disabled = true;
+    
+    try {
+        console.log('🛒 Starting purchase process...');
+        
+        const response = await fetch(`/api/nft/${currentNFT._id}/purchase`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            // Purchase successful
+            alert(`✅ Purchase Successful!\n\nYou bought "${currentNFT.name}" for ${price.toFixed(4)} WETH!`);
+            
+            // Update user balance in localStorage
+            if (data.user) {
+                const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+                storedUser.wethBalance = data.user.wethBalance;
+                storedUser.balance = data.user.balance;
+                localStorage.setItem('user', JSON.stringify(storedUser));
+            }
+            
+            // Update button states (user now owns the NFT)
+            updateButtonStates({
+                ...currentNFT,
+                owner: user._id,
+                isListed: false
+            });
+            
+            // Refresh the page after a short delay
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+            
+        } else {
+            // Purchase failed
+            const errorMsg = data.error || 'Purchase failed. Please try again.';
+            const details = data.details || '';
+            
+            alert(`❌ Purchase Failed\n\n${errorMsg}\n${details}`);
+            
+            buyBtn.innerHTML = originalText;
+            buyBtn.disabled = false;
+        }
+        
+    } catch (error) {
+        console.error('Purchase error:', error);
+        alert('❌ Network error. Please check your connection and try again.');
+        
+        buyBtn.innerHTML = originalText;
+        buyBtn.disabled = false;
+        
+    } finally {
+        isPurchasing = false;
     }
 }
 
+// Make Offer function
 function makeOffer() {
     if (!currentNFT) return;
     
@@ -437,48 +341,100 @@ function makeOffer() {
         return;
     }
     
-    const offerAmount = prompt(`Make offer for "${currentNFT.name}" (Current price: ${currentNFT.price || 0} WETH)\n\nEnter your offer amount in WETH:`);
+    const currentPrice = currentNFT.price || 0;
+    const offerAmount = prompt(
+        `Make offer for "${currentNFT.name}"\n\n` +
+        `Current price: ${currentPrice.toFixed(4)} WETH\n` +
+        `Your WETH balance: ${(JSON.parse(localStorage.getItem('user') || '{}').wethBalance || 0).toFixed(4)} WETH\n\n` +
+        `Enter your offer amount in WETH:`
+    );
     
-    if (offerAmount && !isNaN(offerAmount)) {
-        alert(`Offer of ${offerAmount} WETH submitted! (Feature coming soon)`);
-        // In the future: Call API to submit offer
+    if (offerAmount && !isNaN(offerAmount) && parseFloat(offerAmount) > 0) {
+        const amount = parseFloat(offerAmount);
+        
+        // Validate offer amount
+        if (amount > (currentPrice * 2)) {
+            alert('⚠️ Offer seems too high! Are you sure?');
+        }
+        
+        // In a real app, you would submit this to your backend
+        alert(`Offer of ${amount.toFixed(4)} WETH submitted!\n\nFeature coming soon - this will create a pending offer.`);
+        
+    } else if (offerAmount !== null) {
+        alert('Please enter a valid amount');
     }
 }
 
+// Share NFT function
 function shareNFT() {
     if (!currentNFT) return;
     
     const url = window.location.href;
-    const text = `Check out "${currentNFT.name}" on Magic Eden!`;
+    const text = `Check out "${currentNFT.name}" on Magic Eden! Price: ${(currentNFT.price || 0).toFixed(4)} WETH`;
     
     if (navigator.share) {
         navigator.share({
             title: currentNFT.name,
             text: text,
             url: url
+        }).catch(err => {
+            console.log('Share cancelled:', err);
         });
     } else {
         // Fallback: Copy to clipboard
         navigator.clipboard.writeText(`${text}\n${url}`)
-            .then(() => alert('Link copied to clipboard!'))
-            .catch(() => prompt('Copy this link:', url));
+            .then(() => {
+                alert('✅ Link copied to clipboard!');
+            })
+            .catch(() => {
+                // Show text to copy
+                prompt('Copy this link:', url);
+            });
     }
 }
 
+// Edit NFT function (for owners)
 function editNFT() {
     if (!currentNFT) return;
     
-    alert('Edit NFT feature coming soon!');
-    // In the future: Redirect to edit page
-    // window.location.href = `/nft/${currentNFT._id}/edit`;
+    const editUrl = `/edit-nft/${currentNFT._id}`;
+    window.location.href = editUrl;
 }
 
-function removeNFT() {
+// Remove NFT function (for owners)
+async function removeNFT() {
     if (!currentNFT) return;
     
-    if (confirm(`Are you sure you want to remove "${currentNFT.name}" from marketplace?`)) {
-        alert('Remove NFT feature coming soon!');
-        // In the future: Call API to remove NFT
+    const confirmRemove = confirm(
+        `Are you sure you want to remove "${currentNFT.name}" from marketplace?\n\n` +
+        `This will unlist the NFT but you will still own it.`
+    );
+    
+    if (!confirmRemove) return;
+    
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    try {
+        // Call your API to unlist the NFT
+        const response = await fetch(`/api/nft/${currentNFT._id}/unlist`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            alert('✅ NFT removed from marketplace!');
+            location.reload();
+        } else {
+            alert('❌ Failed to remove NFT');
+        }
+        
+    } catch (error) {
+        console.error('Remove error:', error);
+        alert('❌ Error removing NFT');
     }
 }
 

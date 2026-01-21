@@ -4,6 +4,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const fileUpload = require('express-fileupload');
 const dotenv = require('dotenv');
 const path = require('path');
 const axios = require('axios');
@@ -151,14 +152,20 @@ const upload = multer({
   }
 });
 
+
 // ========================
 // MIDDLEWARE
 // ========================
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // CHANGED: Add limit
+app.use(express.urlencoded({ limit: '50mb', extended: true })); // CHANGED: Add limit
 app.use(express.static(path.join(__dirname, 'views')));
 app.use(express.static(path.join(__dirname, 'public')));
-
+app.use(fileUpload({ // ADD THIS LINE
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+    abortOnLimit: true
+}));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // ========================
 // HELPER FUNCTIONS
 // ========================
@@ -1052,6 +1059,112 @@ app.post('/api/test/add-sample-activities/:userId', auth, async (req, res) => {
     } catch (error) {
         console.error('Sample activities error:', error);
         res.status(500).json({ error: 'Failed to add sample activities' });
+    }
+});
+
+// ========================
+// UPLOAD ENDPOINT
+// ========================
+app.post('/api/upload/image', auth, async (req, res) => {
+    try {
+        console.log('📤 Image upload request received');
+        
+        if (!req.files || !req.files.image) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'No image file provided' 
+            });
+        }
+        
+        const image = req.files.image;
+        const maxSize = 50 * 1024 * 1024; // 50MB
+        
+        // Validate file size
+        if (image.size > maxSize) {
+            return res.status(400).json({
+                success: false,
+                error: `File size (${(image.size / 1024 / 1024).toFixed(2)}MB) exceeds maximum limit of 50MB`
+            });
+        }
+        
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(image.mimetype)) {
+            return res.status(400).json({
+                success: false,
+                error: 'File type not supported. Please upload JPEG, PNG, GIF, or WebP'
+            });
+        }
+        
+        console.log(`📁 Uploading file: ${image.name} (${(image.size / 1024 / 1024).toFixed(2)}MB)`);
+        
+        // Create uploads directory if it doesn't exist
+        const uploadDir = path.join(__dirname, 'uploads');
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        
+        // Generate unique filename
+        const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(image.name);
+        const uploadPath = path.join(uploadDir, uniqueName);
+        
+        // Save file locally
+        await image.mv(uploadPath);
+        
+        console.log('✅ File saved locally:', uploadPath);
+        
+        // Option 1: Upload to Cloudinary (if configured)
+        let cloudinaryId = null;
+        let imageUrl = null;
+        
+        if (process.env.CLOUDINARY_CLOUD_NAME && 
+            process.env.CLOUDINARY_API_KEY && 
+            process.env.CLOUDINARY_API_SECRET) {
+            
+            try {
+                console.log('☁️ Uploading to Cloudinary...');
+                const cloudinaryResult = await cloudinary.uploader.upload(uploadPath, {
+                    folder: 'magic-eden-nfts',
+                    resource_type: 'auto'
+                });
+                
+                imageUrl = cloudinaryResult.secure_url;
+                cloudinaryId = cloudinaryResult.public_id;
+                
+                console.log('✅ Cloudinary upload successful:', imageUrl);
+                
+                // Remove local file after Cloudinary upload
+                fs.unlinkSync(uploadPath);
+                
+            } catch (cloudinaryError) {
+                console.error('❌ Cloudinary upload failed:', cloudinaryError.message);
+                // Fall back to local storage
+            }
+        }
+        
+        // Option 2: Use local URL (fallback)
+        if (!imageUrl) {
+            imageUrl = `http://localhost:5000/uploads/${uniqueName}`;
+            cloudinaryId = `local_${Date.now()}`;
+        }
+        
+        res.json({
+            success: true,
+            message: 'Image uploaded successfully',
+            imageUrl: imageUrl,
+            cloudinaryId: cloudinaryId,
+            fileName: image.name,
+            fileSize: image.size,
+            mimetype: image.mimetype
+        });
+        
+    } catch (error) {
+        console.error('❌ Upload error:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to upload image',
+            message: error.message 
+        });
     }
 });
 

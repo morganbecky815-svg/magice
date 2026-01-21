@@ -77,12 +77,12 @@ router.post('/', auth, async (req, res) => {
 });
 
 // ========================
-// MINT NFT (WITH ETH DEDUCTION)
+// MINT NFT (WITH ETH DEDUCTION) - UPDATED FOR CLOUDINARY
 // ========================
 router.post('/mint', auth, async (req, res) => {
     try {
-        const { name, collectionName, price, category, image } = req.body;
-        const mintingFee = 0.01; // 0.01 ETH minting fee
+        const { name, collectionName, price, category, imageUrl, cloudinaryId } = req.body;
+        const mintingFee = 0.1; // 0.1 ETH minting fee
         
         console.log('🎨 Minting NFT:', name);
         
@@ -96,7 +96,7 @@ router.post('/mint', auth, async (req, res) => {
             });
         }
         
-        // 2. Deduct minting fee - FIXED: Use findByIdAndUpdate instead of .save()
+        // 2. Deduct minting fee
         const newEthBalance = req.user.ethBalance - mintingFee;
         await User.findByIdAndUpdate(req.user._id, {
             ethBalance: newEthBalance
@@ -105,16 +105,19 @@ router.post('/mint', auth, async (req, res) => {
         // 3. Generate unique token ID
         const tokenId = 'ME' + Date.now().toString(36).toUpperCase();
         
-        // 4. Create NFT
+        // 4. Create NFT - Use Cloudinary data
         const nft = new NFT({
             name,
             collectionName: collectionName || 'Unnamed Collection',
-            price: parseFloat(price) || 0.01,
+            price: parseFloat(price) || 0.1,
             category: category || 'art',
-            image,
+            image: imageUrl || '/images/default-nft.png',
+            cloudinaryId: cloudinaryId || 'temp_' + Date.now(),
             owner: req.user._id,
             tokenId,
-            isListed: true
+            isListed: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
         });
         
         await nft.save();
@@ -208,8 +211,7 @@ router.post('/:id/purchase', auth, async (req, res) => {
         console.log('✅ Seller found:', seller.email);
         console.log('Seller WETH before:', seller.wethBalance);
         
-        // 6. Process payment - FIXED: Using findByIdAndUpdate instead of .save()
-        // Deduct from buyer
+        // 6. Process payment
         const oldBuyerBalance = req.user.wethBalance;
         const newBuyerWethBalance = req.user.wethBalance - nft.price;
         
