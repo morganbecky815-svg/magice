@@ -40,8 +40,6 @@
                         <input type="text" id="globalSearch" 
                                placeholder="Search NFTs,Collections,creators..." 
                                onkeypress="handleSearchKeypress(event)">
-                           
-                        </button>
                     </div>
                     
                     <!-- Dynamic Login/User Area -->
@@ -166,34 +164,46 @@
                 </div>
             </div>
 
-            <!-- Trending NFTs Section -->
+            <!-- Trending NFTs Section (NOW WITH CAROUSEL) -->
             <section class="category-section" id="trendingSection">
                 <div class="section-header">
                     <h2><i class="fas fa-fire"></i> Trending Now</h2>
                     <a href="#" class="see-all" onclick="filterNFTs('trending'); return false;">See all</a>
                 </div>
-                <div class="nft-grid trending-grid" id="trendingGrid">
-                    <!-- Trending NFTs will load here -->
+                
+                <!-- CAROUSEL CONTAINER ADDED HERE -->
+                <div class="marketplace-container">
+                    <button class="scroll-btn left-btn">‹</button>
+                    <div class="nft-carousel trending-grid" id="trendingGrid">
+                        <!-- Trending NFTs will load here -->
+                    </div>
+                    <button class="scroll-btn right-btn">›</button>
                 </div>
             </section>
 
-            <!-- Newest NFTs Section -->
+            <!-- Newest NFTs Section (NOW WITH CAROUSEL) -->
             <section class="category-section" id="newestSection">
                 <div class="section-header">
                     <h2><i class="fas fa-bolt"></i> Newly Listed</h2>
                     <a href="#" class="see-all" onclick="filterNFTs('newest'); return false;">See all</a>
                 </div>
-                <div class="nft-grid newest-grid" id="newestGrid">
-                    <!-- Newest NFTs will load here -->
+                
+                <!-- CAROUSEL CONTAINER ADDED HERE -->
+                <div class="marketplace-container">
+                    <button class="scroll-btn left-btn">‹</button>
+                    <div class="nft-carousel newest-grid" id="newestGrid">
+                        <!-- Newest NFTs will load here -->
+                    </div>
+                    <button class="scroll-btn right-btn">›</button>
                 </div>
             </section>
 
-            <!-- Main NFT Grid Section -->
-            <section class="marketplace-section">
+            <!-- All NFTs Marketplace Section (NOW WITH CAROUSEL) -->
+            <section class="marketplace-section" id="allNFTsSection">
                 <div class="section-header">
                     <h2>All NFTs Marketplace</h2>
                     <div class="results-info">
-                        Showing <span id="resultsCount">0</span> NFTs
+                        Browse our complete collection
                     </div>
                 </div>
                 
@@ -216,12 +226,16 @@
                     </div>
                 </div>
                 
-                <!-- Main NFT Grid -->
-                <div class="nft-grid enhanced-grid" id="nftGrid">
-                    <div class="loading-spinner">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <p>Loading NFTs...</p>
+                <!-- All NFTs in CAROUSEL -->
+                <div class="marketplace-container">
+                    <button class="scroll-btn left-btn">‹</button>
+                    <div class="nft-carousel enhanced-grid" id="nftGrid">
+                        <div class="loading-spinner">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Loading NFTs...</p>
+                        </div>
                     </div>
+                    <button class="scroll-btn right-btn">›</button>
                 </div>
                 
                 <!-- Load More Button -->

@@ -641,3 +641,124 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* ===== NFT CAROUSEL STYLES ===== */
+.marketplace-container {
+    position: relative;
+    overflow: hidden;
+    padding: 20px 0;
+    margin: 20px 0;
+}
+
+.nft-carousel {
+    display: flex;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    gap: 20px;
+    padding: 10px;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+/* Hide scrollbar for Chrome/Safari */
+.nft-carousel::-webkit-scrollbar {
+    display: none;
+}
+
+/* Navigation buttons */
+.scroll-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(138, 43, 226, 0.8);
+    color: white;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+}
+
+.left-btn {
+    left: 10px;
+}
+
+.right-btn {
+    right: 10px;
+}
+
+.scroll-btn:hover {
+    background: rgba(138, 43, 226, 1);
+    transform: translateY(-50%) scale(1.1);
+}
+
+/* Adjust card width for carousel */
+.nft-carousel .nft-card.enhanced-card {
+    flex: 0 0 auto; /* Don't grow, don't shrink */
+    width: 300px; /* Fixed width for carousel */
+    min-width: 300px; /* Prevent shrinking */
+}
+
+/* Remove list view from carousel */
+.nft-carousel .nft-card.enhanced-card.list-view {
+    height: auto;
+    flex-direction: column;
+}
+
+.nft-carousel .nft-card.enhanced-card.list-view .nft-image-container {
+    width: 100%;
+    height: 250px;
+}
+
+/* Keep original grid style for non-carousel sections */
+.enhanced-grid:not(.nft-carousel) {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+/* Auto-scroll animation */
+@keyframes scrollLeft {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-100%);
+    }
+}
+
+/* Optional: Infinite scroll animation */
+.nft-carousel.auto-scroll {
+    animation: scrollLeft 30s linear infinite;
+}
+
+.nft-carousel.auto-scroll:hover {
+    animation-play-state: paused;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .nft-carousel .nft-card.enhanced-card {
+        width: 280px;
+        min-width: 280px;
+    }
+    
+    .scroll-btn {
+        width: 35px;
+        height: 35px;
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .nft-carousel .nft-card.enhanced-card {
+        width: 250px;
+        min-width: 250px;
+    }
+}

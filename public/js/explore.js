@@ -945,6 +945,174 @@ function scrollToNFTs() {
 }
 
 // ============================================
+// NFT CAROUSEL FUNCTIONALITY
+// ============================================
+
+// Initialize all carousels
+function initCarousels() {
+    console.log('🎠 Initializing NFT carousels...');
+    
+    // Get all carousel containers
+    const carousels = document.querySelectorAll('.nft-carousel');
+    
+    carousels.forEach(carousel => {
+        initSingleCarousel(carousel);
+    });
+}
+
+// Initialize a single carousel
+function initSingleCarousel(carousel) {
+    const container = carousel.closest('.marketplace-container');
+    if (!container) return;
+    
+    const leftBtn = container.querySelector('.left-btn');
+    const rightBtn = container.querySelector('.right-btn');
+    
+    // Setup button controls
+    if (leftBtn) {
+        leftBtn.addEventListener('click', () => {
+            carousel.scrollBy({ left: -300, behavior: 'smooth' });
+        });
+    }
+    
+    if (rightBtn) {
+        rightBtn.addEventListener('click', () => {
+            carousel.scrollBy({ left: 300, behavior: 'smooth' });
+        });
+    }
+    
+    // Setup auto-scroll
+    setupAutoScroll(carousel);
+    
+    // Add touch support for mobile
+    setupTouchSupport(carousel);
+}
+
+// Setup auto-scrolling (right to left)
+function setupAutoScroll(carousel) {
+    let scrollSpeed = 0.5; // Adjust speed here (pixels per frame)
+    let isPaused = false;
+    let animationId = null;
+    
+    // Start auto-scroll
+    function startAutoScroll() {
+        const scroll = () => {
+            if (!isPaused) {
+                // Move left (right-to-left scrolling)
+                carousel.scrollLeft += scrollSpeed;
+                
+                // Loop back to start when reaching end
+                if (carousel.scrollLeft >= 
+                    carousel.scrollWidth - carousel.clientWidth - 10) {
+                    carousel.scrollLeft = 0;
+                }
+            }
+            animationId = requestAnimationFrame(scroll);
+        };
+        animationId = requestAnimationFrame(scroll);
+    }
+    
+    // Pause on hover
+    carousel.addEventListener('mouseenter', () => {
+        isPaused = true;
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+        }
+    });
+    
+    carousel.addEventListener('mouseleave', () => {
+        isPaused = false;
+        if (!animationId) {
+            startAutoScroll();
+        }
+    });
+    
+    // Start auto-scroll
+    startAutoScroll();
+}
+
+// Add touch support for mobile
+function setupTouchSupport(carousel) {
+    let isDragging = false;
+    let startX;
+    let scrollLeft;
+    
+    carousel.addEventListener('touchstart', (e) => {
+        isDragging = true;
+        startX = e.touches[0].pageX - carousel.offsetLeft;
+        scrollLeft = carousel.scrollLeft;
+    });
+    
+    carousel.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        const x = e.touches[0].pageX - carousel.offsetLeft;
+        const walk = (x - startX) * 2;
+        carousel.scrollLeft = scrollLeft - walk;
+    });
+    
+    carousel.addEventListener('touchend', () => {
+        isDragging = false;
+    });
+}
+
+// Update display functions to use carousel
+function displayTrendingNFTs(nfts) {
+    const trendingGrid = document.getElementById('trendingGrid');
+    if (!trendingGrid) return;
+    
+    // Sort by popularity and take top 6
+    const trending = [...nfts]
+        .sort((a, b) => (b.likes || 0) - (a.likes || 0))
+        .slice(0, 6);
+    
+    trendingGrid.innerHTML = trending.map(nft => createEnhancedNFTCard(nft)).join('');
+    
+    // Reinitialize carousel after content loads
+    setTimeout(() => initSingleCarousel(trendingGrid), 100);
+}
+
+function displayNewestNFTs(nfts) {
+    const newestGrid = document.getElementById('newestGrid');
+    if (!newestGrid) return;
+    
+    // Sort by creation date and take newest 6
+    const newest = [...nfts]
+        .sort((a, b) => new Date(b.createdAt || b.created_at || 0) - new Date(a.createdAt || a.created_at || 0))
+        .slice(0, 6);
+    
+    newestGrid.innerHTML = newest.map(nft => createEnhancedNFTCard(nft)).join('');
+    
+    // Reinitialize carousel after content loads
+    setTimeout(() => initSingleCarousel(newestGrid), 100);
+}
+
+// Update displayNFTs for main grid (optional - keep as grid or make carousel)
+function displayNFTs(nfts) {
+    const nftGrid = document.getElementById('nftGrid');
+    if (!nftGrid) return;
+    
+    if (nfts.length === 0) {
+        nftGrid.innerHTML = `
+            <div class="no-nfts">
+                <i class="fas fa-search"></i>
+                <h3>No NFTs to display</h3>
+                <p>Try changing your filters or check back later</p>
+            </div>
+        `;
+        return;
+    }
+    
+    nftGrid.innerHTML = nfts.map(nft => createEnhancedNFTCard(nft)).join('');
+    
+    // If using carousel for main grid, initialize it
+    if (nftGrid.classList.contains('nft-carousel')) {
+        setTimeout(() => initSingleCarousel(nftGrid), 100);
+    }
+}
+
+// ============================================
 // INITIALIZATION
 // ============================================
 
@@ -996,6 +1164,23 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Update the DOMContentLoaded event listener
+document.addEventListener('DOMContentLoaded', function() {
+    // If on homepage, setup enhanced features
+    if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+        console.log('🎮 Enhanced Explore initialized');
+        
+        // Load NFTs first
+        loadNFTs();
+        
+        // Initialize carousels after a delay (to ensure content is loaded)
+        setTimeout(() => {
+            initCarousels();
+        }, 1000);
+        
+    }
+});
+
 // ============================================
 // EXPORT FUNCTIONS TO GLOBAL SCOPE
 // ============================================
@@ -1013,7 +1198,7 @@ window.scrollToNFTs = scrollToNFTs;
 window.viewNFTDetails = viewNFTDetails;
 window.likeNFT = likeNFT;
 window.viewCollection = viewCollection;
-
+window.initCarousels = initCarousels;
 // WETH balance functions
 window.loadExploreWethBalance = loadExploreWethBalance;
 window.updateExploreWethDisplay = updateExploreWethDisplay;
