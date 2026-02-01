@@ -415,6 +415,7 @@ async function loadDashboard() {
     startDashboardAutoRefresh();
 }
 
+
 // ✅ Display dashboard data
 function displayDashboardData(user) {
     console.log("📊 Displaying dashboard data for:", user.email);
@@ -827,11 +828,11 @@ function refreshBalance() {
 }
 
 function transferFunds() {
-    alert('Transfer funds feature coming soon!');
+   window.location.href = '/transfer';
 }
 
 function showStaking() {
-    alert('Staking feature coming soon!');
+    window.location.href = '/staking';
 }
 
 // ✅ Initialize dashboard

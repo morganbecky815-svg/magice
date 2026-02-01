@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staking | Magic Eden</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/dashboard.css">
+    <link rel="stylesheet" href="/css/transfer.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .simple-nav {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .simple-nav a {
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .simple-nav .back-btn {
+            background: rgba(99, 102, 241, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+        }
+        
+        .simple-nav .back-btn:hover {
+            background: rgba(99, 102, 241, 0.3);
+        }
+        
+        .simple-nav .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .simple-nav .logo i {
+            color: #6366f1;
+        }
+        
+        .staking-page {
+            padding: 2rem 0;
+            min-height: calc(100vh - 70px);
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        }
+        
+        .staking-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .staking-card {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            padding: 1.5rem;
+        }
+        
+        .staking-card-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .staking-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+        }
+        
+        .staking-icon.eth {
+            background: linear-gradient(135deg, #627eea, #8a97d4);
+        }
+        
+        .staking-icon.weth {
+            background: linear-gradient(135deg, #f7931a, #f9a743);
+        }
+        
+        .staking-apy {
+            background: linear-gradient(135deg, #10b981, #34d399);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .staking-input-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .staking-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .staking-stat {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            text-align: center;
+        }
+        
+        .staking-stat span {
+            display: block;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .staking-stat strong {
+            display: block;
+            color: white;
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <!-- Simple Navigation -->
+    <nav class="simple-nav">
+        <a href="/dashboard" class="back-btn">
+            <i class="fas fa-arrow-left"></i>
+            <span>Back to Dashboard</span>
+        </a>
+        <a href="/" class="logo">
+            <i class="fas fa-gem"></i>
+            <span>Magic Eden</span>
+        </a>
+        <div></div> <!-- Spacer -->
+    </nav>
+
+    <main class="staking-page">
+        <div class="container">
+            <!-- Page Header -->
+            <div class="page-header">
+                <h1><i class="fas fa-lock"></i> Staking</h1>
+                <p>Stake your ETH and WETH to earn rewards</p>
+            </div>
+
+            <!-- Staking Grid -->
+            <div class="staking-grid">
+                <!-- ETH Staking Card -->
+                <div class="staking-card">
+                    <div class="staking-card-header">
+                        <div class="staking-icon eth">
+                            <i class="fab fa-ethereum"></i>
+                        </div>
+                        <div>
+                            <h3>ETH Staking Pool</h3>
+                            <div class="staking-apy">APY: 4.8%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="staking-stats">
+                        <div class="staking-stat">
+                            <span>Your Stake</span>
+                            <strong id="ethStakedAmount">0.00 ETH</strong>
+                        </div>
+                        <div class="staking-stat">
+                            <span>Rewards</span>
+                            <strong id="ethRewards">0.00 ETH</strong>
+                        </div>
+                    </div>
+                    
+                    <div class="staking-input-group">
+                        <label>Amount to Stake</label>
+                        <div class="input-with-max">
+                            <input type="number" 
+                                   id="ethStakeAmount" 
+                                   placeholder="0.00"
+                                   min="0.01"
+                                   step="0.01">
+                            <span class="currency">ETH</span>
+                            <button class="max-btn" onclick="setMaxETH()">MAX</button>
+                        </div>
+                        <div class="balance-hint">
+                            Available: <span id="ethAvailableBalance">0.0000 ETH</span>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem;">
+                        <button class="btn btn-primary" style="flex: 1;" onclick="stakeETH()">
+                            <i class="fas fa-lock"></i> Stake
+                        </button>
+                        <button class="btn btn-secondary" style="flex: 1;" onclick="unstakeETH()">
+                            <i class="fas fa-unlock"></i> Unstake
+                        </button>
+                    </div>
+                </div>
+
+                <!-- WETH Staking Card -->
+                <div class="staking-card">
+                    <div class="staking-card-header">
+                        <div class="staking-icon weth">
+                            <i class="fas fa-coins"></i>
+                        </div>
+                        <div>
+                            <h3>WETH Staking Pool</h3>
+                            <div class="staking-apy">APY: 5.2%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="staking-stats">
+                        <div class="staking-stat">
+                            <span>Your Stake</span>
+                            <strong id="wethStakedAmount">0.00 WETH</strong>
+                        </div>
+                        <div class="staking-stat">
+                            <span>Rewards</span>
+                            <strong id="wethRewards">0.00 WETH</strong>
+                        </div>
+                    </div>
+                    
+                    <div class="staking-input-group">
+                        <label>Amount to Stake</label>
+                        <div class="input-with-max">
+                            <input type="number" 
+                                   id="wethStakeAmount" 
+                                   placeholder="0.00"
+                                   min="0.01"
+                                   step="0.01">
+                            <span class="currency">WETH</span>
+                            <button class="max-btn" onclick="setMaxWETH()">MAX</button>
+                        </div>
+                        <div class="balance-hint">
+                            Available: <span id="wethAvailableBalance">0.0000 WETH</span>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem;">
+                        <button class="btn btn-primary" style="flex: 1;" onclick="stakeWETH()">
+                            <i class="fas fa-lock"></i> Stake
+                        </button>
+                        <button class="btn btn-secondary" style="flex: 1;" onclick="unstakeWETH()">
+                            <i class="fas fa-unlock"></i> Unstake
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rewards Calculator -->
+            <div style="margin-top: 3rem; padding: 2rem; background: rgba(30, 41, 59, 0.8); border-radius: 1rem;">
+                <h3><i class="fas fa-calculator"></i> Rewards Calculator</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem;">
+                    <div>
+                        <label>Amount</label>
+                        <input type="number" id="calcAmount" value="1" min="0.1" step="0.1" style="width: 100%;">
+                    </div>
+                    <div>
+                        <label>Currency</label>
+                        <select id="calcCurrency" style="width: 100%;">
+                            <option value="eth">ETH</option>
+                            <option value="weth">WETH</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn btn-primary" style="margin-top: 1rem;" onclick="calculateRewards()">
+                    Calculate Rewards
+                </button>
+                <div id="calcResults" style="margin-top: 1rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 0.75rem; display: none;">
+                    <!-- Results will appear here -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/app.js"></script>
+    <script src="/js/eth-price-service.js"></script>
+    <script>
+        // Simple staking functionality
+        let stakingData = {
+            ethStaked: 0,
+            wethStaked: 0,
+            ethRewards: 0,
+            wethRewards: 0
+        };
+        
+        function loadStakingData() {
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (user) {
+                document.getElementById('ethAvailableBalance').textContent = 
+                    `${user.ethBalance || 0} ETH`;
+                document.getElementById('wethAvailableBalance').textContent = 
+                    `${user.wethBalance || 0} WETH`;
+                
+                // Update display
+                document.getElementById('ethStakedAmount').textContent = 
+                    `${stakingData.ethStaked.toFixed(4)} ETH`;
+                document.getElementById('wethStakedAmount').textContent = 
+                    `${stakingData.wethStaked.toFixed(4)} WETH`;
+                document.getElementById('ethRewards').textContent = 
+                    `${stakingData.ethRewards.toFixed(4)} ETH`;
+                document.getElementById('wethRewards').textContent = 
+                    `${stakingData.wethRewards.toFixed(4)} WETH`;
+            }
+        }
+        
+        function setMaxETH() {
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (user && user.ethBalance > 0) {
+                document.getElementById('ethStakeAmount').value = 
+                    (user.ethBalance * 0.95).toFixed(4);
+            }
+        }
+        
+        function setMaxWETH() {
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (user && user.wethBalance > 0) {
+                document.getElementById('wethStakeAmount').value = 
+                    (user.wethBalance * 0.95).toFixed(4);
+            }
+        }
+        
+        function stakeETH() {
+            const amount = parseFloat(document.getElementById('ethStakeAmount').value);
+            if (!amount || amount <= 0) {
+                alert('Please enter a valid amount');
+                return;
+            }
+            
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (!user || user.ethBalance < amount) {
+                alert('Insufficient ETH balance');
+                return;
+            }
+            
+            if (confirm(`Stake ${amount} ETH?`)) {
+                stakingData.ethStaked += amount;
+                user.ethBalance -= amount;
+                localStorage.setItem('user', JSON.stringify(user));
+                loadStakingData();
+                document.getElementById('ethStakeAmount').value = '';
+                alert(`Successfully staked ${amount} ETH!`);
+            }
+        }
+        
+        function stakeWETH() {
+            const amount = parseFloat(document.getElementById('wethStakeAmount').value);
+            if (!amount || amount <= 0) {
+                alert('Please enter a valid amount');
+                return;
+            }
+            
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (!user || user.wethBalance < amount) {
+                alert('Insufficient WETH balance');
+                return;
+            }
+            
+            if (confirm(`Stake ${amount} WETH?`)) {
+                stakingData.wethStaked += amount;
+                user.wethBalance -= amount;
+                localStorage.setItem('user', JSON.stringify(user));
+                loadStakingData();
+                document.getElementById('wethStakeAmount').value = '';
+                alert(`Successfully staked ${amount} WETH!`);
+            }
+        }
+        
+        function unstakeETH() {
+            const amount = parseFloat(prompt('Enter amount to unstake:', stakingData.ethStaked.toFixed(4)));
+            if (!amount || amount <= 0 || amount > stakingData.ethStaked) {
+                alert('Invalid amount');
+                return;
+            }
+            
+            if (confirm(`Unstake ${amount} ETH?`)) {
+                stakingData.ethStaked -= amount;
+                const user = JSON.parse(localStorage.getItem('user'));
+                user.ethBalance += amount;
+                localStorage.setItem('user', JSON.stringify(user));
+                loadStakingData();
+                alert(`Successfully unstaked ${amount} ETH!`);
+            }
+        }
+        
+        function unstakeWETH() {
+            const amount = parseFloat(prompt('Enter amount to unstake:', stakingData.wethStaked.toFixed(4)));
+            if (!amount || amount <= 0 || amount > stakingData.wethStaked) {
+                alert('Invalid amount');
+                return;
+            }
+            
+            if (confirm(`Unstake ${amount} WETH?`)) {
+                stakingData.wethStaked -= amount;
+                const user = JSON.parse(localStorage.getItem('user'));
+                user.wethBalance += amount;
+                localStorage.setItem('user', JSON.stringify(user));
+                loadStakingData();
+                alert(`Successfully unstaked ${amount} WETH!`);
+            }
+        }
+        
+        function calculateRewards() {
+            const amount = parseFloat(document.getElementById('calcAmount').value) || 1;
+            const currency = document.getElementById('calcCurrency').value;
+            
+            const apy = currency === 'eth' ? 4.8 : 5.2;
+            const annualRewards = amount * (apy / 100);
+            const monthlyRewards = annualRewards / 12;
+            const dailyRewards = annualRewards / 365;
+            
+            const results = document.getElementById('calcResults');
+            results.innerHTML = `
+                <h4>Estimated Rewards for ${amount} ${currency.toUpperCase()}</h4>
+                <p>APY: ${apy}%</p>
+                <p>Daily: ${dailyRewards.toFixed(6)} ${currency.toUpperCase()}</p>
+                <p>Monthly: ${monthlyRewards.toFixed(6)} ${currency.toUpperCase()}</p>
+                <p>Yearly: ${annualRewards.toFixed(6)} ${currency.toUpperCase()}</p>
+                <p>Total after 1 year: ${(amount + annualRewards).toFixed(6)} ${currency.toUpperCase()}</p>
+            `;
+            results.style.display = 'block';
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStakingData();
+        });
+    </script>
+</body>
+</html>

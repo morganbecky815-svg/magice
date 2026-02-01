@@ -23,6 +23,8 @@ const fs = require('fs');
 const User = require('./models/User');
 const Activity = require('./models/Activity');
 const ActivityLogger = require('./utils/activityLogger');
+const Transaction = require('./models/Transaction');
+const Staking = require('./models/Staking');
 
 // ========================
 // LOAD ENVIRONMENT VARIABLES
@@ -244,6 +246,17 @@ app.get('/nft/:nftId', (req, res) => {
 });
 
 // ========================
+// NEW ROUTES FOR STAKING & TRANSFER
+// ========================
+app.get('/transfer', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'transfer.html'));
+});
+
+app.get('/staking', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'staking.html'));
+});
+
+// ========================
 // API ROUTES
 // ========================
 const authRoutes = require('./routes/auth');
@@ -257,6 +270,894 @@ app.use('/api/user', userRoutes);
 app.use('/api/collection', collectionRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/support/tickets', ticketRoutes);
+
+// ============================================
+// STAKING & TRANSFER API ROUTES
+// ============================================
+
+// ✅ Get user's staking data
+app.get('/api/staking/user-stakes', auth, async (req, res) => {
+    try {
+        const userId = req.user._id;
+        
+        console.log(`📊 Fetching staking data for user: ${userId}`);
+        
+        // Fetch user's staking data from database
+        let userStakes = await Staking.findOne({ userId });
+        
+        if (!userStakes) {
+            console.log('🆕 No staking data found, creating default');
+            // Create default staking data
+            userStakes = new Staking({
+                userId,
+                ethStaked: 0,
+                wethStaked: 0,
+                ethRewards: 0,
+                wethRewards: 0,
+                apy: {
+                    eth: 4.8,
+                    weth: 5.2
+                },
+                lastRewardCalculation: new Date()
+            });
+            
+            await userStakes.save();
+        }
+        
+        // Calculate total values
+        const totalStaked = userStakes.ethStaked + userStakes.wethStaked;
+        const totalRewards = userStakes.ethRewards + userStakes.wethRewards;
+        
+        console.log(`✅ Found staking data: ${totalStaked} ETH staked, ${totalRewards} ETH rewards`);
+        
+        res.json({
+            success: true,
+            stakingData: {
+                ethStaked: userStakes.ethStaked,
+                wethStaked: userStakes.wethStaked,
+                ethRewards: userStakes.ethRewards,
+                wethRewards: userStakes.wethRewards,
+                apy: userStakes.apy || { eth: 4.8, weth: 5.2 },
+                totalStaked,
+                totalRewards,
+                lastRewardCalculation: userStakes.lastRewardCalculation
+            }
+        });
+    } catch (error) {
+        console.error('❌ Failed to fetch staking data:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch staking data'
+        });
+    }
+});
+
+// ✅ Get staking history
+app.get('/api/staking/history', auth, async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { type, limit = 50 } = req.query;
+        
+        let query = { 
+            $or: [
+                { fromUser: userId },
+                { toUser: userId }
+            ],
+            type: { $in: ['staking', 'unstaking', 'reward'] }
+        };
+        
+        if (type && ['staking', 'unstaking', 'reward'].includes(type)) {
+            query.type = type;
+        }
+        
+        const history = await Transaction.find(query)
+            .sort({ createdAt: -1 })
+            .limit(parseInt(limit))
+            .select('-__v -metadata');
+        
+        res.json({
+            success: true,
+            history: history.map(tx => ({
+                type: tx.type,
+                currency: tx.currency,
+                amount: tx.amount,
+                timestamp: tx.createdAt,
+                status: tx.status
+            }))
+        });
+        
+    } catch (error) {
+        console.error('❌ Failed to fetch staking history:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch staking history'
+        });
+    }
+});
+
+// ✅ Stake tokens
+app.post('/api/staking/stake', auth, async (req, res) => {
+    try {
+        const { currency, amount } = req.body;
+        const userId = req.user._id;
+        
+        console.log(`🎯 Staking request: ${amount} ${currency} from user ${userId}`);
+        
+        // Validate input
+        if (!currency || !['eth', 'weth'].includes(currency.toLowerCase())) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid currency. Use "eth" or "weth"'
+            });
+        }
+        
+        const stakeAmount = parseFloat(amount);
+        if (isNaN(stakeAmount) || stakeAmount <= 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid amount. Must be positive number'
+            });
+        }
+        
+        // Get user data
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+        
+        // Check balance
+        const balance = currency === 'eth' ? user.ethBalance : user.wethBalance;
+        if (balance < stakeAmount) {
+            return res.status(400).json({
+                success: false,
+                error: `Insufficient ${currency.toUpperCase()} balance. Available: ${balance.toFixed(4)}`
+            });
+        }
+        
+        // Check minimum stake
+        const minStake = 0.01;
+        if (stakeAmount < minStake) {
+            return res.status(400).json({
+                success: false,
+                error: `Minimum stake amount is ${minStake} ${currency.toUpperCase()}`
+            });
+        }
+        
+        // Update user balance
+        if (currency === 'eth') {
+            user.ethBalance -= stakeAmount;
+        } else {
+            user.wethBalance -= stakeAmount;
+        }
+        
+        await user.save();
+        
+        // Update or create staking record
+        let staking = await Staking.findOne({ userId });
+        if (!staking) {
+            staking = new Staking({ userId });
+        }
+        
+        if (currency === 'eth') {
+            staking.ethStaked += stakeAmount;
+        } else {
+            staking.wethStaked += stakeAmount;
+        }
+        
+        // Add to stakes array
+        staking.stakes.push({
+            type: currency,
+            amount: stakeAmount,
+            duration: 30,
+            status: 'active'
+        });
+        
+        await staking.save();
+        
+        // Create transaction record
+        const transaction = new Transaction({
+            type: 'staking',
+            fromUser: userId,
+            amount: stakeAmount,
+            currency: currency.toUpperCase(),
+            status: 'completed',
+            metadata: {
+                stakeId: staking._id,
+                duration: 30,
+                stakeType: currency
+            }
+        });
+        await transaction.save();
+        
+        // Log activity
+        try {
+            const activityLogger = require('./utils/activityLogger');
+            await activityLogger.logStaking(userId, currency, stakeAmount);
+            console.log('📝 Activity logged for staking');
+        } catch (activityError) {
+            console.log('⚠️ Could not log staking activity:', activityError.message);
+        }
+        
+        console.log(`✅ Successfully staked ${stakeAmount} ${currency.toUpperCase()}`);
+        
+        res.json({
+            success: true,
+            message: `Successfully staked ${stakeAmount.toFixed(4)} ${currency.toUpperCase()}`,
+            stakingData: {
+                ethStaked: staking.ethStaked,
+                wethStaked: staking.wethStaked,
+                ethRewards: staking.ethRewards,
+                wethRewards: staking.wethRewards
+            },
+            newBalance: currency === 'eth' ? user.ethBalance : user.wethBalance
+        });
+        
+    } catch (error) {
+        console.error('❌ Staking error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to stake tokens',
+            message: error.message
+        });
+    }
+});
+
+// ✅ Unstake tokens
+app.post('/api/staking/unstake', auth, async (req, res) => {
+    try {
+        const { currency, amount } = req.body;
+        const userId = req.user._id;
+        
+        console.log(`🔄 Unstaking request: ${amount} ${currency} from user ${userId}`);
+        
+        // Validate input
+        if (!currency || !['eth', 'weth'].includes(currency.toLowerCase())) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid currency. Use "eth" or "weth"'
+            });
+        }
+        
+        const unstakeAmount = parseFloat(amount);
+        if (isNaN(unstakeAmount) || unstakeAmount <= 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid amount. Must be positive number'
+            });
+        }
+        
+        // Get staking data
+        const staking = await Staking.findOne({ userId });
+        if (!staking) {
+            return res.status(400).json({
+                success: false,
+                error: 'No staking data found'
+            });
+        }
+        
+        // Check staked amount
+        const stakedAmount = currency === 'eth' ? staking.ethStaked : staking.wethStaked;
+        if (stakedAmount < unstakeAmount) {
+            return res.status(400).json({
+                success: false,
+                error: `Cannot unstake more than staked. Staked: ${stakedAmount.toFixed(4)} ${currency.toUpperCase()}`
+            });
+        }
+        
+        // Update staking record
+        if (currency === 'eth') {
+            staking.ethStaked -= unstakeAmount;
+        } else {
+            staking.wethStaked -= unstakeAmount;
+        }
+        
+        // Update the stakes array
+        staking.stakes = staking.stakes.map(stake => {
+            if (stake.type === currency && stake.status === 'active') {
+                // In a real app, you'd track which specific stake is being withdrawn
+                return stake;
+            }
+            return stake;
+        });
+        
+        await staking.save();
+        
+        // Update user balance
+        const user = await User.findById(userId);
+        if (currency === 'eth') {
+            user.ethBalance += unstakeAmount;
+        } else {
+            user.wethBalance += unstakeAmount;
+        }
+        await user.save();
+        
+        // Create transaction record
+        const transaction = new Transaction({
+            type: 'unstaking',
+            toUser: userId,
+            amount: unstakeAmount,
+            currency: currency.toUpperCase(),
+            status: 'completed',
+            metadata: {
+                stakeId: staking._id,
+                stakeType: currency
+            }
+        });
+        await transaction.save();
+        
+        // Log activity
+        try {
+            const activityLogger = require('./utils/activityLogger');
+            await activityLogger.logUnstaking(userId, currency, unstakeAmount);
+            console.log('📝 Activity logged for unstaking');
+        } catch (activityError) {
+            console.log('⚠️ Could not log unstaking activity:', activityError.message);
+        }
+        
+        console.log(`✅ Successfully unstaked ${unstakeAmount} ${currency.toUpperCase()}`);
+        
+        res.json({
+            success: true,
+            message: `Successfully unstaked ${unstakeAmount.toFixed(4)} ${currency.toUpperCase()}`,
+            stakingData: {
+                ethStaked: staking.ethStaked,
+                wethStaked: staking.wethStaked
+            },
+            newBalance: currency === 'eth' ? user.ethBalance : user.wethBalance
+        });
+        
+    } catch (error) {
+        console.error('❌ Unstaking error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to unstake tokens',
+            message: error.message
+        });
+    }
+});
+
+// ✅ Claim rewards
+app.post('/api/staking/claim-rewards', auth, async (req, res) => {
+    try {
+        const { currency } = req.body;
+        const userId = req.user._id;
+        
+        console.log(`🎁 Claim rewards request for ${currency} from user ${userId}`);
+        
+        // Validate input
+        if (!currency || !['eth', 'weth'].includes(currency.toLowerCase())) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid currency. Use "eth" or "weth"'
+            });
+        }
+        
+        // Get staking data
+        const staking = await Staking.findOne({ userId });
+        if (!staking) {
+            return res.status(400).json({
+                success: false,
+                error: 'No staking data found'
+            });
+        }
+        
+        // Check rewards
+        const rewards = currency === 'eth' ? staking.ethRewards : staking.wethRewards;
+        if (rewards <= 0) {
+            return res.status(400).json({
+                success: false,
+                error: `No ${currency.toUpperCase()} rewards to claim`
+            });
+        }
+        
+        // Update staking record (reset rewards)
+        if (currency === 'eth') {
+            staking.ethRewards = 0;
+        } else {
+            staking.wethRewards = 0;
+        }
+        staking.lastRewardCalculation = new Date();
+        await staking.save();
+        
+        // Update user balance
+        const user = await User.findById(userId);
+        if (currency === 'eth') {
+            user.ethBalance += rewards;
+        } else {
+            user.wethBalance += rewards;
+        }
+        await user.save();
+        
+        // Create transaction record
+        const transaction = new Transaction({
+            type: 'reward',
+            toUser: userId,
+            amount: rewards,
+            currency: currency.toUpperCase(),
+            status: 'completed',
+            metadata: {
+                stakeId: staking._id,
+                rewardType: 'staking'
+            }
+        });
+        await transaction.save();
+        
+        // Log activity
+        try {
+            const activityLogger = require('./utils/activityLogger');
+            await activityLogger.logRewardClaim(userId, currency, rewards);
+            console.log('📝 Activity logged for reward claim');
+        } catch (activityError) {
+            console.log('⚠️ Could not log reward activity:', activityError.message);
+        }
+        
+        console.log(`✅ Successfully claimed ${rewards.toFixed(4)} ${currency.toUpperCase()} rewards`);
+        
+        res.json({
+            success: true,
+            message: `Successfully claimed ${rewards.toFixed(4)} ${currency.toUpperCase()} rewards`,
+            stakingData: {
+                ethRewards: staking.ethRewards,
+                wethRewards: staking.wethRewards
+            },
+            newBalance: currency === 'eth' ? user.ethBalance : user.wethBalance
+        });
+        
+    } catch (error) {
+        console.error('❌ Claim rewards error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to claim rewards',
+            message: error.message
+        });
+    }
+});
+
+// ✅ Calculate rewards (simulate)
+app.get('/api/staking/calculate-rewards', auth, async (req, res) => {
+    try {
+        const { amount, currency, duration } = req.query;
+        const userId = req.user._id;
+        
+        const stakeAmount = parseFloat(amount) || 1;
+        const stakeCurrency = currency || 'eth';
+        const stakeDuration = parseInt(duration) || 30;
+        
+        if (!['eth', 'weth'].includes(stakeCurrency)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid currency'
+            });
+        }
+        
+        // Get APY from staking data
+        const staking = await Staking.findOne({ userId });
+        const apy = staking?.apy?.[stakeCurrency] || (stakeCurrency === 'eth' ? 4.8 : 5.2);
+        
+        // Calculate rewards
+        const annualRewards = stakeAmount * (apy / 100);
+        const dailyRewards = annualRewards / 365;
+        const estimatedRewards = dailyRewards * stakeDuration;
+        
+        res.json({
+            success: true,
+            calculation: {
+                amount: stakeAmount,
+                currency: stakeCurrency.toUpperCase(),
+                duration: stakeDuration,
+                apy,
+                estimatedRewards,
+                totalAfterStaking: stakeAmount + estimatedRewards,
+                dailyRewards
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Calculate rewards error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to calculate rewards'
+        });
+    }
+});
+
+// ============================================
+// TRANSFER & WITHDRAWAL ROUTES
+// ============================================
+
+// ✅ Transfer crypto
+app.post('/api/transfer/send', auth, async (req, res) => {
+    try {
+        const { recipient, amount, currency, network, note } = req.body;
+        const userId = req.user._id;
+        
+        console.log(`💸 Transfer request: ${amount} ${currency} to ${recipient} from user ${userId}`);
+        
+        // Validate recipient address (basic Ethereum address check)
+        if (!recipient || !recipient.match(/^0x[a-fA-F0-9]{40}$/)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid recipient address. Must be a valid Ethereum address'
+            });
+        }
+        
+        const transferAmount = parseFloat(amount);
+        if (isNaN(transferAmount) || transferAmount <= 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid amount. Must be positive number'
+            });
+        }
+        
+        if (!currency || !['eth', 'weth', 'usdc'].includes(currency.toLowerCase())) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid currency'
+            });
+        }
+        
+        // Get user data
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+        
+        // Check balance
+        let balance = 0;
+        switch (currency) {
+            case 'eth':
+                balance = user.ethBalance;
+                break;
+            case 'weth':
+                balance = user.wethBalance;
+                break;
+            case 'usdc':
+                balance = user.usdcBalance || 0;
+                break;
+        }
+        
+        if (balance < transferAmount) {
+            return res.status(400).json({
+                success: false,
+                error: `Insufficient ${currency.toUpperCase()} balance. Available: ${balance.toFixed(4)}`
+            });
+        }
+        
+        // Update user balance
+        switch (currency) {
+            case 'eth':
+                user.ethBalance -= transferAmount;
+                break;
+            case 'weth':
+                user.wethBalance -= transferAmount;
+                break;
+            case 'usdc':
+                user.usdcBalance = (user.usdcBalance || 0) - transferAmount;
+                break;
+        }
+        
+        await user.save();
+        
+        // Create transaction record
+        const transaction = new Transaction({
+            type: 'transfer',
+            fromUser: userId,
+            amount: transferAmount,
+            currency: currency.toUpperCase(),
+            recipientAddress: recipient,
+            network: network || 'ethereum',
+            note,
+            status: 'completed',
+            metadata: {
+                fromAddress: user.walletAddress || 'marketplace',
+                toAddress: recipient,
+                timestamp: Date.now()
+            }
+        });
+        await transaction.save();
+        
+        // Log activity
+        try {
+            const activityLogger = require('./utils/activityLogger');
+            await activityLogger.logTransfer(userId, currency, transferAmount, recipient);
+            console.log('📝 Activity logged for transfer');
+        } catch (activityError) {
+            console.log('⚠️ Could not log transfer activity:', activityError.message);
+        }
+        
+        console.log(`✅ Successfully transferred ${transferAmount} ${currency.toUpperCase()} to ${recipient.substring(0, 10)}...`);
+        
+        res.json({
+            success: true,
+            message: `Successfully transferred ${transferAmount.toFixed(4)} ${currency.toUpperCase()}`,
+            transactionId: transaction._id,
+            newBalance: balance - transferAmount
+        });
+        
+    } catch (error) {
+        console.error('❌ Transfer error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to transfer funds',
+            message: error.message
+        });
+    }
+});
+
+// ✅ Get transaction history
+app.get('/api/transactions', auth, async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { type, currency, limit = 50, page = 1 } = req.query;
+        
+        let query = { 
+            $or: [
+                { fromUser: userId },
+                { toUser: userId }
+            ]
+        };
+        
+        if (type && type !== 'all') {
+            query.type = type;
+        }
+        
+        if (currency && currency !== 'all') {
+            query.currency = currency.toUpperCase();
+        }
+        
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
+        const skip = (pageNum - 1) * limitNum;
+        
+        const transactions = await Transaction.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum)
+            .select('-__v -metadata')
+            .populate('fromUser', 'fullName email')
+            .populate('toUser', 'fullName email');
+        
+        const total = await Transaction.countDocuments(query);
+        
+        res.json({
+            success: true,
+            transactions: transactions.map(tx => ({
+                _id: tx._id,
+                type: tx.type,
+                currency: tx.currency,
+                amount: tx.amount,
+                recipient: tx.recipientAddress,
+                sender: tx.senderAddress || (tx.fromUser?.fullName || tx.fromUser?.email),
+                network: tx.network,
+                note: tx.note,
+                status: tx.status,
+                transactionHash: tx.transactionHash,
+                gasFee: tx.gasFee,
+                createdAt: tx.createdAt
+            })),
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+                total,
+                pages: Math.ceil(total / limitNum)
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Get transactions error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch transactions'
+        });
+    }
+});
+
+// ✅ Get recent contacts
+app.get('/api/transfer/contacts', auth, async (req, res) => {
+    try {
+        const userId = req.user._id;
+        
+        // Get recent transfers to find contacts
+        const recentTransfers = await Transaction.find({
+            fromUser: userId,
+            type: 'transfer',
+            recipientAddress: { $exists: true, $ne: '' }
+        })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .select('recipientAddress createdAt');
+        
+        // Get unique recipients
+        const uniqueRecipients = [];
+        const seen = new Set();
+        
+        recentTransfers.forEach(tx => {
+            if (tx.recipientAddress && !seen.has(tx.recipientAddress)) {
+                seen.add(tx.recipientAddress);
+                uniqueRecipients.push({
+                    address: tx.recipientAddress,
+                    lastTransaction: tx.createdAt
+                });
+            }
+        });
+        
+        // Add marketplace wallet as default contact
+        const contacts = [
+            {
+                address: '0x742d35Cc6634C0532925a3b844Bc9e90E4343A9B',
+                name: 'Marketplace Wallet',
+                isMarketplace: true,
+                lastTransaction: new Date()
+            }
+        ];
+        
+        // Add recent contacts
+        uniqueRecipients.slice(0, 4).forEach(recipient => {
+            contacts.push({
+                address: recipient.address,
+                name: `Contact ${recipient.address.substring(0, 6)}...${recipient.address.substring(recipient.address.length - 4)}`,
+                lastTransaction: recipient.lastTransaction
+            });
+        });
+        
+        res.json({
+            success: true,
+            contacts
+        });
+        
+    } catch (error) {
+        console.error('❌ Get contacts error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch contacts'
+        });
+    }
+});
+
+// ✅ Validate address
+app.post('/api/transfer/validate-address', auth, async (req, res) => {
+    try {
+        const { address } = req.body;
+        
+        if (!address) {
+            return res.json({
+                success: false,
+                valid: false,
+                error: 'Address is required'
+            });
+        }
+        
+        // Basic Ethereum address validation
+        const isValid = /^0x[a-fA-F0-9]{40}$/.test(address);
+        
+        // Check if it's the marketplace wallet (special handling)
+        const isMarketplace = address.toLowerCase() === '0x742d35cc6634c0532925a3b844bc9e90e4343a9b';
+        
+        res.json({
+            success: true,
+            valid: isValid,
+            isMarketplace,
+            formattedAddress: isValid ? 
+                `${address.substring(0, 10)}...${address.substring(address.length - 8)}` : 
+                null
+        });
+        
+    } catch (error) {
+        console.error('❌ Validate address error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to validate address'
+        });
+    }
+});
+
+// ✅ Get gas estimate
+app.post('/api/transfer/estimate-gas', auth, async (req, res) => {
+    try {
+        const { currency, network } = req.body;
+        
+        // Mock gas estimates (in real app, use web3.js to estimate)
+        const gasEstimates = {
+            ethereum: {
+                eth: 0.0012,
+                weth: 0.0015,
+                usdc: 0.0020
+            },
+            arbitrum: {
+                eth: 0.0003,
+                weth: 0.0004,
+                usdc: 0.0005
+            },
+            polygon: {
+                eth: 0.0001,
+                weth: 0.0002,
+                usdc: 0.0003
+            },
+            optimism: {
+                eth: 0.0004,
+                weth: 0.0005,
+                usdc: 0.0006
+            }
+        };
+        
+        const selectedNetwork = network || 'ethereum';
+        const selectedCurrency = currency || 'eth';
+        
+        const gasEstimate = gasEstimates[selectedNetwork]?.[selectedCurrency] || 0.0012;
+        
+        // Get ETH price for USD conversion
+        let ethPrice = 2500;
+        if (redisReady && redisClient) {
+            try {
+                const cachedPrice = await redisClient.get('eth:price');
+                if (cachedPrice) {
+                    ethPrice = parseFloat(cachedPrice);
+                }
+            } catch (redisErr) {
+                console.log('⚠️ Could not get ETH price from Redis:', redisErr.message);
+            }
+        }
+        
+        const gasUsd = gasEstimate * ethPrice;
+        
+        res.json({
+            success: true,
+            estimate: {
+                network: selectedNetwork,
+                currency: selectedCurrency,
+                gasEth: gasEstimate,
+                gasUsd,
+                ethPrice,
+                timestamp: Date.now()
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Gas estimate error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to estimate gas'
+        });
+    }
+});
+
+// ✅ Get bank accounts (for withdrawals) - mock for now
+app.get('/api/bank-accounts', auth, async (req, res) => {
+    try {
+        const userId = req.user._id;
+        
+        // Mock bank accounts - in a real app, you'd have a BankAccount model
+        const bankAccounts = [
+            {
+                id: 'bank_1',
+                bankName: 'Chase Bank',
+                accountNumber: '**** **** 7890',
+                accountHolder: req.user.fullName || 'User',
+                country: 'US',
+                isVerified: true,
+                isDefault: true
+            }
+        ];
+        
+        res.json({
+            success: true,
+            accounts: bankAccounts
+        });
+        
+    } catch (error) {
+        console.error('❌ Get bank accounts error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch bank accounts'
+        });
+    }
+});
 
 // ========================
 // API TEST ROUTES
@@ -706,6 +1607,8 @@ app.get('/api/activity/marketplace', async (req, res) => {
       });
   }
 });
+
+
 
 // ========================
 // USER ACTIVITY ENDPOINT (FIXED)

@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transfer & Withdraw | Magic Eden</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/dashboard.css">
+    <link rel="stylesheet" href="/css/transfer.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Simple navigation for now */
+        .simple-nav {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .simple-nav a {
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .simple-nav .back-btn {
+            background: rgba(99, 102, 241, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+        }
+        
+        .simple-nav .back-btn:hover {
+            background: rgba(99, 102, 241, 0.3);
+        }
+        
+        .simple-nav .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .simple-nav .logo i {
+            color: #6366f1;
+        }
+        
+        /* Fix modal display */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.show {
+            display: flex;
+        }
+    </style>
+</head>
+<body>
+    <!-- Simple Navigation - NO FETCHING -->
+    <nav class="simple-nav">
+        <a href="/dashboard" class="back-btn">
+            <i class="fas fa-arrow-left"></i>
+            <span>Back to Dashboard</span>
+        </a>
+        <a href="/" class="logo">
+            <i class="fas fa-gem"></i>
+            <span>Magic Eden</span>
+        </a>
+        <div></div> <!-- Spacer -->
+    </nav>
+
+    <main class="transfer-page">
+        <div class="container">
+            <!-- Page Header -->
+            <div class="page-header">
+                <h1><i class="fas fa-exchange-alt"></i> Transfer & Withdraw</h1>
+                <p>Transfer funds between wallets or withdraw to your bank</p>
+            </div>
+
+            <!-- Transfer Tabs -->
+            <div class="transfer-tabs">
+                <div class="tabs-header">
+                    <button class="tab-btn active" data-tab="crypto">Crypto Transfer</button>
+                    <button class="tab-btn" data-tab="withdraw">Withdraw to Bank</button>
+                    <button class="tab-btn" data-tab="history">Transaction History</button>
+                </div>
+<!-- Crypto Transfer Tab -->
+<div class="tab-content active" id="crypto-tab">
+    <div class="transfer-section">
+        <h2><i class="fab fa-ethereum"></i> Transfer Crypto</h2>
+        
+        <!-- Balance Overview -->
+        <div class="balance-overview">
+            <div class="balance-card">
+                <div class="balance-icon eth">
+                    <i class="fab fa-ethereum"></i>
+                </div>
+                <div class="balance-info">
+                    <h3>ETH Balance</h3>
+                    <div class="balance-amount" id="transferEthBalance">0.0000 ETH</div>
+                    <div class="balance-value" id="transferEthValue">$0.00</div>
+                </div>
+            </div>
+            
+            <div class="balance-card">
+                <div class="balance-icon weth">
+                    <i class="fas fa-coins"></i>
+                </div>
+                <div class="balance-info">
+                    <h3>WETH Balance</h3>
+                    <div class="balance-amount" id="transferWethBalance">0.0000 WETH</div>
+                    <div class="balance-value" id="transferWethValue">$0.00</div>
+                    <small style="color: #94a3b8; font-size: 0.75rem;">(WETH cannot be transferred)</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transfer Form -->
+        <div class="transfer-form">
+            <div class="form-section">
+                <div class="form-group">
+                    <label for="transferCurrency">
+                        <i class="fas fa-coins"></i> Currency
+                    </label>
+                    <div class="currency-display">
+                        <div class="selected-currency">
+                            <i class="fab fa-ethereum"></i>
+                            <span>ETH (Ethereum)</span>
+                        </div>
+                        <div class="currency-note">
+                            <i class="fas fa-info-circle"></i>
+                            <small>Only ETH can be transferred. WETH is for trading only.</small>
+                        </div>
+                    </div>
+                    <!-- Hidden input to store currency (always ETH) -->
+                    <input type="hidden" id="transferCurrency" value="eth">
+                </div>
+
+                <div class="form-group">
+                    <label for="recipientAddress">
+                        <i class="fas fa-user-circle"></i> Recipient Address
+                    </label>
+                    <div class="input-with-paste">
+                        <input type="text" 
+                               id="recipientAddress" 
+                               placeholder="0x..."
+                               pattern="^0x[a-fA-F0-9]{40}$">
+                        <button class="paste-btn" onclick="pasteAddress()">
+                            <i class="fas fa-paste"></i> Paste
+                        </button>
+                    </div>
+                    <div class="address-validation" id="addressValidation"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="transferAmount">
+                        <i class="fas fa-money-bill-wave"></i> Amount
+                    </label>
+                    <div class="amount-input-group">
+                        <div class="input-with-max">
+                            <input type="number" 
+                                   id="transferAmount" 
+                                   placeholder="0.00"
+                                   min="0.001"
+                                   step="0.001">
+                            <span class="currency">ETH</span>
+                            <button class="max-btn" onclick="setMaxTransfer()">MAX</button>
+                        </div>
+                        <div class="amount-conversion">
+                            <span id="transferUsdValue">$0.00</span>
+                            <span class="balance-hint">
+                                Available: <span id="transferAvailableBalance">0.0000 ETH</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="transferNetwork">
+                        <i class="fas fa-network-wired"></i> Network
+                    </label>
+                    <select id="transferNetwork">
+                        <option value="ethereum">Ethereum Mainnet</option>
+                        <option value="arbitrum">Arbitrum</option>
+                        <option value="polygon">Polygon</option>
+                        <option value="optimism">Optimism</option>
+                        <option value="base">Base</option>
+                    </select>
+                    <div class="network-fee">
+                        <span>Estimated Gas Fee:</span>
+                        <span id="gasFee">0.0012 ETH ($3.00)</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="transferNote">
+                        <i class="fas fa-sticky-note"></i> Note (Optional)
+                    </label>
+                    <textarea id="transferNote" 
+                              placeholder="Add a note for this transaction"
+                              rows="2"></textarea>
+                </div>
+
+                <div class="form-summary">
+                    <div class="summary-item">
+                        <span>You Send</span>
+                        <strong id="sendAmount">0.0000 ETH</strong>
+                    </div>
+                    <div class="summary-item">
+                        <span>Network Fee</span>
+                        <strong id="networkFee">0.0012 ETH</strong>
+                    </div>
+                    <div class="summary-item total">
+                        <span>Total Amount</span>
+                        <strong id="totalAmount">0.0012 ETH</strong>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-block" onclick="reviewTransfer()">
+                    <i class="fas fa-paper-plane"></i> Review Transfer
+                </button>
+            </div>
+
+            <!-- Recent Contacts -->
+            <div class="recent-contacts">
+                <h3><i class="fas fa-users"></i> Recent Contacts</h3>
+                <div class="contacts-list" id="recentContacts">
+                    <div class="contact-item" onclick="fillContact('0x742d35Cc6634C0532925a3b844Bc9e90E4343A9B')">
+                        <div class="contact-avatar">
+                            <i class="fas fa-store"></i>
+                        </div>
+                        <div class="contact-info">
+                            <span class="contact-name">Marketplace Wallet</span>
+                            <span class="contact-address">0x742d...3A9B</span>
+                        </div>
+                    </div>
+                    <div class="contact-item" onclick="fillContact('0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B')">
+                        <div class="contact-avatar">
+                            <i class="fas fa-vault"></i>
+                        </div>
+                        <div class="contact-info">
+                            <span class="contact-name">Vault Address</span>
+                            <span class="contact-address">0xAb58...eC9B</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+               
+<!-- Withdraw to Bank Tab -->
+<div class="tab-content" id="withdraw-tab">
+    <div class="withdraw-section">
+        <h2><i class="fas fa-university"></i> Withdraw to Bank Account</h2>
+        
+        <!-- Bank Account Selection -->
+        <div class="bank-selection">
+            <div class="form-group">
+                <label for="savedBankSelect">
+                    <i class="fas fa-credit-card"></i> Select Bank Account
+                </label>
+                <select id="savedBankSelect" class="bank-select">
+                    <option value="">Select a saved bank or add new</option>
+                    <!-- Saved banks will be populated here -->
+                </select>
+            </div>
+        </div>
+
+        <!-- Saved Bank Details (shown when bank is selected) -->
+        <div id="bankDetailsSection" class="bank-details-section" style="display: none;">
+            <div class="bank-details-card">
+                <h4><i class="fas fa-check-circle"></i> Selected Bank Account</h4>
+                <div class="bank-info">
+                    <div class="info-row">
+                        <span class="label">Bank Name:</span>
+                        <span class="value" id="selectedBankName">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Account Holder:</span>
+                        <span class="value" id="selectedAccountHolder">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Account Number:</span>
+                        <span class="value" id="selectedAccountNumber">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Account Type:</span>
+                        <span class="value" id="selectedAccountType">-</span>
+                    </div>
+                </div>
+                <button class="btn btn-small" onclick="showNewBankForm()">
+                    <i class="fas fa-edit"></i> Use Different Bank
+                </button>
+            </div>
+        </div>
+
+        <!-- New Bank Account Form -->
+        <div id="newBankSection" class="new-bank-section">
+            <h3><i class="fas fa-plus-circle"></i> Add Bank Account Details</h3>
+            
+            <div class="form-group">
+                <label for="bankName">
+                    <i class="fas fa-landmark"></i> Bank Name *
+                </label>
+                <input type="text" id="bankName" placeholder="e.g., Chase Bank, Bank of America" required>
+            </div>
+
+            <div class="form-group">
+                <label for="accountHolderName">
+                    <i class="fas fa-user"></i> Account Holder Name *
+                </label>
+                <input type="text" id="accountHolderName" placeholder="Name as it appears on bank account" required>
+            </div>
+
+            <div class="form-group">
+                <label for="accountNumber">
+                    <i class="fas fa-hashtag"></i> Account Number *
+                </label>
+                <input type="text" id="accountNumber" placeholder="Your bank account number" required>
+            </div>
+
+            <div class="form-group">
+                <label for="accountType">
+                    <i class="fas fa-globe"></i> Account Type *
+                </label>
+                <select id="accountType">
+                    <option value="checking">Checking Account (US)</option>
+                    <option value="savings">Savings Account (US)</option>
+                    <option value="international">International Account</option>
+                </select>
+            </div>
+
+            <div id="routingNumberGroup" class="form-group">
+                <label for="routingNumber">
+                    <i class="fas fa-route"></i> Routing Number (ABA) *
+                </label>
+                <input type="text" id="routingNumber" placeholder="9-digit routing number">
+                <small class="hint">Required for US accounts</small>
+            </div>
+
+            <div id="swiftCodeGroup" class="form-group" style="display: none;">
+                <label for="swiftCode">
+                    <i class="fas fa-passport"></i> SWIFT/BIC Code *
+                </label>
+                <input type="text" id="swiftCode" placeholder="8 or 11 character SWIFT code">
+                <small class="hint">Required for international accounts</small>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="saveBankDetails" checked>
+                    <i class="fas fa-save"></i>
+                    <span>Save this bank for future withdrawals</span>
+                </label>
+            </div>
+
+            <div id="bankNicknameGroup" class="form-group">
+                <label for="bankNickname">
+                    <i class="fas fa-tag"></i> Bank Nickname (Optional)
+                </label>
+                <input type="text" id="bankNickname" placeholder="e.g., Primary Checking">
+                <small class="hint">Helps you identify this bank account</small>
+            </div>
+
+            <button class="btn btn-primary" onclick="saveBankDetails()">
+                <i class="fas fa-check"></i> Save & Use This Bank
+            </button>
+        </div>
+
+        <!-- Withdrawal Amount Section -->
+        <div class="withdraw-amount-section" style="margin-top: 2rem;">
+            <h3><i class="fas fa-money-bill-wave"></i> Withdrawal Amount</h3>
+            
+            <div class="form-group">
+                <label>Amount to Withdraw</label>
+                <div class="withdraw-amount-group">
+                    <div class="currency-selector">
+                        <span class="currency-symbol">$</span>
+                        <input type="number" 
+                               id="withdrawAmount" 
+                               placeholder="0.00"
+                               min="10"
+                               step="0.01">
+                    </div>
+                    <div class="conversion-info">
+                        <span>≈ <span id="withdrawCryptoAmount">0.0000 ETH</span></span>
+                        <span class="balance-hint">
+                            Available Balance: <span id="withdrawAvailableBalance">$0.00</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Withdrawal Method</label>
+                <div class="method-options">
+                    <label class="method-option">
+                        <input type="radio" name="withdrawMethod" value="standard" checked>
+                        <div class="method-content">
+                            <i class="fas fa-truck"></i>
+                            <div>
+                                <strong>Standard (3-5 business days)</strong>
+                                <small>No fee</small>
+                            </div>
+                        </div>
+                    </label>
+                    
+                    <label class="method-option">
+                        <input type="radio" name="withdrawMethod" value="instant">
+                        <div class="method-content">
+                            <i class="fas fa-bolt"></i>
+                            <div>
+                                <strong>Instant (Within minutes)</strong>
+                                <small>1.5% fee</small>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="withdrawal-summary">
+                <div class="summary-item">
+                    <span>Amount</span>
+                    <strong id="withdrawalAmount">$0.00</strong>
+                </div>
+                <div class="summary-item">
+                    <span>Fee</span>
+                    <strong id="withdrawalFee">$0.00</strong>
+                </div>
+                <div class="summary-item total">
+                    <span>You Receive</span>
+                    <strong id="withdrawalReceive">$0.00</strong>
+                </div>
+            </div>
+
+            <button class="btn btn-success btn-block" onclick="reviewWithdrawal()">
+                <i class="fas fa-money-check-alt"></i> Review Withdrawal
+            </button>
+            
+            <div class="info-note" style="margin-top: 1rem;">
+                <i class="fas fa-info-circle"></i>
+                <span>
+                    Withdrawals are processed during business hours. Instant withdrawals may take up to 30 minutes depending on your bank.  Standard withdrawals are free of charge.
+            </div>
+        </div>
+    </div>
+</div>
+               
+                    </div>
+                </div>
+
+                <!-- Transaction History Tab -->
+                <div class="tab-content" id="history-tab">
+                    <div class="history-section">
+                        <h2><i class="fas fa-history"></i> Transaction History</h2>
+                        
+                        <div class="history-filters">
+                            <div class="filter-group">
+                                <select id="historyTypeFilter">
+                                    <option value="all">All Transactions</option>
+                                    <option value="transfer">Transfers</option>
+                                    <option value="withdrawal">Withdrawals</option>
+                                    <option value="purchase">Purchases</option>
+                                    <option value="sale">Sales</option>
+                                </select>
+                            </div>
+                            
+                            <div class="filter-group">
+                                <select id="historyCurrencyFilter">
+                                    <option value="all">All Currencies</option>
+                                    <option value="eth">ETH</option>
+                                    <option value="weth">WETH</option>
+                                </select>
+                            </div>
+                            
+                            <button class="btn btn-small" onclick="refreshHistory()">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+
+                        <div class="history-table-container">
+                            <div class="history-table" id="transactionHistory">
+                                <div class="loading">Loading transactions...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Transfer Review Modal -->
+    <div id="transferModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Review Transfer</h3>
+                <button class="close-modal" onclick="closeTransferModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="transferModalBody">
+                <!-- Dynamic content -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeTransferModal()">Cancel</button>
+                <button class="btn btn-primary" id="confirmTransferBtn">
+                    <i class="fas fa-paper-plane"></i> Confirm Transfer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Withdrawal Review Modal -->
+    <div id="withdrawalModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Review Withdrawal</h3>
+                <button class="close-modal" onclick="closeWithdrawalModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="withdrawalModalBody">
+                <!-- Dynamic content -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeWithdrawalModal()">Cancel</button>
+                <button class="btn btn-success" id="confirmWithdrawalBtn">
+                    <i class="fas fa-check-circle"></i> Confirm Withdrawal
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script src="/js/eth-price-service.js"></script>
+    <script src="/js/transfer.js"></script>
+    <script>
+        // Initialize when DOM is ready - NO TYPO VERSION
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🏠 HTML loaded - initializing transfer page');
+            if (typeof initializeTransferPage === 'function') {
+                initializeTransferPage();
+            } else {
+                console.error('❌ initializeTransferPage function not found!');
+            }
+        });
+        </script>
+</body>
+</html>

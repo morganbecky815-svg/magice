@@ -1113,6 +1113,175 @@ function displayNFTs(nfts) {
 }
 
 // ============================================
+// VISUAL STATS FORMATTING & ANIMATIONS
+// ============================================
+
+// Format numbers with visual enhancements
+function formatVisualStats(nfts, users, volume, collections) {
+    console.log('🎨 Formatting visual stats...');
+    
+    // Format NFTs count
+    const nftsFormatted = formatNumberWithSuffix(nfts);
+    updateVisualStat('totalNFTs', nftsFormatted);
+    
+    // Format Users count
+    const usersFormatted = formatNumberWithSuffix(users);
+    updateVisualStat('totalUsers', usersFormatted);
+    
+    // Format Volume with WETH symbol
+    const volumeFormatted = formatVolumeWithSuffix(volume);
+    updateVisualStat('totalVolume', volumeFormatted);
+    
+    // Format Collections count
+    const collectionsFormatted = formatNumberWithSuffix(collections);
+    updateVisualStat('totalCollections', collectionsFormatted);
+    
+    // Update progress bars based on relative values
+    updateProgressBars(nfts, users, volume, collections);
+}
+
+// Format numbers with K, M, B suffixes
+function formatNumberWithSuffix(num) {
+    if (num >= 1000000000) {
+        return (num / 1000000000).toFixed(1) + 'B';
+    }
+    if (num >= 1000000) {
+        return (num / 1000000).toFixed(1) + 'M';
+    }
+    if (num >= 1000) {
+        return (num / 1000).toFixed(1) + 'K';
+    }
+    return num.toString();
+}
+
+// Format volume with WETH symbol
+function formatVolumeWithSuffix(volume) {
+    if (volume >= 1000000000) {
+        return (volume / 1000000000).toFixed(1) + 'B+ WETH';
+    }
+    if (volume >= 1000000) {
+        return (volume / 1000000).toFixed(1) + 'M+ WETH';
+    }
+    if (volume >= 1000) {
+        return (volume / 1000).toFixed(1) + 'K+ WETH';
+    }
+    return volume.toFixed(2) + ' WETH';
+}
+
+// Update a single stat with animation
+function updateVisualStat(elementId, value) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    
+    element.textContent = value;
+    element.classList.add('animated');
+    
+    // Remove animation class after animation completes
+    setTimeout(() => {
+        element.classList.remove('animated');
+    }, 1200);
+}
+
+// Update progress bars based on relative values
+function updateProgressBars(nfts, users, volume, collections) {
+    // Find max values to calculate percentages
+    const maxNFTs = Math.max(nfts, 10000); // Baseline
+    const maxUsers = Math.max(users, 1000);
+    const maxVolume = Math.max(volume, 10000);
+    const maxCollections = Math.max(collections, 100);
+    
+    // Calculate percentages (capped at 95% for visual appeal)
+    const nftPercent = Math.min((nfts / maxNFTs) * 100, 95);
+    const userPercent = Math.min((users / maxUsers) * 100, 95);
+    const volumePercent = Math.min((volume / maxVolume) * 100, 95);
+    const collectionPercent = Math.min((collections / maxCollections) * 100, 95);
+    
+    // Update progress bars with animation
+    setTimeout(() => {
+        document.querySelectorAll('.visual-stat .progress-bar').forEach((bar, index) => {
+            let percent = 0;
+            switch(index) {
+                case 0: percent = nftPercent; break;
+                case 1: percent = userPercent; break;
+                case 2: percent = volumePercent; break;
+                case 3: percent = collectionPercent; break;
+            }
+            
+            // Animate the progress bar
+            bar.style.transition = 'width 2s ease-out';
+            bar.style.width = percent + '%';
+        });
+    }, 500);
+}
+
+// Update your existing loadNFTs function to use visual formatting
+async function loadNFTs() {
+    try {
+        console.log('📦 Loading NFTs from backend...');
+        const data = await apiRequest('/nft');
+        
+        // Store all NFTs globally
+        allNFTs = data.nfts || [];
+        
+        // ✅ Get stats from your API (you already have this)
+        const stats = await getMarketplaceStats();
+        
+        // ✅ Apply visual formatting to the stats
+        if (stats) {
+            formatVisualStats(
+                stats.nfts || allNFTs.length,
+                stats.users || 0,
+                stats.volume || 0,
+                stats.collections || 0
+            );
+        } else {
+            // Fallback: Calculate from NFTs
+            formatVisualStats(
+                allNFTs.length,
+                [...new Set(allNFTs.map(nft => nft.owner?._id))].filter(id => id).length,
+                allNFTs.reduce((sum, nft) => sum + (nft.price || 0), 0),
+                [...new Set(allNFTs.map(nft => nft.collectionName))].filter(name => name).length
+            );
+        }
+        
+        // Display featured NFTs
+        displayFeaturedNFTs(allNFTs);
+        
+        // Display trending NFTs
+        displayTrendingNFTs(allNFTs);
+        
+        // Display newest NFTs
+        displayNewestNFTs(allNFTs);
+        
+        // Display all NFTs with filters
+        filteredNFTs = allNFTs;
+        applyFilters();
+        
+        // Display collections
+        displayCollections(allNFTs);
+        
+        console.log(`✅ Loaded ${allNFTs.length} NFTs with visual stats`);
+    } catch (error) {
+        console.error('Failed to load NFTs:', error);
+        showNotification('Could not load NFTs', 'error');
+    }
+}
+
+// Helper: Get marketplace stats (you might already have this)
+async function getMarketplaceStats() {
+    try {
+        const response = await fetch('/api/marketplace/stats');
+        if (response.ok) {
+            const data = await response.json();
+            return data.stats || data;
+        }
+    } catch (error) {
+        console.error('Error fetching stats:', error);
+    }
+    return null;
+}
+
+// ============================================
 // INITIALIZATION
 // ============================================
 
