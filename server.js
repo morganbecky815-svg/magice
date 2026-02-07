@@ -188,7 +188,10 @@ app.use(cors({
   }));
 app.use(express.json({ limit: '50mb' })); // CHANGED: Add limit
 app.use(express.urlencoded({ limit: '50mb', extended: true })); // CHANGED: Add limit
-app.use(express.static(path.join(__dirname, 'views')));
+app.use(express.static(path.join(__dirname, 'views'), {
+    extensions: ['html'],
+    index: ['index.html', 'index.htm']
+}));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(fileUpload({ // ADD THIS LINE
     limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
