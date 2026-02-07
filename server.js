@@ -37,20 +37,35 @@ dotenv.config();
 const app = express();
 
 // ========================
-// WINDOWS REDIS CONNECTION
+// RAILWAY REDIS CONNECTION
 // ========================
 let redisClient = null;
 let redisReady = false;
 
-async function initWindowsRedis() {
-    console.log('🔧 Setting up Redis for Windows...');
+async function initRedis() {
+    console.log('🔧 Setting up Redis for Railway...');
+    
+    // Railway provides REDIS_URL in environment variables
+    const redisUrl = process.env.REDIS_URL;
+    
+    if (!redisUrl) {
+        console.log('⚠️  REDIS_URL not found in environment variables');
+        console.log('📋 Redis will be disabled - some features may be slower');
+        redisReady = false;
+        return;
+    }
+    
+    console.log('🔗 Connecting to Railway Redis...');
     
     try {
+        // Parse the Redis URL for better logging
+        const url = new URL(redisUrl);
+        console.log(`📡 Redis Host: ${url.hostname}:${url.port || 6379}`);
+        
+        // Create Redis client with Railway's URL
         redisClient = Redis.createClient({
+            url: redisUrl,
             socket: {
-                host: '127.0.0.1',
-                port: 6379,
-                connectTimeout: 10000,
                 reconnectStrategy: (retries) => {
                     console.log(`Redis reconnection attempt ${retries}`);
                     if (retries > 3) {
@@ -62,50 +77,51 @@ async function initWindowsRedis() {
             }
         });
         
+        // Event handlers
         redisClient.on('error', (err) => {
             console.log('⚠️ Redis Error:', err.message);
             redisReady = false;
         });
         
         redisClient.on('connect', () => {
-            console.log('🔌 Redis connecting...');
+            console.log('🔌 Redis connecting to Railway...');
         });
         
         redisClient.on('ready', () => {
-            console.log('✅ Redis connected and ready!');
+            console.log('✅ Redis connected and ready on Railway!');
             redisReady = true;
         });
         
+        // Connect with timeout
         await Promise.race([
             redisClient.connect(),
             new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Redis connection timeout')), 5000)
+                setTimeout(() => reject(new Error('Redis connection timeout (10s)')), 10000)
             )
         ]);
         
-        await redisClient.set('windows-test', 'connected-' + Date.now());
-        const testResult = await redisClient.get('windows-test');
+        // Test connection
+        await redisClient.set('railway-test', 'connected-' + Date.now());
+        const testResult = await redisClient.get('railway-test');
         console.log(`🧪 Redis test successful: ${testResult}`);
         
         redisReady = true;
         
     } catch (error) {
         console.log(`❌ Redis initialization failed: ${error.message}`);
-        console.log('\n📋 Windows Redis Troubleshooting:');
-        console.log('1. Open Command Prompt AS ADMINISTRATOR');
-        console.log('2. Run: net start Redis');
-        console.log('3. If service not found, run:');
-        console.log('   cd "C:\\Program Files\\Redis"');
-        console.log('   redis-server --service-install redis.windows.conf');
-        console.log('   redis-server --service-start');
-        console.log('4. Test manually: redis-cli ping');
+        console.log('\n📋 Railway Redis Troubleshooting:');
+        console.log('1. Check Railway dashboard → Variables → REDIS_URL exists');
+        console.log('2. Add Redis service in Railway: New → Database → Redis');
+        console.log('3. Ensure REDIS_URL is added to environment variables');
+        console.log('4. Check Redis logs in Railway dashboard');
         
         redisClient = null;
         redisReady = false;
     }
 }
 
-initWindowsRedis();
+// Initialize Redis
+initRedis();
 
 // ========================
 // CLOUDINARY CONFIGURATION
@@ -2074,7 +2090,7 @@ app.post('/api/upload/image', auth, async (req, res) => {
 // ========================
 // DATABASE CONNECTION
 // ========================
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/magic-eden';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/magic-eden';
 
 mongoose.connect(MONGODB_URI)
     .then(() => {
@@ -2186,7 +2202,7 @@ app.use('*', (req, res) => {
 // ========================
 // START SERVER
 // ========================
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     console.log(`✅ API Endpoints:`);
