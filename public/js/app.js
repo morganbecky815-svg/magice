@@ -5,7 +5,7 @@
 // GLOBAL VARIABLES
 // ============================================
 if (typeof window.API_BASE_URL === 'undefined') {
-    window.API_BASE_URL = 'http://localhost:5000/api';
+    window.API_BASE_URL = 'https://bountiful-youth.railway.app/api'; 
 }
 
 if (typeof window.currentUser === 'undefined') {
@@ -17,7 +17,7 @@ if (typeof window.userToken === 'undefined') {
 }
 
 // Now use them (don't redeclare with var/let/const)
-let API_BASE_URL = window.API_BASE_URL;
+let API_BASE_URL = 'https://bountiful-youth.railway.app/api';
 let currentUser = window.currentUser;
 let userToken = window.userToken;
 
@@ -1055,7 +1055,7 @@ if (typeof currentUser === 'undefined') {
 }
 
 if (typeof API_BASE_URL === 'undefined') {
-    API_BASE_URL = window.API_BASE_URL || 'http://localhost:5000/api';
+    API_BASE_URL = window.API_BASE_URL || 'http://bountiful-youth.railway.app/api';
 }
 
 // ============================================

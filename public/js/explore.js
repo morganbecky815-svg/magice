@@ -23,7 +23,7 @@ async function loadExploreWethBalance() {
         console.log('Explore Page: User ID:', user._id);
         
         // Fetch FRESH balance from API (not from cache)
-        const response = await fetch(`${window.API_BASE_URL || 'http://localhost:5000/api'}/user/${user._id}`, {
+        const response = await fetch(`${window.API_BASE_URL || 'http://bountiful-youth.up.railway.app/api'}/user/${user._id}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
