@@ -1060,7 +1060,7 @@ async function loadRealUserBalance() {
         const user = JSON.parse(userStr);
         
         // Fetch fresh user data from backend
-        const response = await fetch(`http://bountiful-youth.railway.up.app/api/user/${user._id}`, {
+        const response = await fetch(`http://bountiful-youth.up.railway.app/api/user/${user._id}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
