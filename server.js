@@ -174,7 +174,18 @@ const upload = multer({
 // ========================
 // MIDDLEWARE
 // ========================
-app.use(cors());
+// Change to:
+app.use(cors({
+    origin: [
+      'https://magiceden.up.railway.app',  // Your frontend
+      'https://bountiful-youth.railway.app',  // Your backend
+      'http://localhost:3000',
+      'http://localhost:5000'
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }));
 app.use(express.json({ limit: '50mb' })); // CHANGED: Add limit
 app.use(express.urlencoded({ limit: '50mb', extended: true })); // CHANGED: Add limit
 app.use(express.static(path.join(__dirname, 'views')));
@@ -2202,7 +2213,7 @@ app.use('*', (req, res) => {
 // ========================
 // START SERVER
 // ========================
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     console.log(`✅ API Endpoints:`);
