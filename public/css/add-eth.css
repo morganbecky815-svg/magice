@@ -1154,6 +1154,7 @@
     }
 }
 /* QR Code Section */
+/* QR Code Container - FIXED */
 .qr-container {
     text-align: center;
     margin: 30px auto;
@@ -1161,8 +1162,11 @@
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     border-radius: 20px;
     border: 2px solid #e2e8f0;
+    width: 100%;
     max-width: 280px;
     position: relative;
+    overflow: hidden; /* ADD THIS - prevents overflow */
+    box-sizing: border-box; /* ADD THIS - includes padding in width */
 }
 
 .qr-container:before {
@@ -1177,18 +1181,34 @@
     border-radius: 20px;
     font-size: 11px;
     font-weight: bold;
+    z-index: 2;
+    white-space: nowrap;
 }
 
 #qrCode {
-    display: block !important;
-    visibility: visible !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: auto !important;
     min-height: 200px;
     margin: 0 auto;
+    overflow: hidden; /* ADD THIS */
+    border-radius: 12px; /* ADD THIS */
 }
 
 #qrCode img {
     display: block !important;
-    margin: 0 auto;
+    width: 200px !important; /* FIXED SIZE */
+    height: 200px !important; /* FIXED SIZE */
+    max-width: 100% !important;
+    max-height: 100% !important;
+    object-fit: contain !important;
+    margin: 0 auto !important;
+    border: 8px solid white !important;
+    border-radius: 12px !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+    box-sizing: border-box !important; /* ADD THIS */
 }
 
 .qr-container p {
