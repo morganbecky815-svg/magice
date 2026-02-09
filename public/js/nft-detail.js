@@ -1,6 +1,93 @@
-// nft-detail.js - Handle NFT detail page functionality
+// ========================
+// MOBILE MENU FUNCTIONALITY
+// ========================
 
-console.log('🖼️ NFT Detail page JavaScript loaded');
+// Mobile menu state
+let isMobileMenuOpen = false;
+
+// Function to toggle mobile menu
+function toggleMobileMenu() {
+    const mobileNav = document.getElementById('mobileNav');
+    const mobileToggle = document.getElementById('mobileToggle');
+    const icon = mobileToggle.querySelector('i');
+    
+    isMobileMenuOpen = !isMobileMenuOpen;
+    
+    if (isMobileMenuOpen) {
+        mobileNav.classList.add('active');
+        icon.classList.remove('fa-bars');
+        icon.classList.add('fa-times');
+        mobileToggle.setAttribute('aria-label', 'Close menu');
+        document.body.style.overflow = 'hidden'; // Prevent scrolling when menu is open
+    } else {
+        mobileNav.classList.remove('active');
+        icon.classList.remove('fa-times');
+        icon.classList.add('fa-bars');
+        mobileToggle.setAttribute('aria-label', 'Open menu');
+        document.body.style.overflow = ''; // Restore scrolling
+    }
+}
+
+// Close mobile menu
+function closeMobileMenu() {
+    const mobileNav = document.getElementById('mobileNav');
+    const mobileToggle = document.getElementById('mobileToggle');
+    const icon = mobileToggle.querySelector('i');
+    
+    mobileNav.classList.remove('active');
+    icon.classList.remove('fa-times');
+    icon.classList.add('fa-bars');
+    mobileToggle.setAttribute('aria-label', 'Open menu');
+    isMobileMenuOpen = false;
+    document.body.style.overflow = '';
+}
+
+// Initialize mobile menu functionality
+function initMobileMenu() {
+    const mobileToggle = document.getElementById('mobileToggle');
+    const mobileNav = document.getElementById('mobileNav');
+    
+    if (!mobileToggle || !mobileNav) return;
+    
+    // Toggle menu when hamburger is clicked
+    mobileToggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        toggleMobileMenu();
+    });
+    
+    // Close menu when clicking outside
+    document.addEventListener('click', function(e) {
+        if (isMobileMenuOpen && 
+            !mobileNav.contains(e.target) && 
+            !mobileToggle.contains(e.target)) {
+            closeMobileMenu();
+        }
+    });
+    
+    // Close menu when clicking a link
+    const mobileLinks = mobileNav.querySelectorAll('.mobile-nav-link');
+    mobileLinks.forEach(link => {
+        link.addEventListener('click', closeMobileMenu);
+    });
+    
+    // Close menu on escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && isMobileMenuOpen) {
+            closeMobileMenu();
+        }
+    });
+    
+    // Close menu on window resize (if resized to desktop)
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 768 && isMobileMenuOpen) {
+            closeMobileMenu();
+        }
+    });
+}
+
+// ========================
+// NFT DETAIL FUNCTIONALITY
+// ========================
 
 // Global variables
 let currentNFTId = null;
@@ -10,6 +97,9 @@ let isPurchasing = false;
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('📱 Mobile menu initialized');
+    initMobileMenu();
+    
     console.log('🎯 NFT Detail page initialized');
     
     // Get NFT ID from URL
