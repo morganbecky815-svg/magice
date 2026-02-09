@@ -3,7 +3,7 @@
 /* Main Layout */
 .nft-detail-main {
     min-height: calc(100vh - 200px);
-    padding: 20px 0;
+    /* padding: 20px 0; */
 }
 
 .container {
@@ -95,7 +95,8 @@
 /* Image Section */
 .nft-image-section {
     position: sticky;
-    top: 20px;
+     top: 0px;
+    background-color: black;
     height: fit-content;
 }
 
