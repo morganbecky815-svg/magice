@@ -981,3 +981,129 @@
         font-size: 20px;
     }
 }
+
+/* ============================================
+   FIX MOBILE SCROLLING FOR CAROUSELS
+   ============================================ */
+
+/* Ensure carousels don't block scrolling */
+.marketplace-container {
+    position: relative;
+    touch-action: pan-y; /* Allow vertical scrolling on touch */
+}
+
+/* Carousel grid should allow vertical scroll */
+.nft-carousel {
+    display: flex;
+    overflow-x: auto; /* Horizontal scroll for carousel */
+    overflow-y: hidden; /* But allow vertical scroll to pass through */
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 0; /* Add some padding */
+    margin: 0 -10px; /* Compensate for padding */
+    /* IMPORTANT: Allow vertical scrolling to pass through */
+    pointer-events: none;
+}
+
+/* But allow pointer events on the NFT cards themselves */
+.nft-card {
+    pointer-events: auto; /* Re-enable for cards */
+    scroll-snap-align: start;
+    flex: 0 0 auto;
+    width: 280px; /* Adjust based on your design */
+    margin: 0 10px;
+}
+
+/* Scroll buttons - make them only capture horizontal scroll */
+.scroll-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 20px;
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Allow vertical scroll to pass through */
+    pointer-events: none;
+}
+
+/* But make button icons clickable */
+.scroll-btn i {
+    pointer-events: auto;
+}
+
+.scroll-btn.left-btn {
+    left: -20px;
+}
+
+.scroll-btn.right-btn {
+    right: -20px;
+}
+
+/* Mobile-specific fixes */
+@media (max-width: 768px) {
+    .marketplace-container {
+        margin: 0 -15px; /* Wider margin for mobile */
+        padding: 0 15px; /* Add padding */
+    }
+    
+    .nft-carousel {
+        margin: 0 -5px;
+        padding: 10px 5px;
+    }
+    
+    .nft-card {
+        width: 250px; /* Slightly smaller on mobile */
+        margin: 0 8px;
+    }
+    
+    /* Hide scroll buttons on mobile if they're causing issues */
+    .scroll-btn {
+        display: none;
+    }
+    
+    /* Alternatively, make them smaller and less intrusive */
+    .scroll-btn.mobile-visible {
+        display: flex;
+        width: 35px;
+        height: 35px;
+        font-size: 18px;
+        background: rgba(0, 0, 0, 0.5);
+    }
+    
+    .scroll-btn.left-btn.mobile-visible {
+        left: 5px;
+    }
+    
+    .scroll-btn.right-btn.mobile-visible {
+        right: 5px;
+    }
+}
+
+/* Ensure the main content area scrolls properly */
+.main {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Fix for iOS Safari scrolling */
+@supports (-webkit-touch-callout: none) {
+    .main {
+        height: calc(100vh - 60px); /* Adjust based on your header height */
+    }
+}
+
+/* If you have JavaScript that prevents scrolling, check for these patterns */
+/* Look in your explore.js for: */
+/* e.preventDefault() on touch events */
+/* document.body.style.overflow = 'hidden' */
+/* Any touch-action: none; in CSS */

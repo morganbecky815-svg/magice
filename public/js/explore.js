@@ -1032,29 +1032,47 @@ function setupAutoScroll(carousel) {
     startAutoScroll();
 }
 
-// Add touch support for mobile
+// Replace the existing setupTouchSupport function with this FIXED version:
 function setupTouchSupport(carousel) {
     let isDragging = false;
     let startX;
     let scrollLeft;
+    let startY;
+    let verticalScrollThreshold = 10; // How much vertical movement before we consider it a scroll
     
     carousel.addEventListener('touchstart', (e) => {
         isDragging = true;
         startX = e.touches[0].pageX - carousel.offsetLeft;
+        startY = e.touches[0].pageY - carousel.offsetTop;
         scrollLeft = carousel.scrollLeft;
-    });
+    }, { passive: true }); // Add passive: true for better performance
     
     carousel.addEventListener('touchmove', (e) => {
         if (!isDragging) return;
-        e.preventDefault();
+        
         const x = e.touches[0].pageX - carousel.offsetLeft;
+        const y = e.touches[0].pageY - carousel.offsetTop;
+        
+        // Calculate horizontal and vertical movement
+        const deltaX = x - startX;
+        const deltaY = y - startY;
+        
+        // If vertical movement is significant, allow page to scroll
+        if (Math.abs(deltaY) > verticalScrollThreshold) {
+            // User is trying to scroll vertically - allow it
+            isDragging = false;
+            return;
+        }
+        
+        // Only prevent default for horizontal swipes
+        e.preventDefault();
         const walk = (x - startX) * 2;
         carousel.scrollLeft = scrollLeft - walk;
-    });
+    }, { passive: false }); // Keep passive: false since we might call preventDefault
     
     carousel.addEventListener('touchend', () => {
         isDragging = false;
-    });
+    }, { passive: true });
 }
 
 // Update display functions to use carousel
