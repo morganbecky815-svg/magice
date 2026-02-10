@@ -1102,8 +1102,65 @@
     }
 }
 
-/* If you have JavaScript that prevents scrolling, check for these patterns */
-/* Look in your explore.js for: */
-/* e.preventDefault() on touch events */
-/* document.body.style.overflow = 'hidden' */
-/* Any touch-action: none; in CSS */
+/* ===== IMPROVED AUTO-SCROLL ANIMATION ===== */
+.nft-carousel.auto-scroll {
+    display: flex;
+    animation: scrollLeft linear infinite;
+    animation-duration: 40s; /* Default, will be set by JS */
+    width: max-content;
+    will-change: transform; /* GPU acceleration */
+    backface-visibility: hidden; /* Prevent flicker */
+    transform: translateZ(0); /* GPU layer */
+}
+
+/* Keyframes for smooth scrolling */
+@keyframes scrollLeft {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(calc(-50%)); /* Scroll by half (duplicated content) */
+    }
+}
+
+/* Optimize for performance */
+.nft-carousel.auto-scroll .nft-card {
+    flex: 0 0 auto;
+    width: 300px;
+    margin: 0 10px;
+    transform: translateZ(0); /* GPU layer for cards too */
+}
+
+/* Pause animation when not visible */
+@media (prefers-reduced-motion: reduce) {
+    .nft-carousel.auto-scroll {
+        animation: none;
+    }
+}
+
+/* Smooth pause/resume */
+.nft-carousel.auto-scroll:hover {
+    animation-play-state: paused !important;
+}
+
+/* Mobile optimization */
+@media (max-width: 768px) {
+    .nft-carousel.auto-scroll {
+        animation-duration: 50s; /* Slower on mobile */
+    }
+    
+    .nft-carousel.auto-scroll .nft-card {
+        width: 280px;
+    }
+}
+
+/* For very small screens */
+@media (max-width: 480px) {
+    .nft-carousel.auto-scroll {
+        animation-duration: 60s; /* Even slower */
+    }
+    
+    .nft-carousel.auto-scroll .nft-card {
+        width: 250px;
+    }
+}

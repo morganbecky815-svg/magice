@@ -546,7 +546,7 @@ function sortNFTsArray(nfts, sortMethod) {
     return [...nfts].sort((a, b) => {
         switch(sortMethod) {
             case 'newest':
-                return new Date(b.createdAt || b.created_at || 0) - new Date(a.createdAt || a.created_at || 0);
+                return new Date(b.createdAt || b.created_at || 0) - new Date(a.createdAt || a.created_a || 0);
             case 'oldest':
                 return new Date(a.createdAt || a.created_at || 0) - new Date(b.createdAt || b.created_at || 0);
             case 'price_low':
@@ -945,7 +945,7 @@ function scrollToNFTs() {
 }
 
 // ============================================
-// NFT CAROUSEL FUNCTIONALITY
+// NFT CAROUSEL FUNCTIONALITY - UPDATED
 // ============================================
 
 // Initialize all carousels
@@ -981,58 +981,53 @@ function initSingleCarousel(carousel) {
         });
     }
     
-    // Setup auto-scroll
+    // Setup auto-scroll (CSS-based for long-term)
     setupAutoScroll(carousel);
     
     // Add touch support for mobile
     setupTouchSupport(carousel);
 }
 
-// Setup auto-scrolling (right to left)
+// CSS-based auto-scroll (BEST FOR LONG-TERM)
 function setupAutoScroll(carousel) {
-    let scrollSpeed = 0.5; // Adjust speed here (pixels per frame)
-    let isPaused = false;
-    let animationId = null;
+    // Check if already has auto-scroll
+    if (carousel.classList.contains('auto-scroll')) return;
     
-    // Start auto-scroll
-    function startAutoScroll() {
-        const scroll = () => {
-            if (!isPaused) {
-                // Move left (right-to-left scrolling)
-                carousel.scrollLeft += scrollSpeed;
-                
-                // Loop back to start when reaching end
-                if (carousel.scrollLeft >= 
-                    carousel.scrollWidth - carousel.clientWidth - 10) {
-                    carousel.scrollLeft = 0;
-                }
-            }
-            animationId = requestAnimationFrame(scroll);
-        };
-        animationId = requestAnimationFrame(scroll);
+    // Add auto-scroll class for CSS animation
+    carousel.classList.add('auto-scroll');
+    
+    // Duplicate content for seamless infinite loop
+    const originalContent = carousel.innerHTML;
+    const cards = carousel.querySelectorAll('.nft-card');
+    
+    if (cards.length > 0) {
+        // Duplicate the cards for seamless scrolling
+        const duplicateContent = originalContent;
+        carousel.innerHTML = originalContent + duplicateContent;
     }
     
-    // Pause on hover
-    carousel.addEventListener('mouseenter', () => {
-        isPaused = true;
-        if (animationId) {
-            cancelAnimationFrame(animationId);
-            animationId = null;
+    // Pause/resume on hover (desktop only)
+    if (window.innerWidth > 768) {
+        carousel.addEventListener('mouseenter', () => {
+            carousel.style.animationPlayState = 'paused';
+        });
+        
+        carousel.addEventListener('mouseleave', () => {
+            carousel.style.animationPlayState = 'running';
+        });
+    }
+    
+    // Clean up on page hide (save battery)
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            carousel.style.animationPlayState = 'paused';
+        } else {
+            carousel.style.animationPlayState = 'running';
         }
     });
-    
-    carousel.addEventListener('mouseleave', () => {
-        isPaused = false;
-        if (!animationId) {
-            startAutoScroll();
-        }
-    });
-    
-    // Start auto-scroll
-    startAutoScroll();
 }
 
-// Replace the existing setupTouchSupport function with this FIXED version:
+// FIXED: Touch support for mobile (allows vertical scrolling)
 function setupTouchSupport(carousel) {
     let isDragging = false;
     let startX;
@@ -1075,7 +1070,7 @@ function setupTouchSupport(carousel) {
     }, { passive: true });
 }
 
-// Update display functions to use carousel
+// Update displayTrendingNFTs to reinitialize carousel
 function displayTrendingNFTs(nfts) {
     const trendingGrid = document.getElementById('trendingGrid');
     if (!trendingGrid) return;
@@ -1091,6 +1086,7 @@ function displayTrendingNFTs(nfts) {
     setTimeout(() => initSingleCarousel(trendingGrid), 100);
 }
 
+// Update displayNewestNFTs to reinitialize carousel
 function displayNewestNFTs(nfts) {
     const newestGrid = document.getElementById('newestGrid');
     if (!newestGrid) return;
@@ -1104,30 +1100,6 @@ function displayNewestNFTs(nfts) {
     
     // Reinitialize carousel after content loads
     setTimeout(() => initSingleCarousel(newestGrid), 100);
-}
-
-// Update displayNFTs for main grid (optional - keep as grid or make carousel)
-function displayNFTs(nfts) {
-    const nftGrid = document.getElementById('nftGrid');
-    if (!nftGrid) return;
-    
-    if (nfts.length === 0) {
-        nftGrid.innerHTML = `
-            <div class="no-nfts">
-                <i class="fas fa-search"></i>
-                <h3>No NFTs to display</h3>
-                <p>Try changing your filters or check back later</p>
-            </div>
-        `;
-        return;
-    }
-    
-    nftGrid.innerHTML = nfts.map(nft => createEnhancedNFTCard(nft)).join('');
-    
-    // If using carousel for main grid, initialize it
-    if (nftGrid.classList.contains('nft-carousel')) {
-        setTimeout(() => initSingleCarousel(nftGrid), 100);
-    }
 }
 
 // ============================================
