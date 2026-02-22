@@ -1,4 +1,4 @@
-// login.js - Complete updated file
+// login.js - Complete updated file with password reveal functionality
 
 async function handleLogin(event) {
     event.preventDefault();
@@ -114,7 +114,99 @@ function showLoginSuccess(message) {
     messageEl.className = 'login-message success';
     messageEl.style.display = 'block';
 }
-  
+
+// ============================================
+// PASSWORD REVEAL FUNCTIONALITY - FIXED POSITIONING
+// ============================================
+
+// Toggle password visibility
+function togglePasswordVisibility(inputId, iconElement) {
+    const passwordInput = document.getElementById(inputId);
+    if (!passwordInput) return;
+    
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        iconElement.classList.remove('fa-eye');
+        iconElement.classList.add('fa-eye-slash');
+    } else {
+        passwordInput.type = 'password';
+        iconElement.classList.remove('fa-eye-slash');
+        iconElement.classList.add('fa-eye');
+    }
+    
+    // Keep focus on input field
+    passwordInput.focus();
+}
+
+// Initialize password toggle icons
+function initPasswordToggles() {
+    // Add eye icons to password fields
+    const passwordFields = [
+        { id: 'loginPassword', container: '.form-group' }
+    ];
+    
+    passwordFields.forEach(field => {
+        const input = document.getElementById(field.id);
+        if (!input) return;
+        
+        // Get the parent container
+        const container = input.closest('.form-group');
+        if (!container) return;
+        
+        // Check if toggle already exists
+        if (container.querySelector('.password-toggle')) return;
+        
+        // Create wrapper div if needed
+        let inputWrapper = container.querySelector('.password-input-wrapper');
+        if (!inputWrapper) {
+            // Wrap the input in a div for better positioning
+            inputWrapper = document.createElement('div');
+            inputWrapper.className = 'password-input-wrapper';
+            inputWrapper.style.cssText = `
+                position: relative;
+                width: 100%;
+            `;
+            
+            // Replace input with wrapper containing input
+            input.parentNode.insertBefore(inputWrapper, input);
+            inputWrapper.appendChild(input);
+        }
+        
+        // Create toggle icon
+        const toggleIcon = document.createElement('i');
+        toggleIcon.className = 'fas fa-eye password-toggle';
+        toggleIcon.setAttribute('onclick', `togglePasswordVisibility('${field.id}', this)`);
+        toggleIcon.style.cssText = `
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #888;
+            z-index: 10;
+            font-size: 18px;
+            transition: color 0.3s ease;
+            pointer-events: auto;
+            background: transparent;
+            padding: 5px;
+        `;
+        
+        inputWrapper.appendChild(toggleIcon);
+        
+        // Add hover effect
+        toggleIcon.addEventListener('mouseenter', () => {
+            toggleIcon.style.color = '#8a2be2';
+        });
+        
+        toggleIcon.addEventListener('mouseleave', () => {
+            toggleIcon.style.color = '#888';
+        });
+        
+        // Ensure input has right padding
+        input.style.paddingRight = '45px';
+    });
+}
+
 // Forgot password modal functions
 function showForgotPassword() {
     const modal = document.getElementById('forgotPasswordModal');
@@ -144,6 +236,60 @@ function sendPasswordReset() {
     alert('Password reset link would be sent to: ' + email + '\n\n(Backend integration required)');
     closeModal('forgotPasswordModal');
 }
+
+// Add CSS for password toggle
+function addPasswordToggleStyles() {
+    if (document.getElementById('password-toggle-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'password-toggle-styles';
+    style.textContent = `
+        .form-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .password-input-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        
+        .password-toggle {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #888;
+            z-index: 10;
+            font-size: 18px;
+            transition: color 0.3s ease;
+            background: transparent;
+            padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .password-toggle:hover {
+            color: #8a2be2;
+        }
+        
+        /* Adjust input padding to make room for icon */
+        input[type="password"],
+        input[type="text"] {
+            padding-right: 45px !important;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        /* Ensure the wrapper doesn't overflow */
+        .password-input-wrapper input {
+            width: 100%;
+        }
+    `;
+    document.head.appendChild(style);
+}
   
 // Initialize login form when page loads
 document.addEventListener('DOMContentLoaded', function() {
@@ -155,6 +301,14 @@ document.addEventListener('DOMContentLoaded', function() {
         newForm.addEventListener('submit', handleLogin);
     }
     
+    // Initialize password toggle functionality
+    addPasswordToggleStyles();
+    
+    // Small delay to ensure DOM is fully ready
+    setTimeout(() => {
+        initPasswordToggles();
+    }, 100);
+    
     // Close modal when clicking outside
     window.addEventListener('click', function(event) {
         const forgotModal = document.getElementById('forgotPasswordModal');
@@ -163,3 +317,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Make toggle function globally available
+window.togglePasswordVisibility = togglePasswordVisibility;

@@ -1,5 +1,5 @@
 // add-eth.js - Handles Add ETH page functionality
-// UPDATED VERSION - Shows user's actual wallet address
+// FIXED VERSION - Working copy button
 
 let instructionsVisible = false;
 
@@ -194,50 +194,66 @@ function generateQRCode() {
     });
 }
 
-// Copy wallet address to clipboard
+// ========== FIXED COPY WALLET ADDRESS FUNCTION ==========
 function copyWalletAddress() {
-    const walletAddress = getUserWalletAddress();
+    console.log('📋 Copy button clicked');
     
-    try {
-        navigator.clipboard.writeText(walletAddress)
-            .then(() => {
-                // Show feedback on copy button
-                const copyBtn = document.getElementById('copyAddressBtn');
-                if (copyBtn) {
-                    const originalHTML = copyBtn.innerHTML;
-                    copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                    copyBtn.style.background = '#10b981';
-                    
-                    setTimeout(() => {
-                        copyBtn.innerHTML = originalHTML;
-                        copyBtn.style.background = '';
-                    }, 2000);
-                }
-                
-                // Visual feedback on QR code
-                const qrImage = document.querySelector('#qrCode img');
-                if (qrImage) {
-                    qrImage.style.borderColor = '#10b981';
-                    qrImage.style.transform = 'scale(0.95)';
-                    
-                    setTimeout(() => {
-                        qrImage.style.borderColor = '#e2e8f0';
-                        qrImage.style.transform = 'scale(1)';
-                    }, 500);
-                }
-                
-                console.log('✅ Address copied to clipboard');
-                showNotification('✅ Ethereum address copied! Remember: Only send ETH on ERC-20 network', 'success', 4000);
-                
-            })
-            .catch(err => {
-                console.error('❌ Failed to copy:', err);
-                showNotification('❌ Failed to copy. Please copy manually.', 'error');
-            });
-    } catch (error) {
-        console.error('❌ Clipboard not supported:', error);
-        showNotification('❌ Clipboard not supported in your browser', 'error');
+    // Get wallet address from the page
+    const addressElement = document.getElementById('walletAddress');
+    if (!addressElement) {
+        console.error('❌ Wallet address element not found');
+        showNotification('❌ Wallet address not found', 'error');
+        return;
     }
+    
+    const walletAddress = addressElement.textContent.trim();
+    console.log('📋 Wallet address to copy:', walletAddress);
+    
+    // Don't copy if it's a placeholder
+    if (!walletAddress || 
+        walletAddress === 'Please login first' || 
+        walletAddress === 'No wallet address found' || 
+        walletAddress === 'Error loading wallet' ||
+        walletAddress.includes('Loading')) {
+        console.error('❌ Invalid wallet address:', walletAddress);
+        showNotification('❌ Wallet address not available', 'error');
+        return;
+    }
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(walletAddress).then(() => {
+        console.log('✅ Address copied successfully');
+        
+        // Show feedback on copy button
+        const copyBtn = document.getElementById('copyAddressBtn');
+        if (copyBtn) {
+            const originalHTML = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            copyBtn.style.background = '#10b981';
+            
+            setTimeout(() => {
+                copyBtn.innerHTML = originalHTML;
+                copyBtn.style.background = '';
+            }, 2000);
+        }
+        
+        // Visual feedback on QR code
+        const qrImage = document.querySelector('#qrCode img');
+        if (qrImage) {
+            qrImage.style.borderColor = '#10b981';
+            qrImage.style.transform = 'scale(0.95)';
+            
+            setTimeout(() => {
+                qrImage.style.borderColor = '#e2e8f0';
+                qrImage.style.transform = 'scale(1)';
+            }, 500);
+        }
+        
+        showNotification('✅ Wallet address copied!', 'success', 2000);
+    }).catch(err => {
+        console.error('❌ Failed to copy:', err);
+        showNotification('❌ Failed to copy. Please copy manually.', 'error');
+    });
 }
 
 // Open official MetaMask website

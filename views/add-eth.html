@@ -217,7 +217,7 @@
                                 <i class="fas fa-spinner fa-spin"></i> Loading your wallet address...
                             </div>
                             <button class="copy-btn" id="copyAddressBtn" onclick="copyWalletAddress()" disabled>
-                                <i class="fas fa-copy"></i> Copy Address
+                                <i class="fas fa-copy"></i> Tap qr code to Copy Address
                             </button>
                         </div>
                         
@@ -517,40 +517,6 @@
     <script src="../js/app.js"></script>
     <script src="../js/add-eth.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-    <script>
-    // Copy wallet address function
-    function copyWalletAddress() {
-        const addressElement = document.getElementById('walletAddress');
-        const address = addressElement.textContent;
-        
-        // Don't try to copy if it's still loading or an error message
-        if (address.includes('Loading') || address.includes('Error') || address.includes('spinner')) {
-            alert('Please wait, wallet address is still loading...');
-            return;
-        }
-        
-        if (address && address !== 'Loading your wallet address...') {
-            navigator.clipboard.writeText(address).then(() => {
-                alert('✅ Wallet address copied to clipboard!');
-            }).catch(() => {
-                alert('❌ Failed to copy. Please copy manually.');
-            });
-        }
-    }
-
-    // Toggle instructions
-    function toggleInstructions() {
-        const instructions = document.getElementById('transferInstructions');
-        if (instructions.style.display === 'none') {
-            instructions.style.display = 'block';
-        } else {
-            instructions.style.display = 'none';
-        }
-    }
-
-    // Make functions globally available
-    window.copyWalletAddress = copyWalletAddress;
-    window.toggleInstructions = toggleInstructions;
-    </script>
+    <!-- REMOVED THE DUPLICATE INLINE SCRIPT -->
 </body>
 </html>
