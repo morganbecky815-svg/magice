@@ -160,6 +160,7 @@ async function loadETHPrice() {
 }
 
 // Load NFT data
+// Load NFT data - Updated to handle both minted and imported NFTs
 async function loadNFT(nftId) {
     try {
         showLoading();
@@ -170,18 +171,38 @@ async function loadNFT(nftId) {
             'Content-Type': 'application/json'
         } : { 'Content-Type': 'application/json' };
         
-        // Fetch NFT from API
-        const response = await fetch(`/api/nft/${nftId}`, { headers });
+        console.log('🔍 Loading NFT with ID:', nftId);
         
-        if (!response.ok) {
-            throw new Error('NFT not found or access denied');
+        // Try to fetch from main NFT API first
+        let response = await fetch(`/api/nft/${nftId}`, { headers });
+        let data;
+        
+        if (response.ok) {
+            data = await response.json();
+            console.log('✅ Found in main NFTs');
+        } else {
+            // If not found, try the imported NFTs API
+            console.log('🔄 Not found in main NFTs, trying imported NFTs...');
+            response = await fetch(`/api/nft-import/${nftId}`, { headers });
+            
+            if (response.ok) {
+                data = await response.json();
+                console.log('✅ Found in imported NFTs');
+            } else {
+                throw new Error('NFT not found');
+            }
         }
-        
-        const data = await response.json();
         
         if (data.success && data.nft) {
             currentNFT = data.nft;
+            
+            // Add a flag to indicate if it's imported (for UI badges)
+            currentNFT.isImported = data.nft.importedFrom ? true : false;
+            
             displayNFT(data.nft);
+            
+            // Update page title
+            document.title = `${data.nft.name || 'NFT'} | Magic Eden`;
         } else {
             throw new Error('NFT data not available');
         }
@@ -195,6 +216,7 @@ async function loadNFT(nftId) {
 }
 
 // Display NFT data
+// Display NFT data - Add import badge section
 function displayNFT(nft) {
     // Show content
     document.getElementById('nftContent').style.display = 'block';
@@ -204,6 +226,23 @@ function displayNFT(nft) {
     nftImage.src = nft.image || '/images/default-nft.png';
     nftImage.alt = nft.name || 'NFT Image';
     
+    // Add import badge if this is an imported NFT
+    const imageContainer = document.querySelector('.nft-image-container');
+    if (imageContainer) {
+        // Remove existing import badge if any
+        const existingBadge = document.getElementById('importBadge');
+        if (existingBadge) existingBadge.remove();
+        
+        // Add badge for imported NFTs
+        if (nft.importedFrom) {
+            const badge = document.createElement('span');
+            badge.id = 'importBadge';
+            badge.className = 'import-badge';
+            badge.innerHTML = `<i class="fas fa-download"></i> Imported from ${nft.marketplace || 'marketplace'}`;
+            imageContainer.appendChild(badge);
+        }
+    }
+    
     // Set NFT name
     document.getElementById('nftName').textContent = nft.name || 'Unnamed NFT';
     
@@ -211,7 +250,7 @@ function displayNFT(nft) {
     const collectionInfo = document.getElementById('collectionInfo');
     collectionInfo.innerHTML = `
         <i class="fas fa-layer-group"></i>
-        <span>${nft.collectionName || 'No Collection'}</span>
+        <span>${nft.collectionName || nft.collection || 'No Collection'}</span>
     `;
     
     // Set owner info

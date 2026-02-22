@@ -1,3 +1,5 @@
+// login.js - Complete updated file
+
 async function handleLogin(event) {
     event.preventDefault();
   
@@ -50,42 +52,36 @@ async function handleLogin(event) {
             return;
         }
   
-        // ✅✅✅ SAVE DATA ONCE
+        // ✅ SAVE ALL THREE KEYS
         localStorage.setItem('token', result.token);
         localStorage.setItem('user', JSON.stringify(result.user));
-        
-        // ALSO save for compatibility with dashboard.js
         localStorage.setItem('magicEdenCurrentUser', result.user.email);
+        
+        console.log('✅ Login successful - Data saved:');
+        console.log('   Token:', result.token ? '✓' : '✗');
+        console.log('   User object:', result.user);
+        console.log('   Wallet address:', result.user.systemWalletAddress);
+        console.log('   Email:', result.user.email);
   
         // Show appropriate success message
         if (result.user && result.user.isAdmin) {
             showLoginSuccess('Admin login successful! Redirecting to admin panel...');
         } else {
-            showLoginSuccess('Login successful! Redirecting...');
+            showLoginSuccess('Login successful! Redirecting to dashboard...');
         }
         
         document.querySelectorAll('#loginForm input, #loginForm button').forEach(el => el.disabled = true);
   
-        // ✅✅✅ CHECK IF ADMIN AND REDIRECT ACCORDINGLY
-        if (result.user && result.user._id) {
-            if (result.user.isAdmin) {
-                // Redirect to admin page if user is admin
+        // ✅ REDIRECT BASED ON USER TYPE
+        setTimeout(() => {
+            if (result.user && result.user.isAdmin) {
                 console.log('🛡️ Admin detected, redirecting to admin panel');
                 window.location.href = '/admin.html';
             } else {
-                // Regular users go to dashboard
                 console.log('👤 Regular user, redirecting to dashboard');
-                window.location.href = `/dashboard.html?userId=${result.user._id}`;
-            }
-        } else {
-            // Fallback (check localStorage for admin status)
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
-            if (user.isAdmin) {
-                window.location.href = '/admin.html';
-            } else {
                 window.location.href = '/dashboard';
             }
-        }
+        }, 1500);
   
     } catch (error) {
         console.error('Login error:', error);
@@ -93,10 +89,10 @@ async function handleLogin(event) {
         loginButton.disabled = false;
         loginButton.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
     }
-  }
+}
   
-  // Show login error message
-  function showLoginError(message) {
+// Show login error message
+function showLoginError(message) {
     const messageEl = document.getElementById('loginMessage');
     if (!messageEl) return;
     
@@ -107,35 +103,35 @@ async function handleLogin(event) {
     // Shake animation
     messageEl.classList.add('shake');
     setTimeout(() => messageEl.classList.remove('shake'), 500);
-  }
+}
   
-  // Show login success message
-  function showLoginSuccess(message) {
+// Show login success message
+function showLoginSuccess(message) {
     const messageEl = document.getElementById('loginMessage');
     if (!messageEl) return;
     
     messageEl.textContent = message;
     messageEl.className = 'login-message success';
     messageEl.style.display = 'block';
-  }
+}
   
-  // Forgot password modal functions
-  function showForgotPassword() {
+// Forgot password modal functions
+function showForgotPassword() {
     const modal = document.getElementById('forgotPasswordModal');
     if (modal) {
         modal.style.display = 'block';
     }
     return false;
-  }
+}
   
-  function closeModal(modalId) {
+function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.style.display = 'none';
     }
-  }
+}
   
-  function sendPasswordReset() {
+function sendPasswordReset() {
     const emailInput = document.getElementById('resetEmail');
     if (!emailInput) return;
     
@@ -145,13 +141,12 @@ async function handleLogin(event) {
         return;
     }
     
-    // This would normally call your backend API
     alert('Password reset link would be sent to: ' + email + '\n\n(Backend integration required)');
     closeModal('forgotPasswordModal');
-  }
+}
   
-  // Initialize login form when page loads
-  document.addEventListener('DOMContentLoaded', function() {
+// Initialize login form when page loads
+document.addEventListener('DOMContentLoaded', function() {
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         // Remove any existing listeners and attach fresh one
@@ -167,4 +162,4 @@ async function handleLogin(event) {
             closeModal('forgotPasswordModal');
         }
     });
-  });
+});

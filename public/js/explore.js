@@ -22,16 +22,22 @@ async function loadExploreWethBalance() {
         
         console.log('Explore Page: User ID:', user._id);
         
-        // Fetch FRESH balance from API (not from cache)
-        const response = await fetch(`${window.API_BASE_URL || 'http://bountiful-youth.up.railway.app/api'}/user/${user._id}`, {
+        // ✅ FIXED: Use relative URL and /me endpoint instead of user ID
+        const response = await fetch('/api/user/me/profile', {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
-            },
-            cache: 'no-cache' // IMPORTANT: Don't use cache
+            }
         });
         
         if (!response.ok) {
+            if (response.status === 401) {
+                console.log('Token expired, redirecting to login...');
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+                return;
+            }
             throw new Error(`API error: ${response.status}`);
         }
         
@@ -342,40 +348,62 @@ function createEnhancedNFTCard(nft) {
 }
 
 // ============================================
-// ENHANCED NFT LOADING (extends loadNFTs from app.js)
+// ENHANCED NFT LOADING - FIXED VERSION
 // ============================================
 
-// Enhanced loadNFTs function - replaces the basic one
+// Enhanced loadNFTs function - FIXED VERSION
 async function loadNFTs() {
     try {
         console.log('📦 Loading NFTs from backend...');
-        const data = await apiRequest('/nft');
         
-        // Store all NFTs globally
-        allNFTs = data.nfts || [];
+        // ✅ FIXED: Use relative URL and correct endpoint
+        const token = localStorage.getItem('token');
+        const headers = {
+            'Content-Type': 'application/json'
+        };
         
-        // ✅ FIXED: Call the NEW async updateMarketplaceStats function
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await fetch('/api/nft', { headers });
+        
+        if (!response.ok) {
+            if (response.status === 401) {
+                console.log('Token expired, but continuing without auth for public NFTs');
+                // Try without auth
+                const publicResponse = await fetch('/api/nft');
+                if (!publicResponse.ok) {
+                    throw new Error(`HTTP ${publicResponse.status}`);
+                }
+                const publicData = await publicResponse.json();
+                allNFTs = publicData.nfts || [];
+            } else {
+                throw new Error(`HTTP ${response.status}`);
+            }
+        } else {
+            const data = await response.json();
+            console.log('📥 NFT API response:', data);
+            allNFTs = data.nfts || [];
+        }
+        
+        console.log(`✅ Loaded ${allNFTs.length} NFTs`);
+        
+        // Update marketplace stats
         await updateMarketplaceStats(allNFTs);
         
-        // Display featured NFTs
+        // Display NFTs in different sections
         displayFeaturedNFTs(allNFTs);
-        
-        // Display trending NFTs
         displayTrendingNFTs(allNFTs);
-        
-        // Display newest NFTs
         displayNewestNFTs(allNFTs);
+        displayCollections(allNFTs);
         
         // Display all NFTs with filters
         filteredNFTs = allNFTs;
         applyFilters();
         
-        // Display collections
-        displayCollections(allNFTs);
-        
-        console.log(`✅ Loaded ${allNFTs.length} NFTs`);
     } catch (error) {
-        console.error('Failed to load NFTs:', error);
+        console.error('❌ Failed to load NFTs:', error);
         showNotification('Could not load NFTs', 'error');
     }
 }
@@ -425,9 +453,13 @@ async function updateMarketplaceStats(nfts) {
             document.getElementById('totalNFTs').textContent = nfts.length;
             
             const totalVolume = nfts.reduce((sum, nft) => sum + (nft.price || 0), 0);
-            document.getElementById('totalVolume').textContent = totalVolume.toFixed(2);
+            document.getElementById('totalVolume').textContent = totalVolume.toFixed(2) + ' WETH';
             
-            // ... rest of fallback calculations
+            const uniqueUsers = new Set(nfts.map(nft => nft.owner?._id).filter(id => id)).size;
+            document.getElementById('totalUsers').textContent = uniqueUsers;
+            
+            const uniqueCollections = new Set(nfts.map(nft => nft.collectionName).filter(name => name)).size;
+            document.getElementById('totalCollections').textContent = uniqueCollections;
         }
         
     } catch (error) {
@@ -644,6 +676,9 @@ function displayTrendingNFTs(nfts) {
         .slice(0, 6);
     
     trendingGrid.innerHTML = trending.map(nft => createEnhancedNFTCard(nft)).join('');
+    
+    // Reinitialize carousel after content loads
+    setTimeout(() => initSingleCarousel(trendingGrid), 100);
 }
 
 // Display newest NFTs
@@ -657,6 +692,9 @@ function displayNewestNFTs(nfts) {
         .slice(0, 6);
     
     newestGrid.innerHTML = newest.map(nft => createEnhancedNFTCard(nft)).join('');
+    
+    // Reinitialize carousel after content loads
+    setTimeout(() => initSingleCarousel(newestGrid), 100);
 }
 
 // Display collections
@@ -778,9 +816,16 @@ async function likeNFT(nftId) {
     }
     
     try {
-        const data = await apiRequest(`/nft/${nftId}/like`, {
-            method: 'POST'
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/nft/${nftId}/like`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
         });
+        
+        const data = await response.json();
         
         if (data.success) {
             showNotification('Liked!', 'success');
@@ -1070,38 +1115,6 @@ function setupTouchSupport(carousel) {
     }, { passive: true });
 }
 
-// Update displayTrendingNFTs to reinitialize carousel
-function displayTrendingNFTs(nfts) {
-    const trendingGrid = document.getElementById('trendingGrid');
-    if (!trendingGrid) return;
-    
-    // Sort by popularity and take top 6
-    const trending = [...nfts]
-        .sort((a, b) => (b.likes || 0) - (a.likes || 0))
-        .slice(0, 6);
-    
-    trendingGrid.innerHTML = trending.map(nft => createEnhancedNFTCard(nft)).join('');
-    
-    // Reinitialize carousel after content loads
-    setTimeout(() => initSingleCarousel(trendingGrid), 100);
-}
-
-// Update displayNewestNFTs to reinitialize carousel
-function displayNewestNFTs(nfts) {
-    const newestGrid = document.getElementById('newestGrid');
-    if (!newestGrid) return;
-    
-    // Sort by creation date and take newest 6
-    const newest = [...nfts]
-        .sort((a, b) => new Date(b.createdAt || b.created_at || 0) - new Date(a.createdAt || a.created_at || 0))
-        .slice(0, 6);
-    
-    newestGrid.innerHTML = newest.map(nft => createEnhancedNFTCard(nft)).join('');
-    
-    // Reinitialize carousel after content loads
-    setTimeout(() => initSingleCarousel(newestGrid), 100);
-}
-
 // ============================================
 // VISUAL STATS FORMATTING & ANIMATIONS
 // ============================================
@@ -1204,73 +1217,6 @@ function updateProgressBars(nfts, users, volume, collections) {
     }, 500);
 }
 
-// Update your existing loadNFTs function to use visual formatting
-async function loadNFTs() {
-    try {
-        console.log('📦 Loading NFTs from backend...');
-        const data = await apiRequest('/nft');
-        
-        // Store all NFTs globally
-        allNFTs = data.nfts || [];
-        
-        // ✅ Get stats from your API (you already have this)
-        const stats = await getMarketplaceStats();
-        
-        // ✅ Apply visual formatting to the stats
-        if (stats) {
-            formatVisualStats(
-                stats.nfts || allNFTs.length,
-                stats.users || 0,
-                stats.volume || 0,
-                stats.collections || 0
-            );
-        } else {
-            // Fallback: Calculate from NFTs
-            formatVisualStats(
-                allNFTs.length,
-                [...new Set(allNFTs.map(nft => nft.owner?._id))].filter(id => id).length,
-                allNFTs.reduce((sum, nft) => sum + (nft.price || 0), 0),
-                [...new Set(allNFTs.map(nft => nft.collectionName))].filter(name => name).length
-            );
-        }
-        
-        // Display featured NFTs
-        displayFeaturedNFTs(allNFTs);
-        
-        // Display trending NFTs
-        displayTrendingNFTs(allNFTs);
-        
-        // Display newest NFTs
-        displayNewestNFTs(allNFTs);
-        
-        // Display all NFTs with filters
-        filteredNFTs = allNFTs;
-        applyFilters();
-        
-        // Display collections
-        displayCollections(allNFTs);
-        
-        console.log(`✅ Loaded ${allNFTs.length} NFTs with visual stats`);
-    } catch (error) {
-        console.error('Failed to load NFTs:', error);
-        showNotification('Could not load NFTs', 'error');
-    }
-}
-
-// Helper: Get marketplace stats (you might already have this)
-async function getMarketplaceStats() {
-    try {
-        const response = await fetch('/api/marketplace/stats');
-        if (response.ok) {
-            const data = await response.json();
-            return data.stats || data;
-        }
-    } catch (error) {
-        console.error('Error fetching stats:', error);
-    }
-    return null;
-}
-
 // ============================================
 // INITIALIZATION
 // ============================================
@@ -1280,6 +1226,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // If on homepage, setup enhanced features
     if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
         console.log('🎮 Enhanced Explore initialized');
+        
+        // Load NFTs first
+        loadNFTs();
+        
+        // Initialize carousels after a delay (to ensure content is loaded)
+        setTimeout(() => {
+            initCarousels();
+        }, 1000);
         
         // ============================================
         // FIX: SETUP WETH BALANCE FOR EXPLORE PAGE
@@ -1311,8 +1265,6 @@ document.addEventListener('DOMContentLoaded', function() {
             hideExploreWethBalance();
         }
         
-        // ============================================
-        
         // Hide basic loading message
         setTimeout(() => {
             const basicLoading = document.querySelector('.nft-grid .loading');
@@ -1320,23 +1272,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 basicLoading.style.display = 'none';
             }
         }, 1000);
-    }
-});
-
-// Update the DOMContentLoaded event listener
-document.addEventListener('DOMContentLoaded', function() {
-    // If on homepage, setup enhanced features
-    if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
-        console.log('🎮 Enhanced Explore initialized');
-        
-        // Load NFTs first
-        loadNFTs();
-        
-        // Initialize carousels after a delay (to ensure content is loaded)
-        setTimeout(() => {
-            initCarousels();
-        }, 1000);
-        
     }
 });
 

@@ -1,14 +1,16 @@
 // add-eth.js - Handles Add ETH page functionality
-// SIMPLIFIED VERSION - 100% WORKING
+// UPDATED VERSION - Shows user's actual wallet address
 
-const MARKETPLACE_WALLET_ADDRESS = "0x489D9e921383Aaa7953e0216e460c2208a375Fe1";
 let instructionsVisible = false;
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
     console.log('💰 Add ETH Page Initializing...');
     
-    // Generate QR Code
+    // Load user's wallet address from localStorage
+    loadUserWalletAddress();
+    
+    // Generate QR Code with user's wallet address
     generateQRCode();
     
     // Update wallet balance
@@ -28,6 +30,49 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('✅ Add ETH Page Initialized');
 });
+
+// Load user's wallet address from localStorage
+function loadUserWalletAddress() {
+    console.log('🔍 Loading user wallet address...');
+    
+    // Get user from localStorage
+    const userStr = localStorage.getItem('user');
+    if (!userStr) {
+        console.error('❌ No user data found');
+        document.getElementById('walletAddress').textContent = 'Please login first';
+        return;
+    }
+    
+    try {
+        const user = JSON.parse(userStr);
+        const walletAddress = user.systemWalletAddress || user.walletAddress;
+        
+        if (walletAddress) {
+            console.log('✅ Found wallet address:', walletAddress);
+            
+            // Update display
+            const addressElement = document.getElementById('walletAddress');
+            if (addressElement) {
+                addressElement.textContent = walletAddress;
+            }
+            
+            // Store for QR code generation
+            window.userWalletAddress = walletAddress;
+            
+        } else {
+            console.error('❌ No wallet address in user data');
+            document.getElementById('walletAddress').textContent = 'No wallet address found';
+        }
+    } catch (error) {
+        console.error('❌ Error parsing user data:', error);
+        document.getElementById('walletAddress').textContent = 'Error loading wallet';
+    }
+}
+
+// Get user's wallet address (for QR code)
+function getUserWalletAddress() {
+    return window.userWalletAddress || '0x489D9e921383Aaa7953e0216e460c2208a375Fe1'; // Fallback
+}
 
 // Set up all event listeners
 function setupEventListeners() {
@@ -84,6 +129,7 @@ function setupEventListeners() {
 function generateQRCode() {
     console.log('🔳 Generating QR Code...');
     
+    const walletAddress = getUserWalletAddress();
     const qrContainer = document.getElementById('qrCode');
     if (!qrContainer) {
         console.error('❌ QR Code container not found!');
@@ -99,7 +145,7 @@ function generateQRCode() {
     `;
     
     // Use reliable QR code service with fallback
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(MARKETPLACE_WALLET_ADDRESS)}&format=png&color=000000&bgcolor=FFFFFF&margin=10`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(walletAddress)}&format=png&color=000000&bgcolor=FFFFFF&margin=10`;
     
     // Create image element
     const qrImage = new Image();
@@ -143,15 +189,17 @@ function generateQRCode() {
     // Add error handling with fallback
     qrImage.addEventListener('error', function() {
         console.warn('QR Server failed, using Google Charts fallback...');
-        const fallbackUrl = `https://chart.googleapis.com/chart?chs=250x250&cht=qr&chl=${encodeURIComponent(MARKETPLACE_WALLET_ADDRESS)}&choe=UTF-8`;
+        const fallbackUrl = `https://chart.googleapis.com/chart?chs=250x250&cht=qr&chl=${encodeURIComponent(walletAddress)}&choe=UTF-8`;
         this.src = fallbackUrl;
     });
 }
 
 // Copy wallet address to clipboard
 function copyWalletAddress() {
+    const walletAddress = getUserWalletAddress();
+    
     try {
-        navigator.clipboard.writeText(MARKETPLACE_WALLET_ADDRESS)
+        navigator.clipboard.writeText(walletAddress)
             .then(() => {
                 // Show feedback on copy button
                 const copyBtn = document.getElementById('copyAddressBtn');
@@ -248,11 +296,11 @@ function hideInstructions() {
 // Update wallet balance from localStorage
 function updateWalletBalance() {
     // Get user from localStorage
-    const userStr = localStorage.getItem('user') || localStorage.getItem('magicEdenCurrentUser');
+    const userStr = localStorage.getItem('user');
     
     if (userStr) {
         try {
-            const user = typeof userStr === 'string' ? JSON.parse(userStr) : userStr;
+            const user = JSON.parse(userStr);
             const ethBalance = user.ethBalance || user.balance || 0;
             
             console.log('💰 Current ETH balance:', ethBalance);
@@ -278,12 +326,12 @@ function updateWalletBalance() {
 // Update ETH price and calculate USD value
 function updateEthPriceAndValue() {
     // Get user data
-    const userStr = localStorage.getItem('user') || localStorage.getItem('magicEdenCurrentUser');
+    const userStr = localStorage.getItem('user');
     let ethBalance = 0;
     
     if (userStr) {
         try {
-            const user = typeof userStr === 'string' ? JSON.parse(userStr) : userStr;
+            const user = JSON.parse(userStr);
             ethBalance = user.ethBalance || user.balance || 0;
         } catch (error) {
             console.error('Error getting user balance:', error);
@@ -442,14 +490,14 @@ function simulateETHPurchase(amount) {
     console.log(`🎮 Simulating ETH purchase of ${amount} ETH`);
     
     // Get current user
-    const userStr = localStorage.getItem('user') || localStorage.getItem('magicEdenCurrentUser');
+    const userStr = localStorage.getItem('user');
     if (!userStr) {
         showNotification('❌ Please login first', 'error');
         return;
     }
     
     try {
-        const user = typeof userStr === 'string' ? JSON.parse(userStr) : userStr;
+        const user = JSON.parse(userStr);
         
         // Update balance
         const currentBalance = parseFloat(user.ethBalance || user.balance || 0);
@@ -461,7 +509,6 @@ function simulateETHPurchase(amount) {
         
         // Save back to localStorage
         localStorage.setItem('user', JSON.stringify(user));
-        localStorage.setItem('magicEdenCurrentUser', JSON.stringify(user));
         
         // Update display
         updateWalletBalance();

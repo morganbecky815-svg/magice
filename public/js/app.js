@@ -147,21 +147,35 @@ document.addEventListener('DOMContentLoaded', function() {
 if (!window.AuthManager) {
     window.AuthManager = {
         isLoggedIn: function() {
-            return !!localStorage.getItem('magicEdenCurrentUser') || 
-                   !!localStorage.getItem('token');
+            return !!localStorage.getItem('token') && !!localStorage.getItem('user');
         },
         getCurrentUser: function() {
-            return localStorage.getItem('magicEdenCurrentUser');
+            try {
+                return JSON.parse(localStorage.getItem('user'));
+            } catch {
+                return null;
+            }
+        },
+        getUserEmail: function() {
+            const user = this.getCurrentUser();
+            return user ? user.email : localStorage.getItem('magicEdenCurrentUser');
         },
         logout: function() {
-            localStorage.removeItem('magicEdenCurrentUser');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
+            localStorage.removeItem('magicEdenCurrentUser');
             localStorage.removeItem('userId');
+            currentUser = null;
+            userToken = null;
         },
-        login: function(email, token) {
-            localStorage.setItem('magicEdenCurrentUser', email);
+        login: function(email, token, userData) {
             localStorage.setItem('token', token);
+            if (userData) {
+                localStorage.setItem('user', JSON.stringify(userData));
+            }
+            localStorage.setItem('magicEdenCurrentUser', email);
+            currentUser = userData;
+            userToken = token;
         }
     };
 }
@@ -184,7 +198,7 @@ async function testBackendConnection() {
     }
 }
 
-// Make API request to backend
+// Make API request to backend - FIXED VERSION
 async function apiRequest(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
     
@@ -197,6 +211,9 @@ async function apiRequest(endpoint, options = {}) {
     const token = localStorage.getItem('token');
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+        console.log(`🔑 Token added to request: ${endpoint}`);
+    } else {
+        console.warn(`⚠️ No token for request: ${endpoint}`);
     }
     
     try {
@@ -208,6 +225,15 @@ async function apiRequest(endpoint, options = {}) {
         
         // Check if response is OK
         if (!response.ok) {
+            if (response.status === 401) {
+                console.error(`🔒 Authentication error on ${endpoint}`);
+                // Don't auto-redirect, let the page handle it
+            } else if (response.status === 403) {
+                console.error(`🔒 Authorization error on ${endpoint}`);
+            } else if (response.status === 404) {
+                console.error(`🔍 Endpoint not found: ${endpoint}`);
+            }
+            
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || `HTTP ${response.status}`);
         }
@@ -215,7 +241,6 @@ async function apiRequest(endpoint, options = {}) {
         return await response.json();
     } catch (error) {
         console.error(`❌ API Error at ${endpoint}:`, error.message);
-        showNotification(error.message || 'API request failed', 'error');
         throw error;
     }
 }
@@ -227,13 +252,19 @@ async function apiRequest(endpoint, options = {}) {
 // Check if user is logged in
 function checkAuthStatus() {
     const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
+    const userStr = localStorage.getItem('user');
     
-    if (token && userData) {
-        userToken = token;
-        currentUser = JSON.parse(userData);
-        updateAuthUI();
-        return true;
+    if (token && userStr) {
+        try {
+            userToken = token;
+            currentUser = JSON.parse(userStr);
+            console.log('✅ User authenticated:', currentUser.email);
+            updateAuthUI();
+            return true;
+        } catch (e) {
+            console.error('Error parsing user data:', e);
+            return false;
+        }
     }
     
     updateAuthUI();
@@ -251,12 +282,15 @@ function updateAuthUI() {
         // User is logged in
         guestButtons.style.display = 'none';
         userInfo.style.display = 'flex';
+        const displayName = currentUser.fullName || currentUser.email.split('@')[0];
+        const userInitial = displayName.charAt(0).toUpperCase();
+        
         userInfo.innerHTML = `
             <div style="display: flex; align-items: center; gap: 10px;">
-                <div style="background: #6c63ff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
-                    ${currentUser.fullName?.charAt(0) || currentUser.email?.charAt(0) || 'U'}
+                <div style="background: #6c63ff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
+                    ${userInitial}
                 </div>
-                <span>${currentUser.fullName || currentUser.email}</span>
+                <span>${displayName}</span>
                 <span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">
                     ${currentUser.wethBalance || currentUser.balance || 0} WETH
                 </span>
@@ -272,20 +306,29 @@ function updateAuthUI() {
     }
 }
 
-// Login function (connects to backend)
+// Login function - FIXED VERSION
 async function login(email, password) {
     try {
-        const data = await apiRequest('/auth/login', {
+        const response = await fetch('/api/auth/login', {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
         });
         
-        if (data.success) {
-            // Save token and user data
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            // ✅ SAVE ALL THREE KEYS
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
+            localStorage.setItem('magicEdenCurrentUser', data.user.email);
+            
             userToken = data.token;
             currentUser = data.user;
+            
+            console.log('✅ Login successful - Data saved:');
+            console.log('   User:', data.user.email);
+            console.log('   Wallet:', data.user.systemWalletAddress);
             
             // Update UI
             updateAuthUI();
@@ -298,54 +341,66 @@ async function login(email, password) {
             // Show success message
             showNotification('Login successful!', 'success');
             
-            // Redirect to homepage
+            // Redirect based on user type
             setTimeout(() => {
-                window.location.href = '/';
+                if (data.user.isAdmin) {
+                    window.location.href = '/admin.html';
+                } else {
+                    window.location.href = '/dashboard';
+                }
             }, 1000);
             
             return data;
+        } else {
+            throw new Error(data.error || 'Login failed');
         }
     } catch (error) {
         console.error('Login failed:', error);
+        showNotification(error.message, 'error');
     }
     return null;
 }
 
-// Register function (connects to backend)
+// Register function
 async function register(email, password, fullName = '') {
     try {
-        const data = await apiRequest('/auth/register', {
+        const response = await fetch('/api/auth/register', {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password, fullName })
         });
         
-        if (data.success) {
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
             // Save token and user data
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
+            localStorage.setItem('magicEdenCurrentUser', data.user.email);
+            
             userToken = data.token;
             currentUser = data.user;
             
+            console.log('✅ Registration successful - Wallet:', data.user.systemWalletAddress);
+            
             // Update UI
             updateAuthUI();
-            
-            // Load user balance after registration
-            if (currentUser._id) {
-                await loadUserBalance();
-            }
             
             // Show success message
             showNotification('Registration successful!', 'success');
             
             // Redirect to homepage
             setTimeout(() => {
-                window.location.href = '/';
+                window.location.href = '/dashboard';
             }, 1000);
             
             return data;
+        } else {
+            throw new Error(data.error || 'Registration failed');
         }
     } catch (error) {
         console.error('Registration failed:', error);
+        showNotification(error.message, 'error');
     }
     return null;
 }
@@ -354,6 +409,7 @@ async function register(email, password, fullName = '') {
 function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('magicEdenCurrentUser');
     userToken = null;
     currentUser = null;
     
@@ -368,7 +424,7 @@ function logout() {
 }
 
 // ========================
-// NFT FUNCTIONS - FIXED CASH FLOW VERSION
+// NFT FUNCTIONS
 // ========================
 
 // Load NFTs from backend
@@ -414,7 +470,7 @@ function displayNFTs(nfts) {
 }
 
 // ========================
-// FIXED: COMPLETE NFT PURCHASE WITH CASH FLOW
+// NFT PURCHASE FUNCTION
 // ========================
 
 async function buyNFT(nftId) {
@@ -428,15 +484,12 @@ async function buyNFT(nftId) {
         console.log('🛒 Starting NFT purchase for ID:', nftId);
         
         // Get NFT details first
-        const nftResponse = await fetch(`${API_BASE_URL}/nft/${nftId}`);
-        if (!nftResponse.ok) throw new Error('Failed to load NFT details');
-        
-        const nftData = await nftResponse.json();
-        if (!nftData.success || !nftData.nft) {
+        const nftResponse = await apiRequest(`/nft/${nftId}`);
+        if (!nftResponse.success || !nftResponse.nft) {
             throw new Error('Could not load NFT details');
         }
         
-        const nft = nftData.nft;
+        const nft = nftResponse.nft;
         const price = nft.price || 0;
         
         console.log('NFT Price:', price, 'WETH');
@@ -490,19 +543,9 @@ async function buyNFT(nftId) {
         
         // Make purchase API call
         console.log('Making purchase API call...');
-        const response = await fetch(`${API_BASE_URL}/nft/${nftId}/purchase`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json'
-            }
+        const result = await apiRequest(`/nft/${nftId}/purchase`, {
+            method: 'POST'
         });
-        
-        const result = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(result.error || `Purchase failed: ${response.status}`);
-        }
         
         if (result.success) {
             console.log('✅ Purchase successful!', result);
@@ -512,7 +555,6 @@ async function buyNFT(nftId) {
                 localStorage.setItem('user', JSON.stringify(result.user));
                 currentUser = result.user;
             } else if (result.newBalance !== undefined) {
-                // Update user's WETH balance
                 currentUser.wethBalance = result.newBalance;
                 currentUser.balance = result.newBalance;
                 localStorage.setItem('user', JSON.stringify(currentUser));
@@ -553,212 +595,24 @@ async function buyNFT(nftId) {
 }
 
 // ========================
-// FIXED: NFT CREATION WITH ETH DEDUCTION
+// USER BALANCE FUNCTIONS - FIXED VERSION
 // ========================
-
-// MINT NFT (Deducts ETH from user)
-async function mintNFT(formData) {
-    try {
-        if (!currentUser) {
-            showNotification('Please login to create NFTs', 'error');
-            window.location.href = '/login';
-            return;
-        }
-        
-        const token = localStorage.getItem('token');
-        if (!token) {
-            throw new Error('Authentication required');
-        }
-        
-        const mintingFee = 0.01; // 0.01 ETH minting fee
-        
-        // Check ETH balance
-        if (currentUser.ethBalance < mintingFee) {
-            const choice = confirm(
-                `❌ Insufficient ETH for minting fee!\n\n` +
-                `Minting Fee: ${mintingFee} ETH\n` +
-                `Your ETH Balance: ${currentUser.ethBalance} ETH\n` +
-                `Shortage: ${mintingFee - currentUser.ethBalance} ETH\n\n` +
-                `Would you like to add ETH?`
-            );
-            
-            if (choice) {
-                window.location.href = '/add-eth';
-            }
-            return;
-        }
-        
-        // Get form values
-        const name = formData.get('name');
-        const collectionName = formData.get('collectionName');
-        const price = formData.get('price');
-        
-        // Confirm minting
-        const confirmMint = confirm(
-            `🎨 Mint NFT Confirmation\n\n` +
-            `NFT Name: ${name}\n` +
-            `Collection: ${collectionName || 'Default'}\n` +
-            `Price: ${price || 0.01} WETH\n\n` +
-            `Minting Fee: ${mintingFee} ETH\n` +
-            `Your ETH balance: ${currentUser.ethBalance} → ${currentUser.ethBalance - mintingFee} ETH\n\n` +
-            `Proceed with minting?`
-        );
-        
-        if (!confirmMint) return;
-        
-        // Show loading
-        const createButton = document.getElementById('createNFTBtn');
-        if (createButton) {
-            createButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Minting...';
-            createButton.disabled = true;
-        }
-        
-        // Prepare NFT data
-        const nftData = {
-            name: name,
-            collectionName: collectionName,
-            price: parseFloat(price) || 0.01,
-            category: formData.get('category') || 'art',
-            image: formData.get('image')
-        };
-        
-        console.log('Minting NFT with data:', nftData);
-        
-        // Send to backend minting endpoint
-        const response = await fetch(`${API_BASE_URL}/nft/mint`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(nftData)
-        });
-        
-        const result = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(result.error || 'Minting failed');
-        }
-        
-        if (result.success) {
-            console.log('✅ NFT minted successfully!', result);
-            
-            // Update user balance
-            if (result.user) {
-                localStorage.setItem('user', JSON.stringify(result.user));
-                currentUser = result.user;
-                updateAllBalanceDisplays();
-                updateAuthUI();
-            } else if (result.newETHBalance !== undefined) {
-                // Update ETH balance
-                currentUser.ethBalance = result.newETHBalance;
-                localStorage.setItem('user', JSON.stringify(currentUser));
-                updateAllBalanceDisplays();
-                updateAuthUI();
-            }
-            
-            showNotification(`✅ NFT minted successfully! ${mintingFee} ETH deducted for minting fee.`, 'success');
-            
-            // Redirect to homepage after 2 seconds
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 2000);
-            
-        } else {
-            throw new Error(result.error || 'Minting failed');
-        }
-        
-    } catch (error) {
-        console.error('Minting error:', error);
-        showNotification(error.message || 'Failed to mint NFT', 'error');
-    } finally {
-        const createButton = document.getElementById('createNFTBtn');
-        if (createButton) {
-            createButton.innerHTML = 'Create & List NFT';
-            createButton.disabled = false;
-        }
-    }
-}
-
-// ========================
-// UTILITY FUNCTIONS
-// ========================
-
-// Show notification
-function showNotification(message, type = 'info') {
-    // Remove existing notifications
-    const existing = document.querySelector('.notification');
-    if (existing) existing.remove();
-    
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.innerHTML = `
-        <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-        <span>${message}</span>
-        <button onclick="this.parentElement.remove()">&times;</button>
-    `;
-    
-    // Style the notification
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
-        color: white;
-        padding: 15px 20px;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        z-index: 1000;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    `;
-    
-    document.body.appendChild(notification);
-    
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-        if (notification.parentElement) {
-            notification.remove();
-        }
-    }, 5000);
-}
-
-// Setup form event listeners
-function setupEventListeners() {
-    // Login form
-    const loginForm = document.getElementById('loginForm');
-    if (loginForm) {
-        loginForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            await login(email, password);
-        });
-    }
-}
-
-// Initialize the setup
-setupEventListeners();
-
-// ============================================
-// USER BALANCE FUNCTIONS - UPDATED FOR CASH FLOW
-// ============================================
 
 // Load user balance from backend
+// In app.js, update loadUserBalance to use /me
 async function loadUserBalance() {
     try {
-        const user = JSON.parse(localStorage.getItem('user'));
         const token = localStorage.getItem('token');
         
-        if (!user || !user._id || !token) {
-            console.log('User not logged in or missing user ID');
+        if (!token) {
+            console.log('No token found');
             return null;
         }
         
-        console.log('🔄 Loading user balance for:', user._id);
+        console.log('🔄 Loading user data from /me...');
         
-        const response = await fetch(`${API_BASE_URL}/user/${user._id}`, {
+        // USE /ME ENDPOINT INSTEAD OF USER ID
+        const response = await fetch('/api/user/me/profile', {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -766,30 +620,30 @@ async function loadUserBalance() {
         });
         
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Failed to load balance:', response.status, errorText);
-            return null;
+            throw new Error(`HTTP ${response.status}`);
         }
         
         const data = await response.json();
         
         if (data.success && data.user) {
-            console.log('✅ User balance loaded:', data.user);
+            console.log('✅ User data loaded:', data.user);
             
-            // Update localStorage with fresh data
+            // Update localStorage
             localStorage.setItem('user', JSON.stringify(data.user));
             currentUser = data.user;
             
-            // Update UI displays
+            // Update UI
             updateAllBalanceDisplays();
             
             return data.user;
         }
     } catch (error) {
-        console.error('Failed to load user balance:', error);
+        console.error('Failed to load user data:', error);
     }
     return null;
 }
+
+
 
 // Update all balance displays on the page
 function updateAllBalanceDisplays() {
@@ -843,29 +697,18 @@ async function addETH(amount) {
         
         console.log('Adding ETH:', amount, 'for user:', user._id);
         
-        const response = await fetch(`${API_BASE_URL}/user/${user._id}/add-eth`, {
+        const data = await apiRequest(`/user/${user._id}/add-eth`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({ amount: parseFloat(amount) })
         });
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(data.error || `Failed to add ETH: ${response.status}`);
-        }
         
         if (data.success) {
             console.log('ETH added successfully:', data);
             
             // Update local user data
             if (data.user) {
-                const updatedUser = { ...user, ...data.user };
-                localStorage.setItem('user', JSON.stringify(updatedUser));
-                currentUser = updatedUser;
+                localStorage.setItem('user', JSON.stringify(data.user));
+                currentUser = data.user;
                 updateAllBalanceDisplays();
                 updateAuthUI();
             }
@@ -893,29 +736,18 @@ async function convertToWETH(amount) {
         
         console.log('Converting to WETH:', amount, 'for user:', user._id);
         
-        const response = await fetch(`${API_BASE_URL}/user/${user._id}/convert-to-weth`, {
+        const data = await apiRequest(`/user/${user._id}/convert-to-weth`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({ amount: parseFloat(amount) })
         });
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(data.error || `Failed to convert to WETH: ${response.status}`);
-        }
         
         if (data.success) {
             console.log('Converted to WETH successfully:', data);
             
             // Update local user data
             if (data.user) {
-                const updatedUser = { ...user, ...data.user };
-                localStorage.setItem('user', JSON.stringify(updatedUser));
-                currentUser = updatedUser;
+                localStorage.setItem('user', JSON.stringify(data.user));
+                currentUser = data.user;
                 updateAllBalanceDisplays();
                 updateAuthUI();
             }
@@ -943,7 +775,6 @@ function setupBalancePages() {
                 const amount = parseFloat(amountInput.value);
                 if (amount > 0) {
                     await addETH(amount);
-                    // Clear the input
                     amountInput.value = '';
                 } else {
                     showNotification('Please enter a valid amount', 'error');
@@ -963,7 +794,6 @@ function setupBalancePages() {
                 const amount = parseFloat(amountInput.value);
                 if (amount > 0) {
                     await convertToWETH(amount);
-                    // Clear the input
                     amountInput.value = '';
                 } else {
                     showNotification('Please enter a valid amount', 'error');
@@ -983,79 +813,47 @@ function setupBalancePages() {
 }
 
 // ========================
-// UPDATED NFT CREATION FORM HANDLER WITH ETH DEDUCTION
+// UTILITY FUNCTIONS
 // ========================
 
-document.addEventListener('DOMContentLoaded', function() {
-    const createNFTForm = document.getElementById('createNFTForm');
-    const imagePreview = document.getElementById('imagePreview');
-    const imageInput = document.getElementById('image');
-    const createButton = document.getElementById('createNFTBtn');
-    const loadingSpinner = document.getElementById('loadingSpinner');
+// Show notification
+function showNotification(message, type = 'info') {
+    // Remove existing notifications
+    const existing = document.querySelector('.notification');
+    if (existing) existing.remove();
     
-    if (!createNFTForm) return;
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+        <span>${message}</span>
+        <button onclick="this.parentElement.remove()">&times;</button>
+    `;
     
-    // Preview uploaded image
-    if (imageInput && imagePreview) {
-        imageInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    imagePreview.innerHTML = `
-                        <img src="${e.target.result}" alt="Preview" style="max-width: 300px; border-radius: 8px;">
-                        <p>${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)</p>
-                    `;
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-    }
+    // Style the notification
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    `;
     
-    // Handle form submission
-    createNFTForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        if (!currentUser) {
-            showNotification('Please login to create NFTs', 'error');
-            window.location.href = '/login';
-            return;
+    document.body.appendChild(notification);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
         }
-        
-        const formData = new FormData(createNFTForm);
-        
-        // Validate
-        const name = formData.get('name');
-        const price = formData.get('price');
-        const imageFile = formData.get('image');
-        
-        if (!name || !price || !imageFile || imageFile.size === 0) {
-            showNotification('Please fill all required fields', 'error');
-            return;
-        }
-        
-        // Use the new mintNFT function that deducts ETH
-        await mintNFT(formData);
-    });
-    
-    // Price validation
-    const priceInput = document.getElementById('price');
-    if (priceInput) {
-        priceInput.addEventListener('input', function(e) {
-            let value = parseFloat(e.target.value);
-            if (value < 0) e.target.value = 0;
-            if (value > 1000) e.target.value = 1000;
-        });
-    }
-});
-
-// Make sure we have currentUser and API_BASE_URL
-if (typeof currentUser === 'undefined') {
-    currentUser = JSON.parse(localStorage.getItem('user'));
-}
-
-if (typeof API_BASE_URL === 'undefined') {
-    API_BASE_URL = window.API_BASE_URL || 'http://bountiful-youth.up.railway.app/api';
+    }, 5000);
 }
 
 // ============================================
@@ -1074,4 +872,4 @@ window.loadUserBalance = loadUserBalance;
 window.addETH = addETH;
 window.convertToWETH = convertToWETH;
 window.updateAllBalanceDisplays = updateAllBalanceDisplays;
-window.mintNFT = mintNFT;
+window.apiRequest = apiRequest;

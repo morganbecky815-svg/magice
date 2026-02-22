@@ -286,4 +286,139 @@ router.get('/user/my-nfts', auth, async (req, res) => {
     }
 });
 
+// ========================
+// IMPORT ROUTES (Add to your existing nft.js)
+// ========================
+
+// Import NFT from OpenSea (manual entry)
+router.post('/import/opensea', auth, async (req, res) => {
+    try {
+        const { contractAddress, tokenId, price } = req.body;
+        
+        if (!contractAddress || !tokenId) {
+            return res.status(400).json({ 
+                error: 'Contract address and token ID are required' 
+            });
+        }
+        
+        console.log(`🔍 Importing NFT from OpenSea: ${contractAddress}/${tokenId}`);
+        
+        // Fetch from OpenSea API
+        const axios = require('axios');
+        const response = await axios.get(
+            `https://api.opensea.io/api/v2/chain/ethereum/contract/${contractAddress}/nfts/${tokenId}`,
+            {
+                headers: { 'Accept': 'application/json' }
+            }
+        );
+        
+        if (!response.data || !response.data.nft) {
+            return res.status(404).json({ error: 'NFT not found on OpenSea' });
+        }
+        
+        const asset = response.data.nft;
+        
+        // Generate unique token ID
+        const newTokenId = 'ME' + Date.now().toString(36).toUpperCase();
+        
+        // Get image URL
+        const imageUrl = asset.image_url || 
+                        asset.image_original_url || 
+                        asset.image_preview_url || 
+                        'https://via.placeholder.com/500';
+        
+        // Create NFT
+        const nft = new NFT({
+            name: asset.name || `NFT #${tokenId}`,
+            collectionName: asset.collection || 'Imported from OpenSea',
+            description: asset.description || 'Imported from OpenSea',
+            price: parseFloat(price) || 0.1,
+            category: 'art',
+            image: imageUrl,
+            externalUrl: asset.external_url || `https://opensea.io/assets/ethereum/${contractAddress}/${tokenId}`,
+            owner: req.user._id,
+            tokenId: newTokenId,
+            isListed: true,
+            cloudinaryId: `opensea_${contractAddress}_${tokenId}`,
+            metadata: {
+                importSource: 'opensea',
+                contractAddress,
+                tokenId,
+                originalUrl: asset.permalink || `https://opensea.io/assets/ethereum/${contractAddress}/${tokenId}`
+            }
+        });
+        
+        await nft.save();
+        
+        // Update user's NFT count if you track it
+        await User.findByIdAndUpdate(req.user._id, {
+            $inc: { nftCount: 1 }
+        });
+        
+        const populatedNFT = await NFT.findById(nft._id)
+            .populate('owner', 'email fullName');
+        
+        res.status(201).json({
+            success: true,
+            message: 'NFT imported successfully from OpenSea',
+            nft: populatedNFT
+        });
+        
+    } catch (error) {
+        console.error('❌ Import error:', error);
+        res.status(500).json({ 
+            error: 'Failed to import NFT',
+            details: error.message 
+        });
+    }
+});
+
+// Import NFT from URL (auto-detect marketplace)
+router.post('/import/url', auth, async (req, res) => {
+    try {
+        const { url, price } = req.body;
+        
+        if (!url) {
+            return res.status(400).json({ error: 'URL is required' });
+        }
+        
+        // Parse OpenSea URL
+        const openseaMatch = url.match(/opensea\.io\/assets\/(?:[^\/]+\/)?([^\/]+)\/(\d+)/i);
+        
+        if (openseaMatch) {
+            // Redirect to OpenSea import with extracted data
+            req.body.contractAddress = openseaMatch[1];
+            req.body.tokenId = openseaMatch[2];
+            return router.handle(req, res, '/import/opensea');
+        }
+        
+        return res.status(400).json({ 
+            error: 'Unsupported marketplace URL. Currently supported: OpenSea' 
+        });
+        
+    } catch (error) {
+        console.error('❌ URL import error:', error);
+        res.status(500).json({ error: 'Failed to import from URL' });
+    }
+});
+
+// Get user's imported NFTs
+router.get('/imported', auth, async (req, res) => {
+    try {
+        const nfts = await NFT.find({
+            owner: req.user._id,
+            'metadata.importSource': { $exists: true }
+        }).sort({ createdAt: -1 });
+        
+        res.json({
+            success: true,
+            count: nfts.length,
+            nfts
+        });
+    } catch (error) {
+        console.error('Get imported NFTs error:', error);
+        res.status(500).json({ error: 'Failed to fetch imported NFTs' });
+    }
+});
+
 module.exports = router;

@@ -362,15 +362,9 @@ async function loadDashboardSections() {
     try {
         console.log('📊 Loading all dashboard sections...');
         
-        const [activities, userNFTs, recommendedNFTs] = await Promise.all([
-            fetchRecentActivity(),
-            fetchUserNFTs(),
-            fetchRecommendedNFTs()
-        ]);
-        
-        displayRecentActivity(activities);
-        displayUserNFTs(userNFTs);
-        displayRecommendedNFTs(recommendedNFTs);
+        await displayRecentActivity();
+        await displayUserNFTs();
+        await displayRecommendedNFTs();
         
         console.log('✅ All dashboard sections loaded');
         
@@ -414,7 +408,6 @@ async function loadDashboard() {
     startPeriodicSync();
     startDashboardAutoRefresh();
 }
-
 
 // ✅ Display dashboard data
 function displayDashboardData(user) {
@@ -817,6 +810,121 @@ function startDashboardAutoRefresh() {
     }, 60000);
 }
 
+// ✅ WETH Conversion Functions (NEW - ADD THIS SECTION)
+function showWETHConversion() {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const ethBalance = user.ethBalance || 0;
+    
+    if (ethBalance <= 0) {
+        alert('You have no ETH to convert. Please add ETH first.');
+        window.location.href = '/add-eth';
+        return;
+    }
+    
+    if (confirm(`Convert ETH to WETH?\n\nYour ETH balance: ${ethBalance} ETH\n\n1 ETH = 1 WETH`)) {
+        window.location.href = '/convert-weth';
+    }
+}
+
+function selectConversion(type) {
+    currentConversionType = type;
+    updateConversionPreview();
+}
+
+function setMaxAmount() {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const amountInput = document.getElementById('conversionAmount');
+    if (!amountInput) return;
+    
+    if (currentConversionType === 'ethToWeth') {
+        amountInput.value = user.ethBalance || 0;
+    } else {
+        amountInput.value = user.wethBalance || 0;
+    }
+    
+    updateConversionPreview();
+}
+
+function updateConversionPreview() {
+    const amountInput = document.getElementById('conversionAmount');
+    const previewEl = document.getElementById('conversionPreview');
+    if (!amountInput || !previewEl) return;
+    
+    const amount = parseFloat(amountInput.value) || 0;
+    
+    if (currentConversionType === 'ethToWeth') {
+        previewEl.innerHTML = `
+            <div><i class="fab fa-ethereum"></i> ${amount.toFixed(4)} ETH → <i class="fas fa-coins"></i> ${amount.toFixed(4)} WETH</div>
+            <small class="text-muted">1 ETH = 1 WETH (no conversion fee)</small>
+        `;
+    } else {
+        previewEl.innerHTML = `
+            <div><i class="fas fa-coins"></i> ${amount.toFixed(4)} WETH → <i class="fab fa-ethereum"></i> ${amount.toFixed(4)} ETH</div>
+            <small class="text-muted">1 WETH = 1 ETH (no conversion fee)</small>
+        `;
+    }
+}
+
+async function executeConversion() {
+    const amountInput = document.getElementById('conversionAmount');
+    if (!amountInput) return;
+    
+    const amount = parseFloat(amountInput.value);
+    if (!amount || amount <= 0) {
+        alert('Please enter a valid amount');
+        return;
+    }
+    
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    
+    if (currentConversionType === 'ethToWeth') {
+        if ((user.ethBalance || 0) < amount) {
+            alert('Insufficient ETH balance');
+            return;
+        }
+    } else {
+        if ((user.wethBalance || 0) < amount) {
+            alert('Insufficient WETH balance');
+            return;
+        }
+    }
+    
+    try {
+        const token = localStorage.getItem('token');
+        const endpoint = currentConversionType === 'ethToWeth' ? '/api/user/me/convert-to-weth' : '/api/user/me/convert-to-eth';
+        
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ amount })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('Conversion successful!');
+            localStorage.setItem('user', JSON.stringify(data.user));
+            closeModal('conversionModal');
+            location.reload();
+        } else {
+            alert('Conversion failed: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Conversion error:', error);
+        alert('Conversion failed. Please try again.');
+    }
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
 // ✅ Basic dashboard functions
 function refreshBalance() {
     if (currentDashboardUser) {
@@ -833,6 +941,30 @@ function transferFunds() {
 
 function showStaking() {
     window.location.href = '/staking';
+}
+
+function openMetaMaskBuy() {
+    window.open('https://metamask.io/', '_blank');
+}
+
+function copyAddress() {
+    navigator.clipboard.writeText(MARKETPLACE_WALLET_ADDRESS).then(() => {
+        alert('Wallet address copied to clipboard!');
+    }).catch(() => {
+        alert('Failed to copy address');
+    });
+}
+
+function showDepositInstructions() {
+    alert('To deposit ETH:\n\n1. Copy your wallet address\n2. Send ETH from any exchange or wallet\n3. Wait for confirmations\n4. Your balance will update automatically');
+}
+
+function buyCrypto() {
+    window.open('https://www.coinbase.com/buy', '_blank');
+}
+
+function viewPortfolio() {
+    window.location.href = '/portfolio';
 }
 
 // ✅ Initialize dashboard

@@ -12,26 +12,155 @@
     <script>
     console.log("🔍 ADD-ETH PAGE - ENHANCED AUTH CHECK");
     
-    setTimeout(() => {
+    // Run auth check immediately
+    (function checkAuth() {
         if (typeof AuthManager !== 'undefined') {
             if (AuthManager.isLoggedIn()) {
                 console.log("✅ User authenticated via AuthManager");
+                // Load user data and wallet address
+                loadUserWalletAddress();
             } else {
                 console.log("❌ AuthManager says not logged in");
-                const directUser = localStorage.getItem('magicEdenCurrentUser');
-                if (directUser) {
-                    console.log("⚠️ User in localStorage but AuthManager missed it!");
+                // Check if we have any user data at all
+                const userStr = localStorage.getItem('user');
+                const email = localStorage.getItem('magicEdenCurrentUser');
+                
+                if (userStr || email) {
+                    console.log("⚠️ User data found, attempting to load...");
+                    loadUserWalletAddress();
                 } else {
                     AuthManager.protectPage();
                 }
             }
         } else {
-            const user = localStorage.getItem('magicEdenCurrentUser');
-            if (!user) {
+            // Fallback if AuthManager not loaded
+            const token = localStorage.getItem('token');
+            const userStr = localStorage.getItem('user');
+            
+            if (!token || !userStr) {
                 window.location.href = '/login';
+            } else {
+                loadUserWalletAddress();
             }
         }
-    }, 150);
+    })();
+
+    // Function to update the display with wallet address
+    function updateWalletDisplay(walletAddress) {
+        const addressElement = document.getElementById('walletAddress');
+        if (addressElement) {
+            addressElement.textContent = walletAddress;
+            addressElement.style.color = '#333';
+            addressElement.style.fontWeight = '600';
+        }
+        
+        // Update QR code with actual wallet address
+        const qrImage = document.querySelector('#qrCode img');
+        if (qrImage) {
+            qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${walletAddress}&format=png&color=000000&bgcolor=FFFFFF&margin=10`;
+        }
+        
+        // Enable copy button
+        const copyBtn = document.getElementById('copyAddressBtn');
+        if (copyBtn) copyBtn.disabled = false;
+        
+        console.log('✅ Wallet address displayed:', walletAddress);
+    }
+
+    function showError(message) {
+        const addressElement = document.getElementById('walletAddress');
+        if (addressElement) {
+            addressElement.innerHTML = `<span style="color: #dc3545;"><i class="fas fa-exclamation-circle"></i> ${message}</span>`;
+        }
+        
+        // Disable copy button
+        const copyBtn = document.getElementById('copyAddressBtn');
+        if (copyBtn) copyBtn.disabled = true;
+    }
+
+    // Function to load user's wallet address
+    function loadUserWalletAddress() {
+        console.log('🔍 Loading wallet address...');
+        
+        // METHOD 1: Try the 'user' key first (full user object)
+        try {
+            const userStr = localStorage.getItem('user');
+            console.log('📦 user key:', userStr ? 'exists' : 'not found');
+            
+            if (userStr) {
+                const userData = JSON.parse(userStr);
+                console.log('👤 Parsed user:', userData);
+                
+                if (userData.systemWalletAddress) {
+                    console.log('✅ Found wallet address in user object:', userData.systemWalletAddress);
+                    updateWalletDisplay(userData.systemWalletAddress);
+                    return;
+                } else {
+                    console.log('⚠️ User object has no wallet address');
+                }
+            }
+        } catch (e) {
+            console.log('❌ Error parsing user key:', e.message);
+        }
+        
+        // METHOD 2: Try to get from API (most reliable)
+        console.log('🔄 Fetching wallet from API...');
+        fetchWalletFromAPI();
+    }
+
+    async function fetchWalletFromAPI() {
+        try {
+            const token = localStorage.getItem('token');
+            console.log('🔑 Token exists:', !!token);
+            
+            if (!token) {
+                showError('Not authenticated');
+                return;
+            }
+            
+            // Call the /me endpoint
+            const response = await fetch('/api/auth/me', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('📥 API response:', data);
+            
+            // Check if we got user data
+            if (data.user) {
+                const walletAddress = data.user.systemWalletAddress;
+                
+                if (walletAddress) {
+                    // Save to localStorage properly
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    localStorage.setItem('magicEdenCurrentUser', data.user.email);
+                    
+                    console.log('✅ Wallet address from API:', walletAddress);
+                    updateWalletDisplay(walletAddress);
+                } else {
+                    console.log('❌ No wallet address in API response');
+                    showError('Your account does not have a wallet address yet');
+                }
+            } else {
+                console.log('❌ No user data in API response');
+                showError('Failed to load user data');
+            }
+        } catch (error) {
+            console.error('❌ Error fetching from API:', error);
+            showError('Could not load wallet address');
+        }
+    }
+
+    // Keep the old function for backward compatibility but it won't be used
+    async function fetchUserWalletAddress() {
+        return fetchWalletFromAPI();
+    }
     </script>
 </head>
 <body>
@@ -75,7 +204,7 @@
                     
                     <div class="wallet-address-section">
                         <h3 class="section-title">
-                            <i class="fas fa-address-card"></i> Your Ethereum Wallet Address (ERC-20)
+                            <i class="fas fa-address-card"></i> Your Unique Ethereum Wallet Address (ERC-20)
                         </h3>
                         
                         <div class="network-info">
@@ -85,23 +214,23 @@
                         
                         <div class="address-display">
                             <div class="address-text" id="walletAddress">
-                                0x489D9e921383Aaa7953e0216e460c2208a375Fe1
+                                <i class="fas fa-spinner fa-spin"></i> Loading your wallet address...
                             </div>
-                            <button class="copy-btn" id="copyAddressBtn">
+                            <button class="copy-btn" id="copyAddressBtn" onclick="copyWalletAddress()" disabled>
                                 <i class="fas fa-copy"></i> Copy Address
                             </button>
                         </div>
                         
                         <div class="qr-container">
-                            <!-- THIS WILL 100% SHOW A QR CODE -->
+                            <!-- QR code will update dynamically -->
                             <div id="qrCode">
-                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=0x489D9e921383Aaa7953e0216e460c2208a375Fe1&format=png&color=000000&bgcolor=FFFFFF&margin=10" 
+                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=loading&format=png&color=000000&bgcolor=FFFFFF&margin=10" 
                                      alt="Ethereum Address QR Code"
                                      style="width: 200px; height: 200px; border-radius: 12px; border: 2px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.1); cursor: pointer;"
                                      onclick="copyWalletAddress()"
                                      title="Click to copy address">
                             </div>
-                            <p>Scan QR code to send ETH</p>
+                            <p>Scan QR code to send ETH to your unique wallet address</p>
                         </div>
                         
                     </div>
@@ -113,7 +242,7 @@
                             </div>
                             <h3>Get MetaMask Wallet</h3>
                             <p>Install MetaMask browser extension to manage your ETH and interact with NFTs</p>
-                            <button class="copy-btn metamask-btn" id="openMetaMaskBtn">
+                            <button class="copy-btn metamask-btn" id="openMetaMaskBtn" onclick="window.open('https://metamask.io/', '_blank')">
                                 <i class="fab fa-metamask"></i> Get MetaMask
                             </button>
                         </div>
@@ -124,7 +253,7 @@
                             </div>
                             <h3>Transfer from Exchange</h3>
                             <p>Send ETH from any cryptocurrency exchange</p>
-                            <button class="copy-btn exchange-btn" id="showInstructionsBtn">
+                            <button class="copy-btn exchange-btn" id="showInstructionsBtn" onclick="toggleInstructions()">
                                 <i class="fas fa-university"></i> Show Instructions
                             </button>
                         </div>
@@ -137,8 +266,12 @@
                             <div class="step">
                                 <div class="step-number">1</div>
                                 <div class="step-content">
-                                    <h4>Copy Your Ethereum Address</h4>
-                                    <p>Click the "Copy Address" button above to copy your ERC-20 wallet address</p>
+                                    <h4>Copy Your Unique Wallet Address</h4>
+                                    <p>Click the "Copy Address" button above to copy your personal ERC-20 wallet address</p>
+                                    <div class="warning-box">
+                                        <i class="fas fa-info-circle"></i>
+                                        <span><strong>Note:</strong> This address is unique to you - always use this exact address for deposits</span>
+                                    </div>
                                 </div>
                             </div>
                             
@@ -188,7 +321,7 @@
                             <div class="step">
                                 <div class="step-number">6</div>
                                 <div class="step-content">
-                                    <h4>Paste Wallet Address</h4>
+                                    <h4>Paste Your Unique Wallet Address</h4>
                                     <p>Paste your copied Ethereum address into the recipient field</p>
                                 </div>
                             </div>
@@ -213,7 +346,7 @@
                         <div class="security-notes">
                             <h4><i class="fas fa-shield-alt"></i> Security Checklist</h4>
                             <ul>
-                                <li><i class="fas fa-check"></i> Double-check the wallet address</li>
+                                <li><i class="fas fa-check"></i> Double-check your wallet address (shown in purple box)</li>
                                 <li><i class="fas fa-check"></i> Verify network is Ethereum (ERC-20)</li>
                                 <li><i class="fas fa-check"></i> Start with a small test transaction if unsure</li>
                                 <li><i class="fas fa-check"></i> Save transaction ID for reference</li>
@@ -276,7 +409,7 @@
                             </div>
                         </div>
                         
-                        <button class="copy-btn close-instructions-btn" id="closeInstructionsBtn">
+                        <button class="copy-btn close-instructions-btn" id="closeInstructionsBtn" onclick="toggleInstructions()">
                             <i class="fas fa-times"></i> Close Instructions
                         </button>
                     </div>
@@ -285,6 +418,11 @@
                 <div class="tips-section">
                     <h3><i class="fas fa-lightbulb"></i> Tips for Successful ETH Transfers</h3>
                     <div class="tips-grid">
+                        <div class="tip-card">
+                            <i class="fas fa-id-card"></i>
+                            <h4>Your Unique Address</h4>
+                            <p>Always use the wallet address shown above. It's unique to your account.</p>
+                        </div>
                         <div class="tip-card">
                             <i class="fas fa-network-wired"></i>
                             <h4>Network Verification</h4>
@@ -303,7 +441,7 @@
                         <div class="tip-card">
                             <i class="fas fa-check-double"></i>
                             <h4>Address Verification</h4>
-                            <p>Verify first 6 and last 4 characters of address match before sending.</p>
+                            <p>Verify first 6 and last 4 characters of your wallet address match before sending.</p>
                         </div>
                         <div class="tip-card">
                             <i class="fas fa-vial"></i>
@@ -379,5 +517,40 @@
     <script src="../js/app.js"></script>
     <script src="../js/add-eth.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script>
+    // Copy wallet address function
+    function copyWalletAddress() {
+        const addressElement = document.getElementById('walletAddress');
+        const address = addressElement.textContent;
+        
+        // Don't try to copy if it's still loading or an error message
+        if (address.includes('Loading') || address.includes('Error') || address.includes('spinner')) {
+            alert('Please wait, wallet address is still loading...');
+            return;
+        }
+        
+        if (address && address !== 'Loading your wallet address...') {
+            navigator.clipboard.writeText(address).then(() => {
+                alert('✅ Wallet address copied to clipboard!');
+            }).catch(() => {
+                alert('❌ Failed to copy. Please copy manually.');
+            });
+        }
+    }
+
+    // Toggle instructions
+    function toggleInstructions() {
+        const instructions = document.getElementById('transferInstructions');
+        if (instructions.style.display === 'none') {
+            instructions.style.display = 'block';
+        } else {
+            instructions.style.display = 'none';
+        }
+    }
+
+    // Make functions globally available
+    window.copyWalletAddress = copyWalletAddress;
+    window.toggleInstructions = toggleInstructions;
+    </script>
 </body>
 </html>

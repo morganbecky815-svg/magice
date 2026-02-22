@@ -8,16 +8,13 @@ const fileUpload = require('express-fileupload');
 const dotenv = require('dotenv');
 const path = require('path');
 const axios = require('axios');
-const ticketRoutes = require('./routes/ticketRoutes');
 const Redis = require('redis');
 const { auth } = require('./middleware/auth');
-const userRoutes = require('./routes/user');
-const collectionRoutes = require('./routes/collection');
+const multer = require('multer');
+const fs = require('fs');
 
 // Cloudinary imports
 const cloudinary = require('cloudinary').v2;
-const multer = require('multer');
-const fs = require('fs');
 
 // Model imports
 const User = require('./models/User');
@@ -45,7 +42,6 @@ let redisReady = false;
 async function initRedis() {
     console.log('🔧 Setting up Redis for Railway...');
     
-    // Railway provides REDIS_URL in environment variables
     const redisUrl = process.env.REDIS_URL;
     
     if (!redisUrl) {
@@ -58,11 +54,9 @@ async function initRedis() {
     console.log('🔗 Connecting to Railway Redis...');
     
     try {
-        // Parse the Redis URL for better logging
         const url = new URL(redisUrl);
         console.log(`📡 Redis Host: ${url.hostname}:${url.port || 6379}`);
         
-        // Create Redis client with Railway's URL
         redisClient = Redis.createClient({
             url: redisUrl,
             socket: {
@@ -77,7 +71,6 @@ async function initRedis() {
             }
         });
         
-        // Event handlers
         redisClient.on('error', (err) => {
             console.log('⚠️ Redis Error:', err.message);
             redisReady = false;
@@ -92,7 +85,6 @@ async function initRedis() {
             redisReady = true;
         });
         
-        // Connect with timeout
         await Promise.race([
             redisClient.connect(),
             new Promise((_, reject) => 
@@ -100,7 +92,6 @@ async function initRedis() {
             )
         ]);
         
-        // Test connection
         await redisClient.set('railway-test', 'connected-' + Date.now());
         const testResult = await redisClient.get('railway-test');
         console.log(`🧪 Redis test successful: ${testResult}`);
@@ -109,12 +100,6 @@ async function initRedis() {
         
     } catch (error) {
         console.log(`❌ Redis initialization failed: ${error.message}`);
-        console.log('\n📋 Railway Redis Troubleshooting:');
-        console.log('1. Check Railway dashboard → Variables → REDIS_URL exists');
-        console.log('2. Add Redis service in Railway: New → Database → Redis');
-        console.log('3. Ensure REDIS_URL is added to environment variables');
-        console.log('4. Check Redis logs in Railway dashboard');
-        
         redisClient = null;
         redisReady = false;
     }
@@ -170,34 +155,59 @@ const upload = multer({
   }
 });
 
-
 // ========================
 // MIDDLEWARE
 // ========================
-// Change to:
 app.use(cors({
     origin: [
-      'https://magiceden.up.railway.app',  // Your frontend
-      'https://bountiful-youth.railway.app',  // Your backend
+      'https://magiceden.up.railway.app',
+      'https://bountiful-youth.railway.app',
       'http://localhost:3000',
       'http://localhost:5000'
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
-  }));
-app.use(express.json({ limit: '50mb' })); // CHANGED: Add limit
-app.use(express.urlencoded({ limit: '50mb', extended: true })); // CHANGED: Add limit
+}));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, 'views'), {
     extensions: ['html'],
     index: ['index.html', 'index.htm']
 }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(fileUpload({ // ADD THIS LINE
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+app.use(fileUpload({
+    limits: { fileSize: 50 * 1024 * 1024 },
     abortOnLimit: true
 }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// ========================
+// ROUTE IMPORTS (DECLARED ONCE)
+// ========================
+const authRoutes = require('./routes/auth');
+const nftRoutes = require('./routes/nft');
+const adminRoutes = require('./routes/admin');
+const userRoutes = require('./routes/user');
+const depositRoutes = require('./routes/deposit');
+const collectionRoutes = require('./routes/collection');
+const ticketRoutes = require('./routes/ticketRoutes');
+const nftImportRoutes = require('./routes/nftImport');
+ // If this is different from nftRoutes, keep it
+
+// ========================
+// REGISTER API ROUTES
+// ========================
+app.use('/api/auth', authRoutes);
+app.use('/api/nft', nftRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/deposit', depositRoutes);
+app.use('/api/collection', collectionRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/support/tickets', ticketRoutes);
+app.use('/api/nft-import', nftImportRoutes);
+
+
 // ========================
 // HELPER FUNCTIONS
 // ========================
@@ -286,21 +296,6 @@ app.get('/staking', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'staking.html'));
 });
 
-// ========================
-// API ROUTES
-// ========================
-const authRoutes = require('./routes/auth');
-const nftRoutes = require('./routes/nft');
-const adminRoutes = require('./routes/admin');
-
-// Register API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/nft', nftRoutes);
-app.use('/api/user', userRoutes);
-app.use('/api/collection', collectionRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/support/tickets', ticketRoutes);
-
 // ============================================
 // STAKING & TRANSFER API ROUTES
 // ============================================
@@ -312,12 +307,10 @@ app.get('/api/staking/user-stakes', auth, async (req, res) => {
         
         console.log(`📊 Fetching staking data for user: ${userId}`);
         
-        // Fetch user's staking data from database
         let userStakes = await Staking.findOne({ userId });
         
         if (!userStakes) {
             console.log('🆕 No staking data found, creating default');
-            // Create default staking data
             userStakes = new Staking({
                 userId,
                 ethStaked: 0,
@@ -334,7 +327,6 @@ app.get('/api/staking/user-stakes', auth, async (req, res) => {
             await userStakes.save();
         }
         
-        // Calculate total values
         const totalStaked = userStakes.ethStaked + userStakes.wethStaked;
         const totalRewards = userStakes.ethRewards + userStakes.wethRewards;
         
@@ -413,7 +405,6 @@ app.post('/api/staking/stake', auth, async (req, res) => {
         
         console.log(`🎯 Staking request: ${amount} ${currency} from user ${userId}`);
         
-        // Validate input
         if (!currency || !['eth', 'weth'].includes(currency.toLowerCase())) {
             return res.status(400).json({
                 success: false,
@@ -429,7 +420,6 @@ app.post('/api/staking/stake', auth, async (req, res) => {
             });
         }
         
-        // Get user data
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({
@@ -438,7 +428,6 @@ app.post('/api/staking/stake', auth, async (req, res) => {
             });
         }
         
-        // Check balance
         const balance = currency === 'eth' ? user.ethBalance : user.wethBalance;
         if (balance < stakeAmount) {
             return res.status(400).json({
@@ -447,7 +436,6 @@ app.post('/api/staking/stake', auth, async (req, res) => {
             });
         }
         
-        // Check minimum stake
         const minStake = 0.01;
         if (stakeAmount < minStake) {
             return res.status(400).json({
@@ -456,7 +444,6 @@ app.post('/api/staking/stake', auth, async (req, res) => {
             });
         }
         
-        // Update user balance
         if (currency === 'eth') {
             user.ethBalance -= stakeAmount;
         } else {
@@ -465,7 +452,6 @@ app.post('/api/staking/stake', auth, async (req, res) => {
         
         await user.save();
         
-        // Update or create staking record
         let staking = await Staking.findOne({ userId });
         if (!staking) {
             staking = new Staking({ userId });
@@ -477,7 +463,6 @@ app.post('/api/staking/stake', auth, async (req, res) => {
             staking.wethStaked += stakeAmount;
         }
         
-        // Add to stakes array
         staking.stakes.push({
             type: currency,
             amount: stakeAmount,
@@ -487,7 +472,6 @@ app.post('/api/staking/stake', auth, async (req, res) => {
         
         await staking.save();
         
-        // Create transaction record
         const transaction = new Transaction({
             type: 'staking',
             fromUser: userId,
@@ -502,7 +486,6 @@ app.post('/api/staking/stake', auth, async (req, res) => {
         });
         await transaction.save();
         
-        // Log activity
         try {
             const activityLogger = require('./utils/activityLogger');
             await activityLogger.logStaking(userId, currency, stakeAmount);
@@ -543,7 +526,6 @@ app.post('/api/staking/unstake', auth, async (req, res) => {
         
         console.log(`🔄 Unstaking request: ${amount} ${currency} from user ${userId}`);
         
-        // Validate input
         if (!currency || !['eth', 'weth'].includes(currency.toLowerCase())) {
             return res.status(400).json({
                 success: false,
@@ -559,7 +541,6 @@ app.post('/api/staking/unstake', auth, async (req, res) => {
             });
         }
         
-        // Get staking data
         const staking = await Staking.findOne({ userId });
         if (!staking) {
             return res.status(400).json({
@@ -568,7 +549,6 @@ app.post('/api/staking/unstake', auth, async (req, res) => {
             });
         }
         
-        // Check staked amount
         const stakedAmount = currency === 'eth' ? staking.ethStaked : staking.wethStaked;
         if (stakedAmount < unstakeAmount) {
             return res.status(400).json({
@@ -577,25 +557,14 @@ app.post('/api/staking/unstake', auth, async (req, res) => {
             });
         }
         
-        // Update staking record
         if (currency === 'eth') {
             staking.ethStaked -= unstakeAmount;
         } else {
             staking.wethStaked -= unstakeAmount;
         }
         
-        // Update the stakes array
-        staking.stakes = staking.stakes.map(stake => {
-            if (stake.type === currency && stake.status === 'active') {
-                // In a real app, you'd track which specific stake is being withdrawn
-                return stake;
-            }
-            return stake;
-        });
-        
         await staking.save();
         
-        // Update user balance
         const user = await User.findById(userId);
         if (currency === 'eth') {
             user.ethBalance += unstakeAmount;
@@ -604,7 +573,6 @@ app.post('/api/staking/unstake', auth, async (req, res) => {
         }
         await user.save();
         
-        // Create transaction record
         const transaction = new Transaction({
             type: 'unstaking',
             toUser: userId,
@@ -618,7 +586,6 @@ app.post('/api/staking/unstake', auth, async (req, res) => {
         });
         await transaction.save();
         
-        // Log activity
         try {
             const activityLogger = require('./utils/activityLogger');
             await activityLogger.logUnstaking(userId, currency, unstakeAmount);
@@ -657,7 +624,6 @@ app.post('/api/staking/claim-rewards', auth, async (req, res) => {
         
         console.log(`🎁 Claim rewards request for ${currency} from user ${userId}`);
         
-        // Validate input
         if (!currency || !['eth', 'weth'].includes(currency.toLowerCase())) {
             return res.status(400).json({
                 success: false,
@@ -665,7 +631,6 @@ app.post('/api/staking/claim-rewards', auth, async (req, res) => {
             });
         }
         
-        // Get staking data
         const staking = await Staking.findOne({ userId });
         if (!staking) {
             return res.status(400).json({
@@ -674,7 +639,6 @@ app.post('/api/staking/claim-rewards', auth, async (req, res) => {
             });
         }
         
-        // Check rewards
         const rewards = currency === 'eth' ? staking.ethRewards : staking.wethRewards;
         if (rewards <= 0) {
             return res.status(400).json({
@@ -683,7 +647,6 @@ app.post('/api/staking/claim-rewards', auth, async (req, res) => {
             });
         }
         
-        // Update staking record (reset rewards)
         if (currency === 'eth') {
             staking.ethRewards = 0;
         } else {
@@ -692,7 +655,6 @@ app.post('/api/staking/claim-rewards', auth, async (req, res) => {
         staking.lastRewardCalculation = new Date();
         await staking.save();
         
-        // Update user balance
         const user = await User.findById(userId);
         if (currency === 'eth') {
             user.ethBalance += rewards;
@@ -701,7 +663,6 @@ app.post('/api/staking/claim-rewards', auth, async (req, res) => {
         }
         await user.save();
         
-        // Create transaction record
         const transaction = new Transaction({
             type: 'reward',
             toUser: userId,
@@ -715,7 +676,6 @@ app.post('/api/staking/claim-rewards', auth, async (req, res) => {
         });
         await transaction.save();
         
-        // Log activity
         try {
             const activityLogger = require('./utils/activityLogger');
             await activityLogger.logRewardClaim(userId, currency, rewards);
@@ -746,7 +706,7 @@ app.post('/api/staking/claim-rewards', auth, async (req, res) => {
     }
 });
 
-// ✅ Calculate rewards (simulate)
+// ✅ Calculate rewards
 app.get('/api/staking/calculate-rewards', auth, async (req, res) => {
     try {
         const { amount, currency, duration } = req.query;
@@ -763,11 +723,9 @@ app.get('/api/staking/calculate-rewards', auth, async (req, res) => {
             });
         }
         
-        // Get APY from staking data
         const staking = await Staking.findOne({ userId });
         const apy = staking?.apy?.[stakeCurrency] || (stakeCurrency === 'eth' ? 4.8 : 5.2);
         
-        // Calculate rewards
         const annualRewards = stakeAmount * (apy / 100);
         const dailyRewards = annualRewards / 365;
         const estimatedRewards = dailyRewards * stakeDuration;
@@ -806,7 +764,6 @@ app.post('/api/transfer/send', auth, async (req, res) => {
         
         console.log(`💸 Transfer request: ${amount} ${currency} to ${recipient} from user ${userId}`);
         
-        // Validate recipient address (basic Ethereum address check)
         if (!recipient || !recipient.match(/^0x[a-fA-F0-9]{40}$/)) {
             return res.status(400).json({
                 success: false,
@@ -829,7 +786,6 @@ app.post('/api/transfer/send', auth, async (req, res) => {
             });
         }
         
-        // Get user data
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({
@@ -838,7 +794,6 @@ app.post('/api/transfer/send', auth, async (req, res) => {
             });
         }
         
-        // Check balance
         let balance = 0;
         switch (currency) {
             case 'eth':
@@ -859,7 +814,6 @@ app.post('/api/transfer/send', auth, async (req, res) => {
             });
         }
         
-        // Update user balance
         switch (currency) {
             case 'eth':
                 user.ethBalance -= transferAmount;
@@ -874,7 +828,6 @@ app.post('/api/transfer/send', auth, async (req, res) => {
         
         await user.save();
         
-        // Create transaction record
         const transaction = new Transaction({
             type: 'transfer',
             fromUser: userId,
@@ -892,7 +845,6 @@ app.post('/api/transfer/send', auth, async (req, res) => {
         });
         await transaction.save();
         
-        // Log activity
         try {
             const activityLogger = require('./utils/activityLogger');
             await activityLogger.logTransfer(userId, currency, transferAmount, recipient);
@@ -917,6 +869,32 @@ app.post('/api/transfer/send', auth, async (req, res) => {
             error: 'Failed to transfer funds',
             message: error.message
         });
+    }
+});
+
+// Add near your other routes
+app.get('/api/test-import/:contract/:tokenId', auth, async (req, res) => {
+    try {
+        const { contract, tokenId } = req.params;
+        
+        console.log('🧪 TEST IMPORT - Fetching NFT:', contract, tokenId);
+        
+        // Use your moralisService to fetch just this NFT
+        const moralisService = require('./services/moralisService');
+        
+        // You might need to add this method to moralisService
+        const nftData = await moralisService.fetchSingleNFT(contract, tokenId);
+        
+        console.log('🧪 TEST IMPORT - Raw data received');
+        
+        res.json({
+            success: true,
+            message: 'Test import completed',
+            data: nftData
+        });
+    } catch (error) {
+        console.error('🧪 TEST IMPORT - Error:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 
@@ -993,7 +971,6 @@ app.get('/api/transfer/contacts', auth, async (req, res) => {
     try {
         const userId = req.user._id;
         
-        // Get recent transfers to find contacts
         const recentTransfers = await Transaction.find({
             fromUser: userId,
             type: 'transfer',
@@ -1003,7 +980,6 @@ app.get('/api/transfer/contacts', auth, async (req, res) => {
         .limit(10)
         .select('recipientAddress createdAt');
         
-        // Get unique recipients
         const uniqueRecipients = [];
         const seen = new Set();
         
@@ -1017,7 +993,6 @@ app.get('/api/transfer/contacts', auth, async (req, res) => {
             }
         });
         
-        // Add marketplace wallet as default contact
         const contacts = [
             {
                 address: '0x742d35Cc6634C0532925a3b844Bc9e90E4343A9B',
@@ -1027,7 +1002,6 @@ app.get('/api/transfer/contacts', auth, async (req, res) => {
             }
         ];
         
-        // Add recent contacts
         uniqueRecipients.slice(0, 4).forEach(recipient => {
             contacts.push({
                 address: recipient.address,
@@ -1063,10 +1037,8 @@ app.post('/api/transfer/validate-address', auth, async (req, res) => {
             });
         }
         
-        // Basic Ethereum address validation
         const isValid = /^0x[a-fA-F0-9]{40}$/.test(address);
         
-        // Check if it's the marketplace wallet (special handling)
         const isMarketplace = address.toLowerCase() === '0x742d35cc6634c0532925a3b844bc9e90e4343a9b';
         
         res.json({
@@ -1092,7 +1064,6 @@ app.post('/api/transfer/estimate-gas', auth, async (req, res) => {
     try {
         const { currency, network } = req.body;
         
-        // Mock gas estimates (in real app, use web3.js to estimate)
         const gasEstimates = {
             ethereum: {
                 eth: 0.0012,
@@ -1121,7 +1092,6 @@ app.post('/api/transfer/estimate-gas', auth, async (req, res) => {
         
         const gasEstimate = gasEstimates[selectedNetwork]?.[selectedCurrency] || 0.0012;
         
-        // Get ETH price for USD conversion
         let ethPrice = 2500;
         if (redisReady && redisClient) {
             try {
@@ -1157,12 +1127,11 @@ app.post('/api/transfer/estimate-gas', auth, async (req, res) => {
     }
 });
 
-// ✅ Get bank accounts (for withdrawals) - mock for now
+// ✅ Get bank accounts
 app.get('/api/bank-accounts', auth, async (req, res) => {
     try {
         const userId = req.user._id;
         
-        // Mock bank accounts - in a real app, you'd have a BankAccount model
         const bankAccounts = [
             {
                 id: 'bank_1',
@@ -1385,7 +1354,9 @@ app.get('/api/crypto-prices', async (req, res) => {
   }
 });
 
-// Add to server.js (not admin routes - this is public)
+// ========================
+// MARKETPLACE STATS
+// ========================
 app.get('/api/marketplace/stats', async (req, res) => {
     try {
         const MarketplaceStats = require('./models/MarketplaceStats');
@@ -1404,7 +1375,6 @@ app.get('/api/marketplace/stats', async (req, res) => {
         
     } catch (error) {
         console.error('Public marketplace stats error:', error);
-        // Fallback to actual counts
         try {
             const NFT = require('./models/NFT');
             const User = require('./models/User');
@@ -1446,30 +1416,25 @@ app.get('/api/user/me/dashboard', auth, async (req, res) => {
       
       const userId = req.user._id;
       
-      // Get user data
       const user = await User.findById(userId).select('-password -__v');
       
-      // Get recent activities (limit 5)
       const recentActivities = await Activity.find({ userId: userId })
           .sort({ createdAt: -1 })
           .limit(5);
       
-      // Get user's NFTs (limit 2 for dashboard)
       const NFT = require('./models/NFT');
       const userNFTs = await NFT.find({ owner: userId })
           .sort({ price: -1, createdAt: -1 })
           .limit(2);
       
-      // Get recommended NFTs (from marketplace)
       const recommendedNFTs = await NFT.find({ 
-          owner: { $ne: userId }, // Not owned by user
+          owner: { $ne: userId },
           isListed: true 
       })
           .sort({ createdAt: -1 })
           .limit(4)
           .populate('owner', 'fullName profileImage');
       
-      // Get ETH price
       let ethPrice = 2500;
       if (redisReady && redisClient) {
           try {
@@ -1546,7 +1511,7 @@ app.get('/api/user/me/dashboard', auth, async (req, res) => {
 });
 
 // ========================
-// LATEST NFTS ENDPOINT (FOR RECOMMENDATIONS)
+// LATEST NFTS ENDPOINT
 // ========================
 app.get('/api/nft/latest', auth, async (req, res) => {
   try {
@@ -1638,10 +1603,8 @@ app.get('/api/activity/marketplace', async (req, res) => {
   }
 });
 
-
-
 // ========================
-// USER ACTIVITY ENDPOINT (FIXED)
+// USER ACTIVITY ENDPOINT
 // ========================
 app.get('/api/user/:userId/activity', auth, async (req, res) => {
   try {
@@ -1698,7 +1661,7 @@ app.get('/api/user/:userId/activity', auth, async (req, res) => {
 });
 
 // ========================
-// NFT CREATION ENDPOINT (WITH ACTIVITY LOGGING)
+// NFT CREATION ENDPOINT
 // ========================
 app.post('/api/nft/create', auth, upload.single('image'), async (req, res) => {
   try {
@@ -1742,14 +1705,13 @@ app.post('/api/nft/create', auth, upload.single('image'), async (req, res) => {
               height: cloudinaryResult.height,
               bytes: cloudinaryResult.bytes
           },
-          isListed: true // Automatically list when created
+          isListed: true
       });
       
       nft.tokenId = `NFT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
       await nft.save();
       
-      // Log activity for NFT creation
       try {
           await ActivityLogger.logNFTCreation(
               user._id,
@@ -1798,7 +1760,7 @@ app.post('/api/nft/create', auth, upload.single('image'), async (req, res) => {
 });
 
 // ========================
-// UPDATE USER PROFILE (WITH ACTIVITY LOGGING)
+// UPDATE USER PROFILE
 // ========================
 app.put('/api/user/:userId/profile', auth, async (req, res) => {
     try {
@@ -1863,7 +1825,7 @@ app.put('/api/user/:userId/profile', auth, async (req, res) => {
 });
 
 // ========================
-// GET USER'S NFTS (UPDATED WITH isListed FIELD)
+// GET USER'S NFTS
 // ========================
 app.get('/api/user/:userId/nfts', auth, async (req, res) => {
     try {
@@ -1882,7 +1844,7 @@ app.get('/api/user/:userId/nfts', auth, async (req, res) => {
                 category: nft.category,
                 tokenId: nft.tokenId,
                 createdAt: nft.createdAt,
-                isListed: nft.isListed || true // Include this field
+                isListed: nft.isListed || true
             }))
         });
     } catch (error) {
@@ -1895,7 +1857,7 @@ app.get('/api/user/:userId/nfts', auth, async (req, res) => {
 });
 
 // ========================
-// ADD FUNDS ENDPOINT (WITH ACTIVITY LOGGING)
+// ADD FUNDS ENDPOINT
 // ========================
 app.post('/api/user/:userId/add-funds', auth, async (req, res) => {
     try {
@@ -2010,9 +1972,8 @@ app.post('/api/upload/image', auth, async (req, res) => {
         }
         
         const image = req.files.image;
-        const maxSize = 50 * 1024 * 1024; // 50MB
+        const maxSize = 50 * 1024 * 1024;
         
-        // Validate file size
         if (image.size > maxSize) {
             return res.status(400).json({
                 success: false,
@@ -2020,7 +1981,6 @@ app.post('/api/upload/image', auth, async (req, res) => {
             });
         }
         
-        // Validate file type
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
         if (!allowedTypes.includes(image.mimetype)) {
             return res.status(400).json({
@@ -2031,22 +1991,18 @@ app.post('/api/upload/image', auth, async (req, res) => {
         
         console.log(`📁 Uploading file: ${image.name} (${(image.size / 1024 / 1024).toFixed(2)}MB)`);
         
-        // Create uploads directory if it doesn't exist
         const uploadDir = path.join(__dirname, 'uploads');
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
         
-        // Generate unique filename
         const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(image.name);
         const uploadPath = path.join(uploadDir, uniqueName);
         
-        // Save file locally
         await image.mv(uploadPath);
         
         console.log('✅ File saved locally:', uploadPath);
         
-        // Option 1: Upload to Cloudinary (if configured)
         let cloudinaryId = null;
         let imageUrl = null;
         
@@ -2066,16 +2022,13 @@ app.post('/api/upload/image', auth, async (req, res) => {
                 
                 console.log('✅ Cloudinary upload successful:', imageUrl);
                 
-                // Remove local file after Cloudinary upload
                 fs.unlinkSync(uploadPath);
                 
             } catch (cloudinaryError) {
                 console.error('❌ Cloudinary upload failed:', cloudinaryError.message);
-                // Fall back to local storage
             }
         }
         
-        // Option 2: Use local URL (fallback)
         if (!imageUrl) {
             imageUrl = `http://localhost:5000/uploads/${uniqueName}`;
             cloudinaryId = `local_${Date.now()}`;
@@ -2115,17 +2068,15 @@ mongoose.connect(MONGODB_URI)
         console.log('⚠️ App will continue without database');
     });
 
-    // ========================
+// ========================
 // TEST TICKET ENDPOINT
 // ========================
 app.get('/api/test-ticket', async (req, res) => {
     try {
         const Ticket = require('./models/Ticket');
         
-        // Count total tickets
         const totalTickets = await Ticket.countDocuments();
         
-        // Get sample tickets
         const sampleTickets = await Ticket.find({})
             .limit(5)
             .sort({ createdAt: -1 });
@@ -2153,7 +2104,6 @@ app.get('/api/test-ticket', async (req, res) => {
 app.get('/api/debug/routes', (req, res) => {
     const routes = [];
     
-    // Check main routes
     app._router.stack.forEach((middleware) => {
         if (middleware.route) {
             routes.push({
@@ -2161,7 +2111,6 @@ app.get('/api/debug/routes', (req, res) => {
                 methods: Object.keys(middleware.route.methods)
             });
         } else if (middleware.name === 'router') {
-            // Check mounted routers
             if (middleware.handle && middleware.handle.stack) {
                 middleware.handle.stack.forEach((handler) => {
                     if (handler.route) {
@@ -2226,8 +2175,10 @@ app.listen(PORT, () => {
     console.log(`   • GET  /api/user/me/dashboard - Dashboard data`);
     console.log(`   • GET  /api/nft/latest - Latest NFTs`);
     console.log(`   • POST /api/nft/create - Create NFT`);
+    console.log(`   • POST /api/nft-import/fetch - Fetch NFTs from Moralis`);
+    console.log(`   • POST /api/nft-import/save - Save imported NFTs`);
     console.log(`🔗 Dashboard: http://localhost:${PORT}/dashboard`);
     console.log(`🔗 Admin Panel: http://localhost:${PORT}/admin.html`);
-    console.log(`🔗 Explore page: htp://localhost:${PORT}/`);
+    console.log(`🔗 Explore page: http://localhost:${PORT}/`);
     console.log(`🔗 Activity Page: http://localhost:${PORT}/activity`);
 });

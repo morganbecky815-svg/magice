@@ -39,239 +39,8 @@ const getSafeUser = (user) => {
     return userObj;
 };
 
-// ✅ GET USER BY ID
-router.get('/:userId', auth, async (req, res) => {
-    try {
-        const user = await User.findById(req.params.userId);
-        
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        
-        // Check authorization
-        if (req.user._id.toString() !== req.params.userId && !req.user.isAdmin) {
-            return res.status(403).json({ error: 'Not authorized' });
-        }
-        
-        res.json({
-            success: true,
-            user: getSafeUser(user)
-        });
-    } catch (error) {
-        console.error('Get user error:', error);
-        res.status(500).json({ error: 'Failed to fetch user data' });
-    }
-});
-
-// ✅ ADD ETH TO USER BALANCE
-router.post('/:userId/add-eth', auth, async (req, res) => {
-    try {
-        const { amount } = req.body;
-        
-        // Validate amount
-        if (!amount || isNaN(amount) || amount <= 0) {
-            return res.status(400).json({ error: 'Invalid amount' });
-        }
-        
-        const user = await User.findById(req.params.userId);
-        
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        
-        // Check authorization
-        if (req.user._id.toString() !== req.params.userId && !req.user.isAdmin) {
-            return res.status(403).json({ error: 'Not authorized to update this balance' });
-        }
-        
-        // Add ETH to balance
-        const ethAmount = parseFloat(amount);
-        const newEthBalance = (user.ethBalance || 0) + ethAmount;
-        
-        // Use findByIdAndUpdate instead of .save()
-        const updatedUser = await User.findByIdAndUpdate(
-            user._id,
-            { ethBalance: newEthBalance },
-            { new: true }
-        );
-        
-        res.json({
-            success: true,
-            message: `Added ${ethAmount} ETH to your balance`,
-            user: getSafeUser(updatedUser)
-        });
-    } catch (error) {
-        console.error('Add ETH error:', error);
-        res.status(500).json({ error: 'Failed to add ETH' });
-    }
-});
-
-// ✅ CONVERT ETH TO WETH
-router.post('/:userId/convert-to-weth', auth, async (req, res) => {
-    try {
-        const { amount } = req.body;
-        
-        if (!amount || isNaN(amount) || amount <= 0) {
-            return res.status(400).json({ error: 'Invalid amount' });
-        }
-        
-        const user = await User.findById(req.params.userId);
-        
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        
-        // Check authorization
-        if (req.user._id.toString() !== req.params.userId && !req.user.isAdmin) {
-            return res.status(403).json({ error: 'Not authorized' });
-        }
-        
-        const convertAmount = parseFloat(amount);
-        
-        // Check if user has enough ETH
-        if ((user.ethBalance || 0) < convertAmount) {
-            return res.status(400).json({ 
-                error: 'Insufficient ETH balance',
-                currentEthBalance: user.ethBalance || 0,
-                required: convertAmount
-            });
-        }
-        
-        // Calculate new balances
-        const newEthBalance = (user.ethBalance || 0) - convertAmount;
-        const newWethBalance = (user.wethBalance || 0) + convertAmount;
-        
-        // Use findByIdAndUpdate
-        const updatedUser = await User.findByIdAndUpdate(
-            user._id,
-            {
-                ethBalance: newEthBalance,
-                wethBalance: newWethBalance,
-                balance: newWethBalance
-            },
-            { new: true }
-        );
-        
-        res.json({
-            success: true,
-            message: `Converted ${convertAmount} ETH to WETH`,
-            user: getSafeUser(updatedUser)
-        });
-    } catch (error) {
-        console.error('Convert to WETH error:', error);
-        res.status(500).json({ error: 'Failed to convert to WETH' });
-    }
-});
-
-// ✅ GET DASHBOARD DATA
-router.get('/:userId/dashboard', auth, async (req, res) => {
-    try {
-        const userId = req.params.userId;
-        
-        // Verify user access
-        if (req.user._id.toString() !== userId && !req.user.isAdmin) {
-            return res.status(403).json({ error: 'Not authorized' });
-        }
-        
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        
-        // Get recent NFTs (last 5)
-        const NFT = require('../models/NFT');
-        const recentNFTs = await NFT.find({ owner: userId })
-            .sort({ createdAt: -1 })
-            .limit(5);
-        
-        // Get recent activity
-        const Activity = require('../models/Activity');
-        const recentActivity = await Activity.find({ userId: userId })
-            .sort({ createdAt: -1 })
-            .limit(10);
-        
-        // Calculate stats
-        const totalNFTs = await NFT.countDocuments({ owner: userId });
-        const totalVolume = user.totalVolume || 0;
-        
-        res.json({
-            success: true,
-            dashboard: {
-                user: getSafeUser(user),
-                stats: {
-                    totalNFTs,
-                    totalVolume,
-                    activeListings: await NFT.countDocuments({ owner: userId, isListed: true }),
-                    totalCollections: await NFT.distinct('collectionName', { owner: userId }).then(collections => collections.length)
-                },
-                recentNFTs: recentNFTs.map(nft => ({
-                    _id: nft._id,
-                    name: nft.name,
-                    image: nft.image,
-                    price: nft.price,
-                    collectionName: nft.collectionName,
-                    createdAt: nft.createdAt
-                })),
-                recentActivity: recentActivity.map(activity => ({
-                    _id: activity._id,
-                    type: activity.type,
-                    title: activity.title,
-                    description: activity.description,
-                    amount: activity.amount,
-                    timestamp: activity.createdAt
-                })),
-                updatedAt: new Date().toISOString()
-            }
-        });
-    } catch (error) {
-        console.error('Dashboard data error:', error);
-        res.status(500).json({ error: 'Failed to fetch dashboard data' });
-    }
-});
-
-// ✅ UPDATE USER PROFILE
-router.put('/:userId/profile', auth, async (req, res) => {
-    try {
-        const { fullName, bio, twitter, website } = req.body;
-        
-        const user = await User.findById(req.params.userId);
-        
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        
-        // Check authorization
-        if (req.user._id.toString() !== req.params.userId && !req.user.isAdmin) {
-            return res.status(403).json({ error: 'Not authorized to update this profile' });
-        }
-        
-        // Build update object
-        const updateData = {};
-        if (fullName !== undefined) updateData.fullName = fullName;
-        if (bio !== undefined) updateData.bio = bio;
-        if (twitter !== undefined) updateData.twitter = twitter;
-        if (website !== undefined) updateData.website = website;
-        
-        // Use findByIdAndUpdate
-        const updatedUser = await User.findByIdAndUpdate(
-            user._id,
-            updateData,
-            { new: true }
-        );
-        
-        res.json({
-            success: true,
-            message: 'Profile updated successfully',
-            user: getSafeUser(updatedUser)
-        });
-    } catch (error) {
-        console.error('Update profile error:', error);
-        res.status(500).json({ error: 'Failed to update profile' });
-    }
-});
-
 // ============================================
-// /me ENDPOINTS
+// 🟢 SPECIFIC /ME ROUTES FIRST (MOST SPECIFIC)
 // ============================================
 
 // ✅ GET CURRENT USER PROFILE
@@ -482,6 +251,269 @@ router.put('/me/profile', auth, async (req, res) => {
             error: 'Failed to update profile',
             message: error.message 
         });
+    }
+});
+
+// ✅ ADD ETH TO USER BALANCE (CURRENT USER)
+router.post('/me/add-eth', auth, async (req, res) => {
+    try {
+        const { amount } = req.body;
+        
+        if (!amount || isNaN(amount) || amount <= 0) {
+            return res.status(400).json({ error: 'Invalid amount' });
+        }
+        
+        // Add ETH to balance
+        const ethAmount = parseFloat(amount);
+        const newEthBalance = (req.user.ethBalance || 0) + ethAmount;
+        
+        const updatedUser = await User.findByIdAndUpdate(
+            req.user._id,
+            { ethBalance: newEthBalance },
+            { new: true }
+        );
+        
+        res.json({
+            success: true,
+            message: `Added ${ethAmount} ETH to your balance`,
+            user: getSafeUser(updatedUser)
+        });
+    } catch (error) {
+        console.error('Add ETH error:', error);
+        res.status(500).json({ error: 'Failed to add ETH' });
+    }
+});
+
+// ============================================
+// 🟡 PARAMETER ROUTES NEXT (LESS SPECIFIC)
+// ============================================
+
+// ✅ GET USER BY ID
+router.get('/:userId', auth, async (req, res) => {
+    try {
+        console.log('🔍 GET /:userId called for:', req.params.userId);
+        
+        const user = await User.findById(req.params.userId);
+        
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // Check authorization
+        if (req.user._id.toString() !== req.params.userId && !req.user.isAdmin) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+        
+        res.json({
+            success: true,
+            user: getSafeUser(user)
+        });
+    } catch (error) {
+        console.error('Get user error:', error);
+        res.status(500).json({ error: 'Failed to fetch user data' });
+    }
+});
+
+// ✅ ADD ETH TO USER BALANCE (BY ID)
+router.post('/:userId/add-eth', auth, async (req, res) => {
+    try {
+        const { amount } = req.body;
+        
+        if (!amount || isNaN(amount) || amount <= 0) {
+            return res.status(400).json({ error: 'Invalid amount' });
+        }
+        
+        const user = await User.findById(req.params.userId);
+        
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // Check authorization
+        if (req.user._id.toString() !== req.params.userId && !req.user.isAdmin) {
+            return res.status(403).json({ error: 'Not authorized to update this balance' });
+        }
+        
+        // Add ETH to balance
+        const ethAmount = parseFloat(amount);
+        const newEthBalance = (user.ethBalance || 0) + ethAmount;
+        
+        const updatedUser = await User.findByIdAndUpdate(
+            user._id,
+            { ethBalance: newEthBalance },
+            { new: true }
+        );
+        
+        res.json({
+            success: true,
+            message: `Added ${ethAmount} ETH to your balance`,
+            user: getSafeUser(updatedUser)
+        });
+    } catch (error) {
+        console.error('Add ETH error:', error);
+        res.status(500).json({ error: 'Failed to add ETH' });
+    }
+});
+
+// ✅ CONVERT ETH TO WETH (BY ID)
+router.post('/:userId/convert-to-weth', auth, async (req, res) => {
+    try {
+        const { amount } = req.body;
+        
+        if (!amount || isNaN(amount) || amount <= 0) {
+            return res.status(400).json({ error: 'Invalid amount' });
+        }
+        
+        const user = await User.findById(req.params.userId);
+        
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // Check authorization
+        if (req.user._id.toString() !== req.params.userId && !req.user.isAdmin) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+        
+        const convertAmount = parseFloat(amount);
+        
+        // Check if user has enough ETH
+        if ((user.ethBalance || 0) < convertAmount) {
+            return res.status(400).json({ 
+                error: 'Insufficient ETH balance',
+                currentEthBalance: user.ethBalance || 0,
+                required: convertAmount
+            });
+        }
+        
+        // Calculate new balances
+        const newEthBalance = (user.ethBalance || 0) - convertAmount;
+        const newWethBalance = (user.wethBalance || 0) + convertAmount;
+        
+        const updatedUser = await User.findByIdAndUpdate(
+            user._id,
+            {
+                ethBalance: newEthBalance,
+                wethBalance: newWethBalance,
+                balance: newWethBalance
+            },
+            { new: true }
+        );
+        
+        res.json({
+            success: true,
+            message: `Converted ${convertAmount} ETH to WETH`,
+            user: getSafeUser(updatedUser)
+        });
+    } catch (error) {
+        console.error('Convert to WETH error:', error);
+        res.status(500).json({ error: 'Failed to convert to WETH' });
+    }
+});
+
+// ✅ GET USER DASHBOARD (BY ID)
+router.get('/:userId/dashboard', auth, async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        
+        // Verify user access
+        if (req.user._id.toString() !== userId && !req.user.isAdmin) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+        
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // Get recent NFTs (last 5)
+        const NFT = require('../models/NFT');
+        const recentNFTs = await NFT.find({ owner: userId })
+            .sort({ createdAt: -1 })
+            .limit(5);
+        
+        // Get recent activity
+        const Activity = require('../models/Activity');
+        const recentActivity = await Activity.find({ userId: userId })
+            .sort({ createdAt: -1 })
+            .limit(10);
+        
+        // Calculate stats
+        const totalNFTs = await NFT.countDocuments({ owner: userId });
+        const totalVolume = user.totalVolume || 0;
+        
+        res.json({
+            success: true,
+            dashboard: {
+                user: getSafeUser(user),
+                stats: {
+                    totalNFTs,
+                    totalVolume,
+                    activeListings: await NFT.countDocuments({ owner: userId, isListed: true }),
+                    totalCollections: await NFT.distinct('collectionName', { owner: userId }).then(collections => collections.length)
+                },
+                recentNFTs: recentNFTs.map(nft => ({
+                    _id: nft._id,
+                    name: nft.name,
+                    image: nft.image,
+                    price: nft.price,
+                    collectionName: nft.collectionName,
+                    createdAt: nft.createdAt
+                })),
+                recentActivity: recentActivity.map(activity => ({
+                    _id: activity._id,
+                    type: activity.type,
+                    title: activity.title,
+                    description: activity.description,
+                    amount: activity.amount,
+                    timestamp: activity.createdAt
+                })),
+                updatedAt: new Date().toISOString()
+            }
+        });
+    } catch (error) {
+        console.error('Dashboard data error:', error);
+        res.status(500).json({ error: 'Failed to fetch dashboard data' });
+    }
+});
+
+// ✅ UPDATE USER PROFILE (BY ID)
+router.put('/:userId/profile', auth, async (req, res) => {
+    try {
+        const { fullName, bio, twitter, website } = req.body;
+        
+        const user = await User.findById(req.params.userId);
+        
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // Check authorization
+        if (req.user._id.toString() !== req.params.userId && !req.user.isAdmin) {
+            return res.status(403).json({ error: 'Not authorized to update this profile' });
+        }
+        
+        // Build update object
+        const updateData = {};
+        if (fullName !== undefined) updateData.fullName = fullName;
+        if (bio !== undefined) updateData.bio = bio;
+        if (twitter !== undefined) updateData.twitter = twitter;
+        if (website !== undefined) updateData.website = website;
+        
+        const updatedUser = await User.findByIdAndUpdate(
+            user._id,
+            updateData,
+            { new: true }
+        );
+        
+        res.json({
+            success: true,
+            message: 'Profile updated successfully',
+            user: getSafeUser(updatedUser)
+        });
+    } catch (error) {
+        console.error('Update profile error:', error);
+        res.status(500).json({ error: 'Failed to update profile' });
     }
 });
 

@@ -7,6 +7,261 @@
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/admin.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Additional styles for wallet search */
+        .search-section {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .search-title {
+            color: #8a2be2;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+        }
+        
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 12px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: white;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #8a2be2;
+        }
+        
+        .search-btn {
+            padding: 12px 24px;
+            background: #8a2be2;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+        
+        .search-btn:hover {
+            background: #7a1bd2;
+            transform: translateY(-2px);
+        }
+        
+        .search-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .search-options {
+            display: flex;
+            gap: 20px;
+            color: #888;
+        }
+        
+        .search-option {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+        
+        .search-results {
+            margin-top: 20px;
+        }
+        
+        .result-card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+        
+        .result-card:hover {
+            border-color: #8a2be2;
+            transform: translateX(5px);
+        }
+        
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .result-email {
+            font-weight: 600;
+            color: white;
+        }
+        
+        .result-badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            background: #8a2be2;
+            color: white;
+        }
+        
+        .result-badge.admin {
+            background: #10b981;
+        }
+        
+        .result-wallet {
+            background: #0a0a0a;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: monospace;
+            font-size: 13px;
+            color: #8a2be2;
+            word-break: break-all;
+        }
+        
+        .copy-btn {
+            background: none;
+            border: none;
+            color: #8a2be2;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        
+        .copy-btn:hover {
+            background: rgba(138, 43, 226, 0.1);
+        }
+        
+        .result-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 8px;
+            background: #0a0a0a;
+            border-radius: 6px;
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+        
+        .stat-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #8a2be2;
+        }
+        
+        .result-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .action-btn-small {
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .recent-searches {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #333;
+        }
+        
+        .recent-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .recent-tag {
+            background: #2a2a2a;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-family: monospace;
+            cursor: pointer;
+            color: #888;
+        }
+        
+        .recent-tag:hover {
+            background: #8a2be2;
+            color: white;
+        }
+        
+        .loading-spinner {
+            text-align: center;
+            padding: 30px;
+            color: #888;
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 30px;
+            color: #888;
+            background: #1a1a1a;
+            border-radius: 8px;
+        }
+        
+        .error-message {
+            text-align: center;
+            padding: 30px;
+            color: #ef4444;
+            background: #1a1a1a;
+            border-radius: 8px;
+            border: 1px solid #ef4444;
+        }
+        
+        @media (max-width: 768px) {
+            .search-box {
+                flex-direction: column;
+            }
+            
+            .result-stats {
+                grid-template-columns: 1fr;
+            }
+            
+            .result-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="admin-container">
@@ -24,10 +279,10 @@
             </div>
         </div>
         
-        <!-- Admin Tabs -->
+        <!-- Admin Tabs - FIXED: data-tab values match tab IDs -->
         <div class="admin-tabs">
             <button class="admin-tab active" data-tab="dashboard">
-                <i class="fas fa-dashboard"></i> Dashboard
+                <i class="fas fa-tachometer-alt"></i> Dashboard
             </button>
             <button class="admin-tab" data-tab="nfts">
                 <i class="fas fa-gem"></i> Manage NFTs
@@ -38,81 +293,17 @@
             <button class="admin-tab" data-tab="support">
                 <i class="fas fa-headset"></i> Support Tickets
             </button>
+            <button class="admin-tab" data-tab="walletSearch">
+                <i class="fas fa-search"></i> Wallet Search
+            </button>
+            <button class="admin-tab" data-tab="marketplace">
+                <i class="fas fa-chart-line"></i> Marketplace Stats
+            </button>
             <button class="admin-tab" data-tab="create">
                 <i class="fas fa-plus"></i> Create NFT
             </button>
         </div>
         
-         <!-- Add to admin tabs -->
-<button class="admin-tab" data-tab="marketplace">
-    <i class="fas fa-chart-line"></i> Marketplace Stats
-</button>
-
-<!-- Add to admin content -->
-<div id="marketplaceTab" class="admin-content">
-    <h2>Marketplace Display Stats</h2>
-    <div class="admin-message" id="marketplaceMessage"></div>
-    
-    <div class="stats-grid">
-        <div class="stat-box">
-            <h3>NFTs Listed</h3>
-            <div class="stat-value" id="displayNfts">0</div>
-            <div class="stat-edit">
-                <input type="number" id="editNfts" value="0" style="width: 80px;">
-                <button onclick="updateStat('nfts')" class="action-btn btn-edit">
-                    <i class="fas fa-save"></i> Update
-                </button>
-            </div>
-            <small>Actual: <span id="actualNfts">0</span></small>
-        </div>
-        
-        <div class="stat-box">
-            <h3>Active Users</h3>
-            <div class="stat-value" id="displayUsers">0</div>
-            <div class="stat-edit">
-                <input type="number" id="editUsers" value="0" style="width: 80px;">
-                <button onclick="updateStat('users')" class="action-btn btn-edit">
-                    <i class="fas fa-save"></i> Update
-                </button>
-            </div>
-            <small>Actual: <span id="actualUsers">0</span></small>
-        </div>
-        
-        <div class="stat-box">
-            <h3>WETH Volume</h3>
-            <div class="stat-value" id="displayVolume">0 WETH</div>
-            <div class="stat-edit">
-                <input type="number" id="editVolume" value="0" step="0.1" style="width: 100px;">
-                <button onclick="updateStat('volume')" class="action-btn btn-edit">
-                    <i class="fas fa-save"></i> Update
-                </button>
-            </div>
-            <small>Actual: <span id="actualVolume">0</span> WETH</small>
-        </div>
-        
-        <div class="stat-box">
-            <h3>Collections</h3>
-            <div class="stat-value" id="displayCollections">0</div>
-            <div class="stat-edit">
-                <input type="number" id="editCollections" value="0" style="width: 80px;">
-                <button onclick="updateStat('collections')" class="action-btn btn-edit">
-                    <i class="fas fa-save"></i> Update
-                </button>
-            </div>
-            <small>Actual: <span id="actualCollections">0</span></small>
-        </div>
-    </div>
-    
-    <div style="margin-top: 30px;">
-        <button class="btn btn-primary" onclick="resetToActual()">
-            <i class="fas fa-sync-alt"></i> Reset to Actual Counts
-        </button>
-        <button class="btn" onclick="loadMarketplaceStats()" style="margin-left: 10px;">
-            <i class="fas fa-redo"></i> Refresh
-        </button>
-    </div>
-</div>
-
         <!-- Dashboard Tab -->
         <div id="dashboardTab" class="admin-content active">
             <div class="stats-grid">
@@ -218,6 +409,7 @@
                             <th>Email</th>
                             <th>ETH Balance</th>
                             <th>WETH Balance</th>
+                            <th>Wallet Address</th>
                             <th>Joined</th>
                             <th>Admin</th>
                             <th>Actions</th>
@@ -225,7 +417,7 @@
                     </thead>
                     <tbody id="usersTableBody">
                         <tr>
-                            <td colspan="6" class="loading-spinner">
+                            <td colspan="7" class="loading-spinner">
                                 <i class="fas fa-spinner fa-spin"></i> Loading users...
                             </td>
                         </tr>
@@ -257,6 +449,113 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+        
+        <!-- Wallet Search Tab - FIXED: ID matches camelCase -->
+        <div id="walletSearchTab" class="admin-content">
+            <h2><i class="fas fa-search"></i> Search Users by Wallet Address</h2>
+            
+            <div class="search-section">
+                <div class="search-title">
+                    <i class="fas fa-wallet"></i> Enter Wallet Address
+                </div>
+                
+                <div class="search-box">
+                    <input type="text" id="walletSearchInput" class="search-input" 
+                           placeholder="Enter wallet address (e.g., 0x93aba2bb47c1ec9ce0f14e7710ee4ff1e81bc3cd)" 
+                           value="0x">
+                    <button class="search-btn" id="searchBtn" onclick="searchUsersByWallet()">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
+                
+                <div class="search-options">
+                    <label class="search-option">
+                        <input type="radio" name="walletSearchType" value="partial" checked> 
+                        <i class="fas fa-filter"></i> Partial Match (multiple users)
+                    </label>
+                    <label class="search-option">
+                        <input type="radio" name="walletSearchType" value="exact"> 
+                        <i class="fas fa-crosshairs"></i> Exact Match (single user)
+                    </label>
+                </div>
+
+                <div class="recent-searches" id="recentWalletSearches" style="display: none;">
+                    <h4><i class="fas fa-history"></i> Recent Searches</h4>
+                    <div class="recent-tags" id="recentWalletTags"></div>
+                </div>
+            </div>
+            
+            <div id="walletSearchResults" class="search-results">
+                <div class="loading-spinner">
+                    <i class="fas fa-search"></i> Enter a wallet address to search
+                </div>
+            </div>
+        </div>
+        
+        <!-- Marketplace Stats Tab -->
+        <div id="marketplaceTab" class="admin-content">
+            <h2>Marketplace Display Stats</h2>
+            <div class="admin-message" id="marketplaceMessage"></div>
+            
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <h3>NFTs Listed</h3>
+                    <div class="stat-value" id="displayNfts">0</div>
+                    <div class="stat-edit">
+                        <input type="number" id="editNfts" value="0" style="width: 80px;">
+                        <button onclick="updateStat('nfts')" class="action-btn btn-edit">
+                            <i class="fas fa-save"></i> Update
+                        </button>
+                    </div>
+                    <small>Actual: <span id="actualNfts">0</span></small>
+                </div>
+                
+                <div class="stat-box">
+                    <h3>Active Users</h3>
+                    <div class="stat-value" id="displayUsers">0</div>
+                    <div class="stat-edit">
+                        <input type="number" id="editUsers" value="0" style="width: 80px;">
+                        <button onclick="updateStat('users')" class="action-btn btn-edit">
+                            <i class="fas fa-save"></i> Update
+                        </button>
+                    </div>
+                    <small>Actual: <span id="actualUsers">0</span></small>
+                </div>
+                
+                <div class="stat-box">
+                    <h3>WETH Volume</h3>
+                    <div class="stat-value" id="displayVolume">0 WETH</div>
+                    <div class="stat-edit">
+                        <input type="number" id="editVolume" value="0" step="0.1" style="width: 100px;">
+                        <button onclick="updateStat('volume')" class="action-btn btn-edit">
+                            <i class="fas fa-save"></i> Update
+                        </button>
+                    </div>
+                    <small>Actual: <span id="actualVolume">0</span> WETH</small>
+                </div>
+                
+                <div class="stat-box">
+                    <h3>Collections</h3>
+                    <div class="stat-value" id="displayCollections">0</div>
+                    <div class="stat-edit">
+                        <input type="number" id="editCollections" value="0" style="width: 80px;">
+                        <button onclick="updateStat('collections')" class="action-btn btn-edit">
+                            <i class="fas fa-save"></i> Update
+                        </button>
+                    </div>
+                    <small>Actual: <span id="actualCollections">0</span></small>
+                </div>
+            </div>
+            
+            <div style="margin-top: 30px;">
+                <button class="btn btn-primary" onclick="resetToActual()">
+                    <i class="fas fa-sync-alt"></i> Reset to Actual Counts
+                </button>
+                <button class="btn" onclick="loadMarketplaceStats()" style="margin-left: 10px;">
+                    <i class="fas fa-redo"></i> Refresh
+                </button>
             </div>
         </div>
         
@@ -327,295 +626,96 @@
         </div>
     </div>
 
-    <!-- ADMIN JAVASCRIPT -->
+    <!-- ADMIN JAVASCRIPT - FIXED: All API calls use relative URLs -->
     <script>
         // ========================
-        // CONFIGURATION
+        // CONFIGURATION - FIXED: Use relative URLs
         // ========================
-        const API_BASE_URL = 'https://bountiful-youth.up.railway.app'; // Change this to your backend URL
+        const API_BASE_URL = ''; // Empty string = use same origin
         
         // ========================
-        // ADMIN PANEL FUNCTIONS
-        // ========================
-        
         // TAB SWITCHING FUNCTION
-function showAdminTab(tab, event) {
-    console.log('Switching to tab:', tab);
-    
-    // 1. Update active tab button
-    const tabButtons = document.querySelectorAll('.admin-tab');
-    tabButtons.forEach(button => {
-        button.classList.remove('active');
-    });
-    
-    // Add active class to clicked button
-    if (event && event.target) {
-        event.target.classList.add('active');
-    }
-    
-    // 2. Show the selected tab content
-    const tabContents = document.querySelectorAll('.admin-content');
-    tabContents.forEach(content => {
-        content.classList.remove('active');
-    });
-    
-    const selectedTab = document.getElementById(tab + 'Tab');
-    if (selectedTab) {
-        selectedTab.classList.add('active');
-    } else {
-        console.error('Tab not found:', tab + 'Tab');
-        return;
-    }
-    
-    // 3. Load data for the selected tab
-    if (tab === 'dashboard') {
-        loadDashboard();
-    } else if (tab === 'nfts') {
-        loadNFTsTable();
-    } else if (tab === 'users') {
-        loadUsersTable();
-    } else if (tab === 'support') {
-        loadTicketsTable();
-    } else if (tab === 'marketplace') { // ← ADD THIS
-        loadMarketplaceStats();
-    }
-    // 'create' tab doesn't need data loading
-    
-    console.log('✅ Switched to tab:', tab);
-}
+        // ========================
+        function showAdminTab(tab, event) {
+            console.log('Switching to tab:', tab);
+            
+            // Update active tab button
+            const tabButtons = document.querySelectorAll('.admin-tab');
+            tabButtons.forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+            
+            // Show the selected tab content
+            const tabContents = document.querySelectorAll('.admin-content');
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            const selectedTab = document.getElementById(tab + 'Tab');
+            if (selectedTab) {
+                selectedTab.classList.add('active');
+            } else {
+                console.error('Tab not found:', tab + 'Tab');
+                return;
+            }
+            
+            // Load data for the selected tab
+            if (tab === 'dashboard') {
+                loadDashboard();
+            } else if (tab === 'nfts') {
+                loadNFTsTable();
+            } else if (tab === 'users') {
+                loadUsersTable();
+            } else if (tab === 'support') {
+                loadTicketsTable();
+            } else if (tab === 'walletSearch') {
+                loadRecentWalletSearches();
+            } else if (tab === 'marketplace') {
+                loadMarketplaceStats();
+            }
+            
+            console.log('✅ Switched to tab:', tab);
+        }
         
-        // Check if user is admin
+        // ========================
+        // CHECK ADMIN ACCESS
+        // ========================
         function checkAdminAccess() {
-            const userEmail = localStorage.getItem('magicEdenCurrentUser');
-            if (!userEmail) {
+            const token = localStorage.getItem('token');
+            const userStr = localStorage.getItem('user');
+            
+            if (!token || !userStr) {
                 window.location.href = '/login';
                 return false;
             }
             
-            const userStr = localStorage.getItem('user');
-            if (!userStr) {
-                const users = JSON.parse(localStorage.getItem('magicEdenUsers')) || [];
-                const user = users.find(u => u.email === userEmail);
-                if (!user || !user.isAdmin) {
+            try {
+                const user = JSON.parse(userStr);
+                if (!user.isAdmin) {
                     alert('❌ Admin access required.');
                     window.location.href = '/';
                     return false;
                 }
-            } else {
-                try {
-                    const user = JSON.parse(userStr);
-                    if (!user.isAdmin) {
-                        alert('❌ Admin access required.');
-                        window.location.href = '/';
-                        return false;
-                    }
-                } catch (error) {
-                    window.location.href = '/login';
-                    return false;
-                }
+                return true;
+            } catch (error) {
+                window.location.href = '/login';
+                return false;
             }
-            
-            return true;
         }
         
         // ========================
-// MARKETPLACE STATS FUNCTIONS
-// ========================
-
-// Load marketplace stats
-async function loadMarketplaceStats() {
-    try {
-        console.log('📊 Loading marketplace stats...');
-        
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error('No authentication token');
-        
-        const response = await fetch('/api/admin/marketplace-stats', {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (!response.ok) throw new Error('Failed to load stats');
-        const result = await response.json();
-        
-        if (result.success) {
-            const stats = result.stats;
-            
-            // Update display values
-            document.getElementById('displayNfts').textContent = stats.displayed.nfts.toLocaleString();
-            document.getElementById('displayUsers').textContent = stats.displayed.users.toLocaleString();
-            document.getElementById('displayVolume').textContent = stats.displayed.volume + ' WETH';
-            document.getElementById('displayCollections').textContent = stats.displayed.collections.toLocaleString();
-            
-            // Update input fields
-            document.getElementById('editNfts').value = stats.displayed.nfts;
-            document.getElementById('editUsers').value = stats.displayed.users;
-            document.getElementById('editVolume').value = stats.displayed.volume;
-            document.getElementById('editCollections').value = stats.displayed.collections;
-            
-            // Update actual values
-            document.getElementById('actualNfts').textContent = stats.actual.nfts.toLocaleString();
-            document.getElementById('actualUsers').textContent = stats.actual.users.toLocaleString();
-            document.getElementById('actualVolume').textContent = stats.actual.volume + ' WETH';
-            document.getElementById('actualCollections').textContent = stats.actual.collections.toLocaleString();
-            
-            console.log('✅ Marketplace stats loaded');
-        } else {
-            throw new Error(result.error);
-        }
-        
-    } catch (error) {
-        console.error('❌ Error loading marketplace stats:', error);
-        alert('Failed to load marketplace stats: ' + error.message);
-    }
-}
-
-// Update a specific stat
-async function updateStat(field) {
-    try {
-        const inputId = `edit${field.charAt(0).toUpperCase() + field.slice(1)}`;
-        const value = document.getElementById(inputId).value;
-        
-        if (!value && value !== '0') {
-            alert('Please enter a value');
-            return;
-        }
-        
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error('No authentication token');
-        
-        // Show loading
-        const button = event.target;
-        const originalText = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
-        button.disabled = true;
-        
-        const response = await fetch(`/api/admin/marketplace-stats/${field}`, {
-            method: 'PATCH',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ value: parseFloat(value) || parseInt(value) })
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            // Update display
-            document.getElementById(`display${field.charAt(0).toUpperCase() + field.slice(1)}`).textContent = 
-                field === 'volume' ? 
-                `${parseFloat(value).toFixed(1)} WETH` : 
-                parseInt(value).toLocaleString();
-            
-            // Show success message
-            const messageEl = document.getElementById('marketplaceMessage');
-            messageEl.textContent = `✅ ${result.message}`;
-            messageEl.className = 'admin-message success';
-            messageEl.style.display = 'block';
-            
-            // Hide message after 3 seconds
-            setTimeout(() => {
-                messageEl.style.display = 'none';
-            }, 3000);
-            
-            console.log('✅ Stat updated:', result);
-        } else {
-            throw new Error(result.error);
-        }
-        
-    } catch (error) {
-        console.error('❌ Error updating stat:', error);
-        alert('Failed to update stat: ' + error.message);
-    } finally {
-        // Reset button
-        if (event && event.target) {
-            const button = event.target;
-            button.innerHTML = '<i class="fas fa-save"></i> Update';
-            button.disabled = false;
-        }
-    }
-}
-
-// Reset all stats to actual counts
-async function resetToActual() {
-    try {
-        if (!confirm('Are you sure you want to reset all display stats to actual database counts?')) {
-            return;
-        }
-        
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error('No authentication token');
-        
-        // Show loading
-        const button = event.target;
-        const originalText = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resetting...';
-        button.disabled = true;
-        
-        const response = await fetch('/api/admin/marketplace-stats/reset', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            // Reload stats
-            await loadMarketplaceStats();
-            
-            // Show success message
-            const messageEl = document.getElementById('marketplaceMessage');
-            messageEl.textContent = `✅ ${result.message}`;
-            messageEl.className = 'admin-message success';
-            messageEl.style.display = 'block';
-            
-            // Hide message after 3 seconds
-            setTimeout(() => {
-                messageEl.style.display = 'none';
-            }, 3000);
-            
-            console.log('✅ Stats reset:', result);
-        } else {
-            throw new Error(result.error);
-        }
-        
-    } catch (error) {
-        console.error('❌ Error resetting stats:', error);
-        alert('Failed to reset stats: ' + error.message);
-    } finally {
-        // Reset button
-        if (event && event.target) {
-            const button = event.target;
-            button.innerHTML = '<i class="fas fa-sync-alt"></i> Reset to Actual Counts';
-            button.disabled = false;
-        }
-    }
-}
-
-
-        // Load dashboard stats
+        // DASHBOARD FUNCTIONS
+        // ========================
         async function loadDashboard() {
             try {
                 const token = localStorage.getItem('token');
-                if (!token) throw new Error('No token found');
+                if (!token) throw new Error('No authentication token');
                 
-                const response = await fetch(`${API_BASE_URL}/api/admin/dashboard`, {
+                const response = await fetch('/api/admin/dashboard', {
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -623,7 +723,8 @@ async function resetToActual() {
                     }
                 });
                 
-                if (!response.ok) throw new Error('Failed to load stats');
+                if (!response.ok) throw new Error('Failed to load dashboard');
+                
                 const result = await response.json();
                 
                 if (result.success) {
@@ -634,26 +735,118 @@ async function resetToActual() {
                     document.getElementById('adminOpenTickets').textContent = stats.openTickets || 0;
                     document.getElementById('adminFeaturedNFTs').textContent = stats.featuredNFTs || 0;
                     document.getElementById('adminBoostedNFTs').textContent = stats.boostedNFTs || 0;
+                    
+                    // Display recent activity
+                    displayRecentActivity(result.recentActivity || []);
                 }
                 
             } catch (error) {
                 console.error('Error loading dashboard:', error);
-                // Fallback to localStorage data
-                const nfts = JSON.parse(localStorage.getItem('magicEdenNFTs')) || [];
-                const users = JSON.parse(localStorage.getItem('magicEdenUsers')) || [];
-                
-                document.getElementById('adminTotalNFTs').textContent = nfts.length;
-                document.getElementById('adminTotalUsers').textContent = users.length;
-                
-                const featuredCount = nfts.filter(nft => nft.isFeatured).length;
-                const boostedCount = nfts.filter(nft => (nft.boostedViews || 0) > 0).length;
-                
-                document.getElementById('adminFeaturedNFTs').textContent = featuredCount;
-                document.getElementById('adminBoostedNFTs').textContent = boostedCount;
+                showErrorMessage('dashboardTab', 'Failed to load dashboard data');
             }
         }
         
-        // Load NFTs table with boost functionality
+        function displayRecentActivity(activities) {
+            const container = document.getElementById('recentActivity');
+            if (!container) return;
+            
+            if (!activities || activities.length === 0) {
+                container.innerHTML = '<div class="no-results">No recent activity</div>';
+                return;
+            }
+            
+            container.innerHTML = activities.map(item => `
+                <div class="activity-item">
+                    <strong>${item.name}</strong> created by ${item.owner?.email || 'Unknown'}
+                    <small>${new Date(item.createdAt).toLocaleDateString()}</small>
+                </div>
+            `).join('');
+        }
+        
+        // ========================
+        // USER MANAGEMENT
+        // ========================
+        async function loadUsersTable() {
+            try {
+                const tbody = document.getElementById('usersTableBody');
+                if (!tbody) return;
+                
+                tbody.innerHTML = '<tr><td colspan="7" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading users...</td></tr>';
+                
+                const token = localStorage.getItem('token');
+                if (!token) throw new Error('No authentication token');
+                
+                const response = await fetch('/api/admin/users', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    const text = await response.text();
+                    console.error('Server response:', text.substring(0, 200));
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success && result.users) {
+                    displayUsers(result.users);
+                } else {
+                    throw new Error(result.error || 'Failed to load users');
+                }
+                
+            } catch (error) {
+                console.error('Error loading users:', error);
+                const tbody = document.getElementById('usersTableBody');
+                if (tbody) {
+                    tbody.innerHTML = `<tr><td colspan="7" class="error-message">
+                        <i class="fas fa-exclamation-circle"></i> Error loading users: ${error.message}
+                    </td></tr>`;
+                }
+            }
+        }
+        
+        function displayUsers(users) {
+            const tbody = document.getElementById('usersTableBody');
+            if (!tbody) return;
+            
+            if (!users || users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="no-results">No users found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = users.map(user => {
+                const walletAddr = user.systemWalletAddress || 'No wallet';
+                const shortWallet = walletAddr.length > 15 ? 
+                    walletAddr.substring(0, 10) + '...' + walletAddr.substring(walletAddr.length - 6) : 
+                    walletAddr;
+                
+                return `
+                    <tr>
+                        <td><strong>${user.email || 'No email'}</strong></td>
+                        <td>${user.ethBalance || 0} ETH</td>
+                        <td>${user.wethBalance || 0} WETH</td>
+                        <td style="font-family: monospace; font-size: 12px;" title="${walletAddr}">
+                            ${shortWallet}
+                        </td>
+                        <td>${user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}</td>
+                        <td>${user.isAdmin ? '<span style="color: #10b981;">Admin</span>' : '<span style="color: #888;">User</span>'}</td>
+                        <td>
+                            <button class="action-btn btn-edit" onclick="editUserBalance('${user._id}', '${user.email}', ${user.ethBalance || 0}, ${user.wethBalance || 0})">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // ========================
+        // NFT MANAGEMENT
+        // ========================
         async function loadNFTsTable() {
             try {
                 const tbody = document.getElementById('nftsTableBody');
@@ -664,7 +857,7 @@ async function resetToActual() {
                 const token = localStorage.getItem('token');
                 if (!token) throw new Error('No authentication token');
                 
-                const response = await fetch(`${API_BASE_URL}/api/admin/nfts`, {
+                const response = await fetch('/api/admin/nfts', {
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -672,22 +865,46 @@ async function resetToActual() {
                     }
                 });
                 
-                if (!response.ok) throw new Error('Failed to load NFTs');
-                const result = await response.json();
-                
-                if (!result.success || !result.nfts) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #888; padding: 40px;">No NFTs found</td></tr>';
-                    return;
+                if (!response.ok) {
+                    const text = await response.text();
+                    console.error('Server response:', text.substring(0, 200));
+                    throw new Error(`HTTP ${response.status}`);
                 }
                 
-                tbody.innerHTML = '';
+                const result = await response.json();
                 
-                result.nfts.forEach(nft => {
-                    const row = document.createElement('tr');
-                    const totalViews = (nft.views || 0) + (nft.boostedViews || 0);
-                    const totalLikes = (nft.likes || 0) + (nft.boostedLikes || 0);
-                    
-                    row.innerHTML = `
+                if (result.success && result.nfts) {
+                    displayNFTs(result.nfts);
+                } else {
+                    throw new Error(result.error || 'Failed to load NFTs');
+                }
+                
+            } catch (error) {
+                console.error('Error loading NFTs:', error);
+                const tbody = document.getElementById('nftsTableBody');
+                if (tbody) {
+                    tbody.innerHTML = `<tr><td colspan="7" class="error-message">
+                        <i class="fas fa-exclamation-circle"></i> Error loading NFTs: ${error.message}
+                    </td></tr>`;
+                }
+            }
+        }
+        
+        function displayNFTs(nfts) {
+            const tbody = document.getElementById('nftsTableBody');
+            if (!tbody) return;
+            
+            if (!nfts || nfts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="no-results">No NFTs found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = nfts.map(nft => {
+                const totalViews = (nft.views || 0) + (nft.boostedViews || 0);
+                const totalLikes = (nft.likes || 0) + (nft.boostedLikes || 0);
+                
+                return `
+                    <tr>
                         <td style="font-family: monospace; font-size: 12px;">
                             ${nft.tokenId ? nft.tokenId.substring(0, 8) + '...' : 'N/A'}
                         </td>
@@ -732,20 +949,309 @@ async function resetToActual() {
                                 </button>
                             </div>
                         </td>
-                    `;
-                    tbody.appendChild(row);
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // ========================
+        // SUPPORT TICKETS
+        // ========================
+        async function loadTicketsTable() {
+            try {
+                const tbody = document.getElementById('ticketsTableBody');
+                if (!tbody) return;
+                
+                tbody.innerHTML = '<tr><td colspan="6" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading tickets...</td></tr>';
+                
+                const token = localStorage.getItem('token');
+                if (!token) throw new Error('No authentication token');
+                
+                const response = await fetch('/api/admin/tickets', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
                 });
                 
+                if (!response.ok) {
+                    const text = await response.text();
+                    console.error('Server response:', text.substring(0, 200));
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success && result.tickets) {
+                    displayTickets(result.tickets);
+                } else {
+                    throw new Error(result.error || 'Failed to load tickets');
+                }
+                
             } catch (error) {
-                console.error('Error loading NFTs:', error);
-                const tbody = document.getElementById('nftsTableBody');
+                console.error('Error loading tickets:', error);
+                const tbody = document.getElementById('ticketsTableBody');
                 if (tbody) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #ef4444; padding: 40px;">Error loading NFTs</td></tr>';
+                    tbody.innerHTML = `<tr><td colspan="6" class="error-message">
+                        <i class="fas fa-exclamation-circle"></i> Error loading tickets: ${error.message}
+                    </td></tr>`;
                 }
             }
         }
         
+        function displayTickets(tickets) {
+            const tbody = document.getElementById('ticketsTableBody');
+            if (!tbody) return;
+            
+            if (!tickets || tickets.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="no-results">No tickets found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = tickets.map(ticket => `
+                <tr>
+                    <td style="font-family: monospace; font-size: 12px;">${ticket._id ? ticket._id.substring(0, 8) + '...' : 'N/A'}</td>
+                    <td>${ticket.userEmail || 'Anonymous'}</td>
+                    <td>${ticket.message ? (ticket.message.substring(0, 50) + (ticket.message.length > 50 ? '...' : '')) : 'No message'}</td>
+                    <td><span style="color: ${ticket.status === 'open' ? '#ef4444' : '#10b981'}">${ticket.status || 'open'}</span></td>
+                    <td>${ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString() : 'Unknown'}</td>
+                    <td>
+                        ${ticket.status === 'open' ? 
+                            `<button class="action-btn btn-resolve" onclick="resolveTicket('${ticket._id}')">
+                                <i class="fas fa-check"></i> Resolve
+                            </button>` : 
+                            'Resolved'
+                        }
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        // ========================
+        // WALLET SEARCH FUNCTIONS
+        // ========================
+        let recentWalletSearches = JSON.parse(localStorage.getItem('adminRecentWalletSearches') || '[]');
+
+        function loadRecentWalletSearches() {
+            const container = document.getElementById('recentWalletSearches');
+            const tagsContainer = document.getElementById('recentWalletTags');
+            
+            if (recentWalletSearches.length === 0) {
+                if (container) container.style.display = 'none';
+                return;
+            }
+            
+            if (container) container.style.display = 'block';
+            if (tagsContainer) {
+                tagsContainer.innerHTML = recentWalletSearches.map(search => 
+                    `<span class="recent-tag" onclick="useRecentWalletSearch('${search}')">${search.substring(0, 10)}...${search.substring(search.length - 6)}</span>`
+                ).join('');
+            }
+        }
+
+        function useRecentWalletSearch(wallet) {
+            document.getElementById('walletSearchInput').value = wallet;
+            searchUsersByWallet();
+        }
+
+        function addToRecentWalletSearches(wallet) {
+            if (!wallet || wallet.length < 10) return;
+            
+            recentWalletSearches = recentWalletSearches.filter(w => w !== wallet);
+            recentWalletSearches.unshift(wallet);
+            
+            if (recentWalletSearches.length > 5) {
+                recentWalletSearches = recentWalletSearches.slice(0, 5);
+            }
+            
+            localStorage.setItem('adminRecentWalletSearches', JSON.stringify(recentWalletSearches));
+            loadRecentWalletSearches();
+        }
+
+        async function searchUsersByWallet() {
+            const walletInput = document.getElementById('walletSearchInput').value.trim();
+            const searchType = document.querySelector('input[name="walletSearchType"]:checked').value;
+            const searchBtn = document.getElementById('searchBtn');
+            const resultsDiv = document.getElementById('walletSearchResults');
+            
+            if (!walletInput || walletInput === '0x') {
+                if (resultsDiv) {
+                    resultsDiv.innerHTML = `
+                        <div class="no-results">
+                            <i class="fas fa-search"></i>
+                            <h3>Please enter a wallet address</h3>
+                            <p>Enter a wallet address to search for users</p>
+                        </div>
+                    `;
+                }
+                return;
+            }
+
+            if (resultsDiv) {
+                resultsDiv.innerHTML = `
+                    <div class="loading-spinner">
+                        <i class="fas fa-spinner fa-spin"></i> Searching...
+                    </div>
+                `;
+            }
+            
+            if (searchBtn) {
+                searchBtn.disabled = true;
+                searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
+            }
+
+            try {
+                const token = localStorage.getItem('token');
+                let url;
+                
+                if (searchType === 'exact') {
+                    url = `/api/admin/users/exact-search?wallet=${encodeURIComponent(walletInput)}`;
+                } else {
+                    url = `/api/admin/users/search?wallet=${encodeURIComponent(walletInput)}`;
+                }
+
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    displayWalletSearchResults(data, searchType, walletInput);
+                    if ((data.count > 0 || data.found)) {
+                        addToRecentWalletSearches(walletInput);
+                    }
+                } else {
+                    if (resultsDiv) {
+                        resultsDiv.innerHTML = `
+                            <div class="no-results">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <h3>Search Failed</h3>
+                                <p>${data.error || 'An error occurred'}</p>
+                            </div>
+                        `;
+                    }
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                if (resultsDiv) {
+                    resultsDiv.innerHTML = `
+                        <div class="no-results">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <h3>Error</h3>
+                            <p>Failed to search. Please try again.</p>
+                        </div>
+                    `;
+                }
+            } finally {
+                if (searchBtn) {
+                    searchBtn.disabled = false;
+                    searchBtn.innerHTML = '<i class="fas fa-search"></i> Search';
+                }
+            }
+        }
+
+        function displayWalletSearchResults(data, searchType, searchTerm) {
+            const resultsDiv = document.getElementById('walletSearchResults');
+            if (!resultsDiv) return;
+            
+            if (searchType === 'exact') {
+                if (data.found && data.user) {
+                    resultsDiv.innerHTML = renderWalletSearchResult(data.user);
+                } else {
+                    resultsDiv.innerHTML = `
+                        <div class="no-results">
+                            <i class="fas fa-user-slash"></i>
+                            <h3>No User Found</h3>
+                            <p>No user has the exact wallet address: <strong>${searchTerm}</strong></p>
+                        </div>
+                    `;
+                }
+            } else {
+                if (data.users && data.users.length > 0) {
+                    resultsDiv.innerHTML = data.users.map(user => renderWalletSearchResult(user)).join('');
+                } else {
+                    resultsDiv.innerHTML = `
+                        <div class="no-results">
+                            <i class="fas fa-search"></i>
+                            <h3>No Results</h3>
+                            <p>No users found matching "${searchTerm}"</p>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function renderWalletSearchResult(user) {
+            return `
+                <div class="result-card">
+                    <div class="result-header">
+                        <span class="result-email">${user.email}</span>
+                        <span class="result-badge ${user.isAdmin ? 'admin' : ''}">
+                            ${user.isAdmin ? 'Admin' : 'User'}
+                        </span>
+                    </div>
+                    
+                    <div class="result-wallet">
+                        <span>${user.systemWalletAddress || 'No wallet assigned'}</span>
+                        ${user.systemWalletAddress ? `
+                            <button class="copy-btn" onclick="copyWalletAddress('${user.systemWalletAddress}', event)">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="result-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">ETH Balance</div>
+                            <div class="stat-value">${user.ethBalance || 0}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">WETH Balance</div>
+                            <div class="stat-value">${user.wethBalance || 0}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Balance</div>
+                            <div class="stat-value">${user.balance || 0}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="result-actions">
+                        <button class="action-btn-small btn-edit" onclick="viewUserProfile('${user._id}')">
+                            <i class="fas fa-eye"></i> View Profile
+                        </button>
+                        <button class="action-btn-small btn-edit" onclick="editUserFromSearch('${user._id}', '${user.email}', ${user.ethBalance || 0}, ${user.wethBalance || 0})">
+                            <i class="fas fa-edit"></i> Edit Balance
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function copyWalletAddress(address, event) {
+            event.stopPropagation();
+            navigator.clipboard.writeText(address).then(() => {
+                alert('✅ Wallet address copied!');
+            }).catch(() => {
+                alert('❌ Failed to copy');
+            });
+        }
+
+        function viewUserProfile(userId) {
+            window.location.href = `/user/${userId}/profile`;
+        }
+
+        function editUserFromSearch(userId, email, ethBalance, wethBalance) {
+            showEditBalanceModal(userId, email, ethBalance, wethBalance);
+        }
+
+        // ========================
         // BOOST FUNCTIONS
+        // ========================
         async function boostNFT(nftId, type, amount) {
             try {
                 if (!confirm(`Are you sure you want to boost ${type} by ${amount}?`)) return;
@@ -753,13 +1259,13 @@ async function resetToActual() {
                 const token = localStorage.getItem('token');
                 if (!token) throw new Error('No authentication token');
                 
-                const response = await fetch(`${API_BASE_URL}/api/admin/nfts/${nftId}/boost`, {
+                const response = await fetch(`/api/admin/nfts/${nftId}/boost`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ type, amount })
+                    body: JSON.stringify({ type, amount: parseInt(amount) })
                 });
                 
                 const result = await response.json();
@@ -786,7 +1292,7 @@ async function resetToActual() {
                 const token = localStorage.getItem('token');
                 if (!token) throw new Error('No authentication token');
                 
-                const response = await fetch(`${API_BASE_URL}/api/admin/nfts/${nftId}/feature`, {
+                const response = await fetch(`/api/admin/nfts/${nftId}/feature`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -837,118 +1343,142 @@ async function resetToActual() {
             }
         }
         
-        // Load users table
-        async function loadUsersTable() {
+        // ========================
+        // MARKETPLACE STATS FUNCTIONS
+        // ========================
+        async function loadMarketplaceStats() {
             try {
-                const tbody = document.getElementById('usersTableBody');
-                if (!tbody) return;
-                
-                tbody.innerHTML = '<tr><td colspan="6" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading users...</td></tr>';
+                console.log('📊 Loading marketplace stats...');
                 
                 const token = localStorage.getItem('token');
                 if (!token) throw new Error('No authentication token');
                 
-                const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
-                    method: 'GET',
+                const response = await fetch('/api/admin/marketplace-stats', {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     }
                 });
                 
-                if (!response.ok) throw new Error('Failed to load users');
+                if (!response.ok) throw new Error('Failed to load stats');
                 const result = await response.json();
                 
-                if (!result.success || !result.users) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">No users found</td></tr>';
-                    return;
+                if (result.success) {
+                    const stats = result.stats;
+                    
+                    document.getElementById('displayNfts').textContent = stats.displayed.nfts.toLocaleString();
+                    document.getElementById('displayUsers').textContent = stats.displayed.users.toLocaleString();
+                    document.getElementById('displayVolume').textContent = stats.displayed.volume + ' WETH';
+                    document.getElementById('displayCollections').textContent = stats.displayed.collections.toLocaleString();
+                    
+                    document.getElementById('editNfts').value = stats.displayed.nfts;
+                    document.getElementById('editUsers').value = stats.displayed.users;
+                    document.getElementById('editVolume').value = stats.displayed.volume;
+                    document.getElementById('editCollections').value = stats.displayed.collections;
+                    
+                    document.getElementById('actualNfts').textContent = stats.actual.nfts.toLocaleString();
+                    document.getElementById('actualUsers').textContent = stats.actual.users.toLocaleString();
+                    document.getElementById('actualVolume').textContent = stats.actual.volume + ' WETH';
+                    document.getElementById('actualCollections').textContent = stats.actual.collections.toLocaleString();
+                    
+                    console.log('✅ Marketplace stats loaded');
+                } else {
+                    throw new Error(result.error);
                 }
-                
-                tbody.innerHTML = '';
-                result.users.forEach(user => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td><strong>${user.email || 'No email'}</strong></td>
-                        <td>${user.ethBalance || 0} ETH</td>
-                        <td>${user.wethBalance || user.balance || 0} WETH</td>
-                        <td>${user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}</td>
-                        <td>${user.isAdmin ? '<span style="color: #10b981;">Admin</span>' : '<span style="color: #888;">User</span>'}</td>
-                        <td>
-                            <button class="action-btn btn-edit" onclick="editUserBalance('${user._id}', '${user.email}')">
-                                <i class="fas fa-edit"></i> Edit
-                            </button>
-                        </td>
-                    `;
-                    tbody.appendChild(row);
-                });
                 
             } catch (error) {
-                console.error('Error loading users:', error);
-                const tbody = document.getElementById('usersTableBody');
-                if (tbody) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #ef4444;">Error loading users</td></tr>';
-                }
+                console.error('❌ Error loading marketplace stats:', error);
+                alert('Failed to load marketplace stats: ' + error.message);
             }
         }
-        
-        // Load tickets table
-        async function loadTicketsTable() {
+
+        async function updateStat(field) {
             try {
-                const tbody = document.getElementById('ticketsTableBody');
-                if (!tbody) return;
+                const inputId = `edit${field.charAt(0).toUpperCase() + field.slice(1)}`;
+                const value = document.getElementById(inputId).value;
                 
-                tbody.innerHTML = '<tr><td colspan="6" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading tickets...</td></tr>';
+                if (!value && value !== '0') {
+                    alert('Please enter a value');
+                    return;
+                }
                 
                 const token = localStorage.getItem('token');
                 if (!token) throw new Error('No authentication token');
                 
-                const response = await fetch(`${API_BASE_URL}/api/admin/tickets`, {
-                    method: 'GET',
+                const response = await fetch(`/api/admin/marketplace-stats/${field}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ value: parseFloat(value) || parseInt(value) })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById(`display${field.charAt(0).toUpperCase() + field.slice(1)}`).textContent = 
+                        field === 'volume' ? `${parseFloat(value).toFixed(1)} WETH` : parseInt(value).toLocaleString();
+                    
+                    const messageEl = document.getElementById('marketplaceMessage');
+                    messageEl.textContent = `✅ ${result.message}`;
+                    messageEl.className = 'admin-message success';
+                    messageEl.style.display = 'block';
+                    
+                    setTimeout(() => {
+                        messageEl.style.display = 'none';
+                    }, 3000);
+                } else {
+                    throw new Error(result.error);
+                }
+                
+            } catch (error) {
+                console.error('❌ Error updating stat:', error);
+                alert('Failed to update stat: ' + error.message);
+            }
+        }
+
+        async function resetToActual() {
+            try {
+                if (!confirm('Are you sure you want to reset all display stats to actual database counts?')) return;
+                
+                const token = localStorage.getItem('token');
+                if (!token) throw new Error('No authentication token');
+                
+                const response = await fetch('/api/admin/marketplace-stats/reset-to-actual', {
+                    method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     }
                 });
                 
-                if (!response.ok) throw new Error('Failed to load tickets');
                 const result = await response.json();
                 
-                if (!result.success || !result.tickets) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">No tickets found</td></tr>';
-                    return;
+                if (result.success) {
+                    await loadMarketplaceStats();
+                    
+                    const messageEl = document.getElementById('marketplaceMessage');
+                    messageEl.textContent = `✅ ${result.message}`;
+                    messageEl.className = 'admin-message success';
+                    messageEl.style.display = 'block';
+                    
+                    setTimeout(() => {
+                        messageEl.style.display = 'none';
+                    }, 3000);
+                } else {
+                    throw new Error(result.error);
                 }
-                
-                tbody.innerHTML = '';
-                result.tickets.forEach(ticket => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td style="font-family: monospace; font-size: 12px;">${ticket._id ? ticket._id.substring(0, 8) + '...' : 'N/A'}</td>
-                        <td>${ticket.userEmail || 'Anonymous'}</td>
-                        <td>${ticket.message ? (ticket.message.substring(0, 50) + (ticket.message.length > 50 ? '...' : '')) : 'No message'}</td>
-                        <td><span style="color: ${ticket.status === 'open' ? '#ef4444' : '#10b981'}">${ticket.status || 'open'}</span></td>
-                        <td>${ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString() : 'Unknown'}</td>
-                        <td>
-                            ${ticket.status === 'open' ? 
-                                `<button class="action-btn btn-resolve" onclick="resolveTicket('${ticket._id}')">
-                                    <i class="fas fa-check"></i> Resolve
-                                </button>` : 
-                                'Resolved'
-                            }
-                        </td>
-                    `;
-                    tbody.appendChild(row);
-                });
                 
             } catch (error) {
-                console.error('Error loading tickets:', error);
-                const tbody = document.getElementById('ticketsTableBody');
-                if (tbody) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #ef4444;">Error loading tickets</td></tr>';
-                }
+                console.error('❌ Error resetting stats:', error);
+                alert('Failed to reset stats: ' + error.message);
             }
         }
-        
-        // Admin create NFT
+
+        // ========================
+        // ADMIN CREATE NFT
+        // ========================
         async function adminCreateNFT(event) {
             event.preventDefault();
             
@@ -963,10 +1493,12 @@ async function resetToActual() {
             const featured = document.getElementById('adminNftFeatured').checked;
             
             const messageEl = document.getElementById('adminMessage');
+            if (!messageEl) return false;
+            
             messageEl.className = 'admin-message';
             messageEl.textContent = '';
+            messageEl.style.display = 'none';
             
-            // Validation
             if (!name || !collection || !price || !category || !image || !owner) {
                 showMessage('❌ Please fill all required fields!', 'error');
                 return false;
@@ -976,7 +1508,7 @@ async function resetToActual() {
                 const token = localStorage.getItem('token');
                 if (!token) throw new Error('No authentication token');
                 
-                const response = await fetch(`${API_BASE_URL}/api/admin/nfts`, {
+                const response = await fetch('/api/admin/nfts', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -1018,9 +1550,10 @@ async function resetToActual() {
             return false;
         }
         
-        // Helper function to show messages
         function showMessage(text, type) {
             const messageEl = document.getElementById('adminMessage');
+            if (!messageEl) return;
+            
             messageEl.textContent = text;
             messageEl.className = `admin-message ${type}`;
             messageEl.style.display = 'block';
@@ -1032,160 +1565,104 @@ async function resetToActual() {
             }
         }
         
-        // Other admin functions
-        function deleteNFT(id) {
-            if (confirm('Are you sure you want to delete this NFT?')) {
-                alert('Delete NFT functionality would be implemented here');
-            }
-        }
-        
-        function editNFT(id) {
-            alert('Edit NFT functionality would be implemented here');
-        }
-        
-        // Add this function to create a proper edit modal
-function showEditBalanceModal(userId, email, currentEth, currentWeth) {
-    // Create modal HTML
-    const modalHTML = `
-        <div id="editBalanceModal" class="modal" style="display: block;">
-            <div class="modal-content" style="max-width: 400px;">
-                <div class="modal-header">
-                    <h3>Edit Balances for ${email}</h3>
-                    <span class="close-modal" onclick="closeModal()">&times;</span>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label>ETH Balance</label>
-                        <input type="number" id="editEthBalance" value="${currentEth || 0}" step="0.001" min="0">
+        // ========================
+        // EDIT USER BALANCE MODAL
+        // ========================
+        function showEditBalanceModal(userId, email, currentEth, currentWeth) {
+            const modalHTML = `
+                <div id="editBalanceModal" class="modal" style="display: block; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+                    <div class="modal-content" style="background-color: #1a1a1a; margin: 10% auto; padding: 20px; border-radius: 8px; max-width: 400px; border: 1px solid #333;">
+                        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="color: white;">Edit Balances for ${email}</h3>
+                            <span class="close-modal" onclick="closeModal()" style="font-size: 24px; cursor: pointer; color: #888;">&times;</span>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label style="color: #888; display: block; margin-bottom: 8px;">ETH Balance</label>
+                                <input type="number" id="editEthBalance" value="${currentEth || 0}" step="0.001" min="0" 
+                                       style="width: 100%; padding: 10px; background: #0a0a0a; border: 1px solid #333; border-radius: 4px; color: white;">
+                            </div>
+                            <div class="form-group" style="margin-top: 15px;">
+                                <label style="color: #888; display: block; margin-bottom: 8px;">WETH Balance</label>
+                                <input type="number" id="editWethBalance" value="${currentWeth || 0}" step="0.001" min="0"
+                                       style="width: 100%; padding: 10px; background: #0a0a0a; border: 1px solid #333; border-radius: 4px; color: white;">
+                            </div>
+                        </div>
+                        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                            <button class="btn" onclick="closeModal()" style="padding: 8px 16px; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+                            <button class="btn btn-primary" onclick="saveBalances('${userId}', '${email}')" 
+                                    style="padding: 8px 16px; background: #8a2be2; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                Save Changes
+                            </button>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>WETH Balance</label>
-                        <input type="number" id="editWethBalance" value="${currentWeth || 0}" step="0.001" min="0">
-                    </div>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn" onclick="closeModal()">Cancel</button>
-                    <button class="btn btn-primary" onclick="saveBalances('${userId}', '${email}')">
-                        Save Changes
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Add modal to page
-    const modalContainer = document.createElement('div');
-    modalContainer.innerHTML = modalHTML;
-    document.body.appendChild(modalContainer);
-    
-    // Add modal styles if not already present
-    if (!document.querySelector('#modalStyles')) {
-        const styles = document.createElement('style');
-        styles.id = 'modalStyles';
-        styles.textContent = `
-            .modal {
-                display: none;
-                position: fixed;
-                z-index: 1000;
-                left: 0;
-                top: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0,0,0,0.5);
-            }
-            .modal-content {
-                background-color: white;
-                margin: 10% auto;
-                padding: 20px;
-                border-radius: 8px;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            }
-            .modal-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 20px;
-            }
-            .close-modal {
-                font-size: 24px;
-                cursor: pointer;
-            }
-            .modal-footer {
-                display: flex;
-                justify-content: flex-end;
-                gap: 10px;
-                margin-top: 20px;
-            }
-        `;
-        document.head.appendChild(styles);
-    }
-}
-
-// Function to close modal
-function closeModal() {
-    const modal = document.getElementById('editBalanceModal');
-    if (modal) {
-        modal.remove();
-    }
-}
-
-// Function to save balances
-async function saveBalances(userId, email) {
-    try {
-        const newEthBalance = parseFloat(document.getElementById('editEthBalance').value) || 0;
-        const newWethBalance = parseFloat(document.getElementById('editWethBalance').value) || 0;
-        
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error('No authentication token');
-        
-        // Update ETH balance
-        const ethResponse = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/eth-balance`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ ethBalance: newEthBalance })
-        });
-        
-        // Update WETH balance
-        const wethResponse = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/balance`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ balance: newWethBalance })
-        });
-        
-        const ethResult = await ethResponse.json();
-        const wethResult = await wethResponse.json();
-        
-        if (ethResult.success && wethResult.success) {
-            alert(`✅ Balances updated for ${email}`);
-            closeModal();
-            loadUsersTable();
-        } else {
-            throw new Error(ethResult.error || wethResult.error);
+            `;
+            
+            const existingModal = document.getElementById('editBalanceModal');
+            if (existingModal) existingModal.remove();
+            
+            const modalContainer = document.createElement('div');
+            modalContainer.innerHTML = modalHTML;
+            document.body.appendChild(modalContainer);
         }
-        
-    } catch (error) {
-        console.error('Save error:', error);
-        alert('❌ Failed to save balances: ' + error.message);
-    }
-}
 
-// Update the editUserBalance function to use the modal
-function editUserBalance(userId, email, currentEth = 0, currentWeth = 0) {
-    showEditBalanceModal(userId, email, currentEth, currentWeth);
-}
-        
-        async function resolveTicket(ticketId) {
+        function closeModal() {
+            const modal = document.getElementById('editBalanceModal');
+            if (modal) modal.remove();
+        }
+
+        async function saveBalances(userId, email) {
             try {
+                const newEthBalance = parseFloat(document.getElementById('editEthBalance').value) || 0;
+                const newWethBalance = parseFloat(document.getElementById('editWethBalance').value) || 0;
+                
                 const token = localStorage.getItem('token');
                 if (!token) throw new Error('No authentication token');
                 
-                const response = await fetch(`${API_BASE_URL}/api/admin/tickets/${ticketId}/resolve`, {
+                await fetch(`/api/admin/users/${userId}/eth-balance`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ ethBalance: newEthBalance })
+                });
+                
+                await fetch(`/api/admin/users/${userId}/balance`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ balance: newWethBalance })
+                });
+                
+                alert(`✅ Balances updated for ${email}`);
+                closeModal();
+                loadUsersTable();
+                
+            } catch (error) {
+                console.error('Save error:', error);
+                alert('❌ Failed to save balances: ' + error.message);
+            }
+        }
+
+        function editUserBalance(userId, email, currentEth, currentWeth) {
+            showEditBalanceModal(userId, email, currentEth, currentWeth);
+        }
+        
+        // ========================
+        // RESOLVE TICKET
+        // ========================
+        async function resolveTicket(ticketId) {
+            try {
+                if (!confirm('Resolve this ticket?')) return;
+                
+                const token = localStorage.getItem('token');
+                if (!token) throw new Error('No authentication token');
+                
+                const response = await fetch(`/api/admin/tickets/${ticketId}/resolve`, {
                     method: 'PUT',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -1199,25 +1676,57 @@ function editUserBalance(userId, email, currentEth = 0, currentWeth = 0) {
                     alert('✅ Ticket resolved!');
                     loadTicketsTable();
                     loadDashboard();
+                } else {
+                    throw new Error(result.error);
                 }
                 
             } catch (error) {
                 console.error('Error resolving ticket:', error);
-                alert('❌ Failed to resolve ticket');
+                alert('❌ Failed to resolve ticket: ' + error.message);
             }
         }
         
+        // ========================
+        // DELETE FUNCTIONS
+        // ========================
+        function deleteNFT(id) {
+            if (confirm('Are you sure you want to delete this NFT?')) {
+                alert('Delete NFT functionality would be implemented here');
+            }
+        }
+        
+        function editNFT(id) {
+            alert('Edit NFT functionality would be implemented here');
+        }
+        
+        // ========================
+        // LOGOUT
+        // ========================
         function adminLogout() {
             if (confirm('Are you sure you want to logout?')) {
-                localStorage.removeItem('magicEdenCurrentUser');
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
+                localStorage.removeItem('magicEdenCurrentUser');
                 window.location.href = '/';
             }
         }
         
-        // Initialize admin panel
+        // ========================
+        // UTILITY FUNCTIONS
+        // ========================
+        function showErrorMessage(tabId, message) {
+            const tab = document.getElementById(tabId);
+            if (tab) {
+                tab.innerHTML = `<div class="error-message"><i class="fas fa-exclamation-circle"></i> ${message}</div>`;
+            }
+        }
+        
+        // ========================
+        // INITIALIZATION
+        // ========================
         document.addEventListener('DOMContentLoaded', function() {
+            if (!checkAdminAccess()) return;
+            
             // Set up tab buttons
             const tabButtons = document.querySelectorAll('.admin-tab');
             tabButtons.forEach(button => {
@@ -1227,15 +1736,20 @@ function editUserBalance(userId, email, currentEth = 0, currentWeth = 0) {
                 });
             });
             
-            // Check admin access and load dashboard
-            if (checkAdminAccess()) {
-                console.log('✅ Admin access granted');
-                loadDashboard();
-            }
+            // Load initial data
+            loadDashboard();
         });
         
         // Make functions globally available
         window.showAdminTab = showAdminTab;
+        window.loadDashboard = loadDashboard;
+        window.loadUsersTable = loadUsersTable;
+        window.loadNFTsTable = loadNFTsTable;
+        window.loadTicketsTable = loadTicketsTable;
+        window.searchUsersByWallet = searchUsersByWallet;
+        window.copyWalletAddress = copyWalletAddress;
+        window.viewUserProfile = viewUserProfile;
+        window.editUserFromSearch = editUserFromSearch;
         window.boostNFT = boostNFT;
         window.toggleFeatureNFT = toggleFeatureNFT;
         window.quickBoost = quickBoost;
@@ -1247,10 +1761,11 @@ function editUserBalance(userId, email, currentEth = 0, currentWeth = 0) {
         window.editUserBalance = editUserBalance;
         window.resolveTicket = resolveTicket;
         window.adminLogout = adminLogout;
-        // Add to your existing window.* assignments:
         window.loadMarketplaceStats = loadMarketplaceStats;
         window.updateStat = updateStat;
         window.resetToActual = resetToActual;
+        window.closeModal = closeModal;
+        window.saveBalances = saveBalances;
     </script>
 </body>
 </html>

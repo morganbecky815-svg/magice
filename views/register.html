@@ -103,6 +103,7 @@
 
         .form-group {
             margin-bottom: 25px;
+            position: relative;
         }
 
         .form-group label {
@@ -138,6 +139,23 @@
         .form-group input.success {
             border-color: #10b981 !important;
             box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
+        }
+
+        /* Password toggle icon */
+        .password-toggle {
+            position: absolute;
+            right: 15px;
+            top: 45px;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #888;
+            z-index: 10;
+            font-size: 18px;
+            transition: color 0.3s;
+        }
+
+        .password-toggle:hover {
+            color: #8a2be2;
         }
 
         /* Validation Messages */
@@ -238,59 +256,6 @@
             transform: none;
         }
 
-        .social-register {
-            margin-top: 30px;
-            text-align: center;
-        }
-
-        .social-register p {
-            color: #666;
-            margin-bottom: 15px;
-            position: relative;
-        }
-
-        .social-register p::before,
-        .social-register p::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            width: 40%;
-            height: 1px;
-            background: #333;
-        }
-
-        .social-register p::before {
-            left: 0;
-        }
-
-        .social-register p::after {
-            right: 0;
-        }
-
-        .social-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-        }
-
-        .social-btn {
-            padding: 12px 25px;
-            border-radius: 10px;
-            border: 1px solid #333;
-            background: #1a1a1a;
-            color: white;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            transition: all 0.3s;
-        }
-
-        .social-btn:hover {
-            background: #2a2a2a;
-            border-color: #444;
-        }
-
         @keyframes fadeIn {
             from {
                 opacity: 0;
@@ -342,10 +307,6 @@
 
             .register-header h1 {
                 font-size: 24px;
-            }
-
-            .social-buttons {
-                flex-direction: column;
             }
         }
 
@@ -412,8 +373,8 @@
             <!-- Registration Form -->
             <form id="registerForm" method="post" action="/api/auth/register" onsubmit="return handleRegistration(event)">
                 <div class="form-group">
-                    <label for="fullName">Full Name <span style="color: #888;">(Optional)</span></label>
-                    <input type="text" name="fullName" id="fullName" placeholder="John Doe">
+                    <label for="username">Full Name  <span style="color: #888;">(username)</span></label>
+                    <input type="text" name="username" id="username" placeholder="JohnDoe123">
                 </div>
 
                 <div class="form-group">
@@ -424,8 +385,8 @@
 
                 <div class="form-group">
                     <label for="registerPassword">Password *</label>
-                    <input type="password" name="password" id="registerPassword" placeholder="••••••••" required
-                        minlength="6">
+                    <input type="password" name="password" id="registerPassword" placeholder="••••••••" required minlength="6">
+                    <i class="fas fa-eye password-toggle" id="togglePassword" onclick="togglePasswordVisibility('registerPassword', this)"></i>
                     <div id="passwordValidation" class="validation-message">
                         Password must be at least 6 characters
                     </div>
@@ -433,8 +394,8 @@
 
                 <div class="form-group">
                     <label for="registerConfirmPassword">Confirm Password *</label>
-                    <input type="password" name="confirmPassword" id="registerConfirmPassword" placeholder="••••••••"
-                        required>
+                    <input type="password" name="confirmPassword" id="registerConfirmPassword" placeholder="••••••••" required>
+                    <i class="fas fa-eye password-toggle" id="toggleConfirmPassword" onclick="togglePasswordVisibility('registerConfirmPassword', this)"></i>
                     <div id="passwordMatch" class="validation-message"></div>
                 </div>
 
@@ -446,30 +407,11 @@
                     </label>
                 </div>
 
-        
-
                 <button type="submit" class="btn-register" id="registerButton">
                     <i class="fas fa-user-plus"></i>
                     Create Account
                 </button>
             </form>
-
-            <div class="social-register">
-                <p>Or register with</p>
-                <div class="social-buttons">
-                    <button type="button" class="social-btn" onclick="socialRegister('google')">
-                        <i class="fab fa-google"></i>
-                        Google
-                    </button>
-                    <button type="button" class="social-btn" onclick="socialRegister('twitter')">
-                        <i class="fab fa-twitter"></i>
-                        Twitter
-                    </button>
-                    <button type="button" class="social-btn" onclick="socialRegister('facebook')">
-                        <i class="fab fa-facebook-f"></i>
-                        Facebook
-                </div>
-            </div>
 
             <div class="register-footer">
                 <p>Already have an account? <a href="/login">Sign in here</a></p>
@@ -491,6 +433,7 @@
             const emailInput = document.getElementById('registerEmail');
             const passwordInput = document.getElementById('registerPassword');
             const confirmPasswordInput = document.getElementById('registerConfirmPassword');
+            const usernameInput = document.getElementById('username');
 
             // Email validation on input
             emailInput?.addEventListener('input', function () {
@@ -515,97 +458,112 @@
             console.log('Database available:', typeof db !== 'undefined');
         });
 
+        // Toggle password visibility
+        function togglePasswordVisibility(inputId, icon) {
+            const input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
         // Handle registration form submission
         async function handleRegistration(event) {
-    event.preventDefault();
+            event.preventDefault();
 
-    // Collect form data
-    const fullName = document.getElementById('fullName').value.trim();
-    const email = document.getElementById('registerEmail').value.trim();
-    const password = document.getElementById('registerPassword').value;
-    const confirmPassword = document.getElementById('registerConfirmPassword').value;
-    const agreeTerms = document.getElementById('agreeTerms')?.checked;
+            // Collect form data
+            const username = document.getElementById('username').value.trim();
+            const email = document.getElementById('registerEmail').value.trim();
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerConfirmPassword').value;
+            const agreeTerms = document.getElementById('agreeTerms')?.checked;
 
-    // Basic validation
-    if (!email || !password || !confirmPassword) {
-        showError('❌ Please fill all required fields');
-        return false;
-    }
-    if (!agreeTerms) {
-        showError('❌ You must agree to the Terms of Service');
-        return false;
-    }
-    if (password !== confirmPassword) {
-        showError('❌ Passwords do not match');
-        return false;
-    }
-    if (password.length < 6) {
-        showError('❌ Password must be at least 6 characters');
-        return false;
-    }
-
-    // Prepare data payload
-    const data = {
-        fullName,
-        email: email.toLowerCase().trim(),
-        password
-    };
-
-    const registerButton = document.getElementById('registerButton');
-    // Disable button during request
-    registerButton.disabled = true;
-    registerButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
-
-    try {
-        console.log('📤 Sending registration:', data.email);
-        
-        const response = await fetch('/api/auth/register', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
-
-        const result = await response.json();
-        console.log('📥 Server response:', result);
-        
-        if (response.ok && result.success) {
-            // Registration successful
-            showSuccess('✅ Account created successfully!');
-            
-            // Save to localStorage
-            localStorage.setItem('token', result.token);
-            localStorage.setItem('user', JSON.stringify(result.user));
-            
-            setTimeout(() => {
-                window.location.href = '/dashboard';
-            }, 1500);
-        } else {
-            // Show error from server (400 Bad Request)
-            const errorMsg = result.error || result.message || 'Registration failed';
-            showError(`❌ ${errorMsg}`);
-            
-            // Highlight the problematic field
-            if (errorMsg.includes('email') || errorMsg.includes('Email')) {
-                document.getElementById('registerEmail').classList.add('error');
+            // Basic validation
+            if (!email || !password || !confirmPassword) {
+                showError('❌ Please fill all required fields');
+                return false;
             }
-            if (errorMsg.includes('password') || errorMsg.includes('Password')) {
-                document.getElementById('registerPassword').classList.add('error');
+            if (!agreeTerms) {
+                showError('❌ You must agree to the Terms of Service');
+                return false;
             }
-            
-            registerButton.disabled = false;
-            registerButton.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
+            if (password !== confirmPassword) {
+                showError('❌ Passwords do not match');
+                return false;
+            }
+            if (password.length < 6) {
+                showError('❌ Password must be at least 6 characters');
+                return false;
+            }
+
+            // Prepare data payload
+            const data = {
+                fullName: username, // Map username to fullName for backend
+                email: email.toLowerCase().trim(),
+                password
+            };
+
+            const registerButton = document.getElementById('registerButton');
+            // Disable button during request
+            registerButton.disabled = true;
+            registerButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
+
+            try {
+                console.log('📤 Sending registration:', data.email);
+                
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                console.log('📥 Server response:', result);
+                
+                if (response.ok && result.success) {
+                    // Registration successful
+                    showSuccess('✅ Account created successfully!');
+                    
+                    // Save to localStorage
+                    localStorage.setItem('token', result.token);
+                    localStorage.setItem('user', JSON.stringify(result.user));
+                    
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1500);
+                } else {
+                    // Show error from server (400 Bad Request)
+                    const errorMsg = result.error || result.message || 'Registration failed';
+                    showError(`❌ ${errorMsg}`);
+                    
+                    // Highlight the problematic field
+                    if (errorMsg.includes('email') || errorMsg.includes('Email')) {
+                        document.getElementById('registerEmail').classList.add('error');
+                    }
+                    if (errorMsg.includes('password') || errorMsg.includes('Password')) {
+                        document.getElementById('registerPassword').classList.add('error');
+                    }
+                    
+                    registerButton.disabled = false;
+                    registerButton.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
+                }
+            } catch (err) {
+                console.error('Registration error:', err);
+                showError('❌ An error occurred. Please try again.');
+                registerButton.disabled = false;
+                registerButton.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
+            }
+
+            return false;
         }
-    } catch (err) {
-        console.error('Registration error:', err);
-        showError('❌ An error occurred. Please try again.');
-        registerButton.disabled = false;
-        registerButton.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
-    }
 
-    return false;
-}
         // Validation functions
         function validateEmail(email, showMessage = false) {
             const validationDiv = document.getElementById('emailValidation');
@@ -749,17 +707,12 @@
             messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
-        // Social registration (demo)
-        function socialRegister(provider) {
-            alert(`In a real application, this would connect to ${provider} OAuth.\n\nFor now, please use the regular registration form.`);
-        }
-
         // Make functions globally available
         window.handleRegistration = handleRegistration;
         window.validateEmail = validateEmail;
         window.validatePassword = validatePassword;
         window.checkPasswordMatch = checkPasswordMatch;
-        window.socialRegister = socialRegister;
+        window.togglePasswordVisibility = togglePasswordVisibility;
 
         // Debug helper
         console.log('✅ Registration JavaScript loaded');

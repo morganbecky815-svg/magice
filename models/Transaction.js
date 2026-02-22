@@ -12,7 +12,6 @@ const transactionSchema = new mongoose.Schema({
             'deposit', 
             'withdrawal', 
             'conversion',
-            // Add these new types:
             'staking',
             'unstaking',
             'reward',
@@ -37,7 +36,7 @@ const transactionSchema = new mongoose.Schema({
     },
     currency: {
         type: String,
-        enum: ['ETH', 'WETH', 'USD', 'USDC'], // Added USD and USDC
+        enum: ['ETH', 'WETH', 'USD', 'USDC'],
         default: 'WETH'
     },
     status: {
@@ -47,9 +46,8 @@ const transactionSchema = new mongoose.Schema({
     },
     transactionHash: String,
     
-    // Add these new fields for transfers:
-    recipientAddress: String, // For crypto transfers
-    senderAddress: String, // For crypto transfers
+    recipientAddress: String,
+    senderAddress: String,
     network: {
         type: String,
         enum: ['ethereum', 'arbitrum', 'polygon', 'optimism', 'bank'],
@@ -64,7 +62,6 @@ const transactionSchema = new mongoose.Schema({
         default: 0
     },
     
-    // Add these fields for bank withdrawals:
     bankDetails: {
         bankName: String,
         accountHolder: String,
@@ -89,13 +86,14 @@ transactionSchema.index({ fromUser: 1, createdAt: -1 });
 transactionSchema.index({ toUser: 1, createdAt: -1 });
 transactionSchema.index({ nft: 1, createdAt: -1 });
 transactionSchema.index({ transactionHash: 1 }, { unique: true, sparse: true });
-transactionSchema.index({ type: 1, createdAt: -1 }); // For filtering by type
-transactionSchema.index({ currency: 1, createdAt: -1 }); // For filtering by currency
+transactionSchema.index({ type: 1, createdAt: -1 });
+transactionSchema.index({ currency: 1, createdAt: -1 });
 
-// Update the updatedAt timestamp on save
-transactionSchema.pre('save', function(next) {
+// ========== FIXED MIDDLEWARE (Mongoose 6+) ==========
+// Update the updatedAt timestamp on save - FIXED for Mongoose 6+
+transactionSchema.pre('save', async function() {
     this.updatedAt = Date.now();
-    next();
+    return; // Just return, don't call next()
 });
 
 const Transaction = mongoose.model('Transaction', transactionSchema);

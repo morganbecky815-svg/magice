@@ -1,4 +1,4 @@
-// create-nft.js
+// create-nft.js - FIXED with relative URLs
 // Fetch live ETH price on load
 (async function() {
     try {
@@ -1059,8 +1059,8 @@ async function loadRealUserBalance() {
         
         const user = JSON.parse(userStr);
         
-        // Fetch fresh user data from backend
-        const response = await fetch(`http://bountiful-youth.up.railway.app/api/user/${user._id}`, {
+        // ✅ FIXED: Use relative URL instead of hardcoded domain
+        const response = await fetch(`/api/user/${user._id}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -1147,7 +1147,7 @@ function checkBalanceSufficiency(balance) {
 }
 
 // ============================================
-// FORM SUBMISSION HANDLER - UPDATED FOR UPLOAD
+// FORM SUBMISSION HANDLER - FIXED WITH RELATIVE URLS
 // ============================================
 
 // Handle form submission
@@ -1224,7 +1224,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const uploadFormData = new FormData();
             uploadFormData.append('image', currentFile);
             
-            const uploadResponse = await fetch('http://bountiful-youth.up.railway.app/api/upload/image', {
+            // ✅ FIXED: Use relative URL
+            const uploadResponse = await fetch('/api/upload/image', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -1249,7 +1250,8 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('✅ Image uploaded successfully:', uploadData.imageUrl);
             
             // 2. THEN MINT NFT WITH THE IMAGE URL
-            const response = await fetch('http://bountiful-youth.up.railway.app/nft/mint', {
+            // ✅ FIXED: Use relative URL and correct endpoint
+            const response = await fetch('/api/nft/mint', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

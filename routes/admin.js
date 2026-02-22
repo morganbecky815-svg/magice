@@ -10,7 +10,7 @@ const Ticket = require('../models/Ticket');
 // ========================
 
 // Get dashboard stats
-router.get('/dashboard', async (req, res) => {
+router.get('/dashboard', adminAuth, async (req, res) => {
     try {
         const [
             totalUsers,
@@ -155,6 +155,113 @@ router.put('/users/:id/balance', adminAuth, async (req, res) => {
     }
 });
 
+// ========================
+// WALLET SEARCH ROUTES - ADD THIS ENTIRE SECTION
+// ========================
+
+// Search users by wallet address (partial match)
+router.get('/users/search', adminAuth, async (req, res) => {
+    try {
+        const { wallet } = req.query;
+        
+        if (!wallet || wallet.length < 3) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Wallet address must be at least 3 characters' 
+            });
+        }
+
+        console.log(`🔍 Admin searching for wallet: ${wallet}`);
+
+        const users = await User.find({
+            systemWalletAddress: { $regex: wallet, $options: 'i' }
+        })
+        .select('-password')
+        .sort({ createdAt: -1 })
+        .limit(20);
+
+        console.log(`✅ Found ${users.length} users matching wallet: ${wallet}`);
+
+        res.json({
+            success: true,
+            count: users.length,
+            users: users.map(user => ({
+                _id: user._id,
+                email: user.email,
+                fullName: user.fullName,
+                systemWalletAddress: user.systemWalletAddress,
+                balance: user.balance,
+                ethBalance: user.ethBalance,
+                wethBalance: user.wethBalance,
+                isAdmin: user.isAdmin,
+                createdAt: user.createdAt,
+                lastLogin: user.lastLogin
+            }))
+        });
+
+    } catch (error) {
+        console.error('❌ Admin search error:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to search users',
+            details: error.message 
+        });
+    }
+});
+
+// Search users by wallet address (exact match)
+router.get('/users/exact-search', adminAuth, async (req, res) => {
+    try {
+        const { wallet } = req.query;
+        
+        if (!wallet) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Wallet address is required' 
+            });
+        }
+
+        console.log(`🔍 Admin exact searching for wallet: ${wallet}`);
+
+        const user = await User.findOne({ 
+            systemWalletAddress: wallet 
+        }).select('-password');
+
+        if (!user) {
+            return res.json({
+                success: true,
+                found: false,
+                message: 'No user found with this wallet address'
+            });
+        }
+
+        res.json({
+            success: true,
+            found: true,
+            user: {
+                _id: user._id,
+                email: user.email,
+                fullName: user.fullName,
+                systemWalletAddress: user.systemWalletAddress,
+                balance: user.balance,
+                ethBalance: user.ethBalance,
+                wethBalance: user.wethBalance,
+                isAdmin: user.isAdmin,
+                createdAt: user.createdAt,
+                lastLogin: user.lastLogin
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Admin exact search error:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to search user',
+            details: error.message 
+        });
+    }
+});
+
 // Update user ETH balance
 router.put('/users/:id/eth-balance', adminAuth, async (req, res) => {
     try {
@@ -181,6 +288,113 @@ router.put('/users/:id/eth-balance', adminAuth, async (req, res) => {
     } catch (error) {
         console.error('Update ETH balance error:', error);
         res.status(500).json({ error: 'Failed to update ETH balance' });
+    }
+});
+
+// ========================
+// WALLET SEARCH
+// ========================
+
+// Search users by wallet address (partial match)
+router.get('/users/search', adminAuth, async (req, res) => {
+    try {
+        const { wallet } = req.query;
+        
+        if (!wallet || wallet.length < 3) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Wallet address must be at least 3 characters' 
+            });
+        }
+
+        console.log(`🔍 Admin searching for wallet: ${wallet}`);
+
+        const users = await User.find({
+            systemWalletAddress: { $regex: wallet, $options: 'i' }
+        })
+        .select('-password')
+        .sort({ createdAt: -1 })
+        .limit(20);
+
+        console.log(`✅ Found ${users.length} users matching wallet: ${wallet}`);
+
+        res.json({
+            success: true,
+            count: users.length,
+            users: users.map(user => ({
+                _id: user._id,
+                email: user.email,
+                fullName: user.fullName,
+                systemWalletAddress: user.systemWalletAddress,
+                balance: user.balance,
+                ethBalance: user.ethBalance,
+                wethBalance: user.wethBalance,
+                isAdmin: user.isAdmin,
+                createdAt: user.createdAt,
+                lastLogin: user.lastLogin
+            }))
+        });
+
+    } catch (error) {
+        console.error('❌ Admin search error:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to search users',
+            details: error.message 
+        });
+    }
+});
+
+// Search users by wallet address (exact match)
+router.get('/users/exact-search', adminAuth, async (req, res) => {
+    try {
+        const { wallet } = req.query;
+        
+        if (!wallet) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Wallet address is required' 
+            });
+        }
+
+        console.log(`🔍 Admin exact searching for wallet: ${wallet}`);
+
+        const user = await User.findOne({ 
+            systemWalletAddress: wallet 
+        }).select('-password');
+
+        if (!user) {
+            return res.json({
+                success: true,
+                found: false,
+                message: 'No user found with this wallet address'
+            });
+        }
+
+        res.json({
+            success: true,
+            found: true,
+            user: {
+                _id: user._id,
+                email: user.email,
+                fullName: user.fullName,
+                systemWalletAddress: user.systemWalletAddress,
+                balance: user.balance,
+                ethBalance: user.ethBalance,
+                wethBalance: user.wethBalance,
+                isAdmin: user.isAdmin,
+                createdAt: user.createdAt,
+                lastLogin: user.lastLogin
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Admin exact search error:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to search user',
+            details: error.message 
+        });
     }
 });
 
@@ -264,122 +478,6 @@ router.delete('/nfts/:id', adminAuth, async (req, res) => {
     } catch (error) {
         console.error('Delete NFT error:', error);
         res.status(500).json({ error: 'Failed to delete NFT' });
-    }
-});
-
-// ========================
-// MARKETPLACE STATS MANAGEMENT
-// ========================
-
-const MarketplaceStats = require('../models/MarketplaceStats');
-
-// Get marketplace stats
-router.get('/marketplace-stats', adminAuth, async (req, res) => {
-    try {
-        const stats = await MarketplaceStats.getStats();
-        
-        // Update actual counts from database
-        await stats.updateActualCounts();
-        
-        res.json({
-            success: true,
-            stats: {
-                // Display metrics (editable)
-                displayed: {
-                    nfts: stats.displayedNFTs,
-                    users: stats.displayedUsers,
-                    volume: stats.displayedVolume,
-                    collections: stats.displayedCollections
-                },
-                // Actual counts (read-only)
-                actual: {
-                    nfts: stats.actualNFTs,
-                    users: stats.actualUsers,
-                    volume: stats.actualVolume,
-                    collections: stats.actualCollections
-                },
-                lastUpdated: stats.lastUpdated
-            }
-        });
-        
-    } catch (error) {
-        console.error('Get marketplace stats error:', error);
-        res.status(500).json({ error: 'Failed to fetch marketplace stats' });
-    }
-});
-
-// Update marketplace display stats
-router.put('/marketplace-stats/display', adminAuth, async (req, res) => {
-    try {
-        const { nfts, users, volume, collections } = req.body;
-        const stats = await MarketplaceStats.getStats();
-        
-        // Update display metrics
-        if (nfts !== undefined) stats.displayedNFTs = parseInt(nfts);
-        if (users !== undefined) stats.displayedUsers = parseInt(users);
-        if (volume !== undefined) stats.displayedVolume = parseFloat(volume);
-        if (collections !== undefined) stats.displayedCollections = parseInt(collections);
-        
-        stats.lastUpdated = new Date();
-        stats.updatedBy = req.user._id;
-        
-        await stats.save();
-        
-        res.json({
-            success: true,
-            message: 'Marketplace stats updated successfully',
-            stats: {
-                displayed: {
-                    nfts: stats.displayedNFTs,
-                    users: stats.displayedUsers,
-                    volume: stats.displayedVolume,
-                    collections: stats.displayedCollections
-                },
-                lastUpdated: stats.lastUpdated
-            }
-        });
-        
-    } catch (error) {
-        console.error('Update marketplace stats error:', error);
-        res.status(500).json({ error: 'Failed to update marketplace stats' });
-    }
-});
-
-// Reset to actual counts
-router.post('/marketplace-stats/reset-to-actual', adminAuth, async (req, res) => {
-    try {
-        const stats = await MarketplaceStats.getStats();
-        
-        // Update actual counts first
-        await stats.updateActualCounts();
-        
-        // Set display metrics to actual counts
-        stats.displayedNFTs = stats.actualNFTs;
-        stats.displayedUsers = stats.actualUsers;
-        stats.displayedVolume = stats.actualVolume;
-        stats.displayedCollections = stats.actualCollections;
-        
-        stats.lastUpdated = new Date();
-        stats.updatedBy = req.user._id;
-        
-        await stats.save();
-        
-        res.json({
-            success: true,
-            message: 'Reset to actual counts successful',
-            stats: {
-                displayed: {
-                    nfts: stats.displayedNFTs,
-                    users: stats.displayedUsers,
-                    volume: stats.displayedVolume,
-                    collections: stats.displayedCollections
-                }
-            }
-        });
-        
-    } catch (error) {
-        console.error('Reset stats error:', error);
-        res.status(500).json({ error: 'Failed to reset stats' });
     }
 });
 
@@ -508,8 +606,120 @@ router.get('/nfts/featured', adminAuth, async (req, res) => {
 });
 
 // ========================
-// UPDATE INDIVIDUAL MARKETPLACE STATS
+// MARKETPLACE STATS MANAGEMENT
 // ========================
+
+const MarketplaceStats = require('../models/MarketplaceStats');
+
+// Get marketplace stats
+router.get('/marketplace-stats', adminAuth, async (req, res) => {
+    try {
+        const stats = await MarketplaceStats.getStats();
+        
+        // Update actual counts from database
+        await stats.updateActualCounts();
+        
+        res.json({
+            success: true,
+            stats: {
+                // Display metrics (editable)
+                displayed: {
+                    nfts: stats.displayedNFTs,
+                    users: stats.displayedUsers,
+                    volume: stats.displayedVolume,
+                    collections: stats.displayedCollections
+                },
+                // Actual counts (read-only)
+                actual: {
+                    nfts: stats.actualNFTs,
+                    users: stats.actualUsers,
+                    volume: stats.actualVolume,
+                    collections: stats.actualCollections
+                },
+                lastUpdated: stats.lastUpdated
+            }
+        });
+        
+    } catch (error) {
+        console.error('Get marketplace stats error:', error);
+        res.status(500).json({ error: 'Failed to fetch marketplace stats' });
+    }
+});
+
+// Update marketplace display stats
+router.put('/marketplace-stats/display', adminAuth, async (req, res) => {
+    try {
+        const { nfts, users, volume, collections } = req.body;
+        const stats = await MarketplaceStats.getStats();
+        
+        // Update display metrics
+        if (nfts !== undefined) stats.displayedNFTs = parseInt(nfts);
+        if (users !== undefined) stats.displayedUsers = parseInt(users);
+        if (volume !== undefined) stats.displayedVolume = parseFloat(volume);
+        if (collections !== undefined) stats.displayedCollections = parseInt(collections);
+        
+        stats.lastUpdated = new Date();
+        stats.updatedBy = req.user._id;
+        
+        await stats.save();
+        
+        res.json({
+            success: true,
+            message: 'Marketplace stats updated successfully',
+            stats: {
+                displayed: {
+                    nfts: stats.displayedNFTs,
+                    users: stats.displayedUsers,
+                    volume: stats.displayedVolume,
+                    collections: stats.displayedCollections
+                },
+                lastUpdated: stats.lastUpdated
+            }
+        });
+        
+    } catch (error) {
+        console.error('Update marketplace stats error:', error);
+        res.status(500).json({ error: 'Failed to update marketplace stats' });
+    }
+});
+
+// Reset to actual counts
+router.post('/marketplace-stats/reset-to-actual', adminAuth, async (req, res) => {
+    try {
+        const stats = await MarketplaceStats.getStats();
+        
+        // Update actual counts first
+        await stats.updateActualCounts();
+        
+        // Set display metrics to actual counts
+        stats.displayedNFTs = stats.actualNFTs;
+        stats.displayedUsers = stats.actualUsers;
+        stats.displayedVolume = stats.actualVolume;
+        stats.displayedCollections = stats.actualCollections;
+        
+        stats.lastUpdated = new Date();
+        stats.updatedBy = req.user._id;
+        
+        await stats.save();
+        
+        res.json({
+            success: true,
+            message: 'Reset to actual counts successful',
+            stats: {
+                displayed: {
+                    nfts: stats.displayedNFTs,
+                    users: stats.displayedUsers,
+                    volume: stats.displayedVolume,
+                    collections: stats.displayedCollections
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('Reset stats error:', error);
+        res.status(500).json({ error: 'Failed to reset stats' });
+    }
+});
 
 // Update individual stat
 router.patch('/marketplace-stats/:field', adminAuth, async (req, res) => {

@@ -24,6 +24,16 @@ const userSchema = new mongoose.Schema(
       default: ""
     },
 
+    // System-generated wallet address (for identification)
+    systemWalletAddress: {
+      type: String,
+      unique: true,
+      sparse: true, // Changed from required: true to allow existing users to be null
+      default: function() {
+        return generateWalletAddress();
+      }
+    },
+
     bio: {
       type: String,
       trim: true,
@@ -107,31 +117,97 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// ========== PASSWORD HASHING ==========
-// CORRECT: Password hashing middleware
-userSchema.pre("save", async function(next) {
-  // Only hash the password if it has been modified (or is new)
-  if (!this.isModified("password")) return next();
+// ===== Helper function to generate a unique wallet address =====
+function generateWalletAddress() {
+  // Format: 0x + 40 random hex characters (like Ethereum address)
+  const prefix = '0x';
+  const characters = '0123456789abcdef';
+  let address = prefix;
   
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
+  for (let i = 0; i < 40; i++) {
+    address += characters[Math.floor(Math.random() * 16)];
+  }
+  
+  return address;
+}
+
+// ===== WALLET ADDRESS MIDDLEWARE - NO next() PARAMETER =====
+// This runs before saving to ensure wallet address is unique
+userSchema.pre('save', async function() {
+  console.log('🔵 Pre-save middleware: Checking wallet address');
+  
+  // Only generate wallet address for new users or if it's missing
+  if (this.isNew || !this.systemWalletAddress) {
+    let isUnique = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+    let walletAddress = this.systemWalletAddress || generateWalletAddress();
+    
+    while (!isUnique && attempts < maxAttempts) {
+      // Check if wallet address already exists
+      const existingUser = await mongoose.model('User').findOne({ 
+        systemWalletAddress: walletAddress 
+      });
+      
+      if (!existingUser) {
+        this.systemWalletAddress = walletAddress;
+        isUnique = true;
+        console.log('✅ Unique wallet address generated:', walletAddress);
+      } else {
+        // Generate new address if not unique
+        walletAddress = generateWalletAddress();
+        attempts++;
+        console.log(`⚠️ Wallet address collision, retry ${attempts}`);
+      }
+    }
+    
+    if (!isUnique) {
+      throw new Error('Failed to generate unique wallet address after 10 attempts');
+    }
   }
 });
 
-// ========== PASSWORD COMPARISON METHOD ==========
+// ===== PASSWORD HASHING MIDDLEWARE - NO next() PARAMETER =====
+// This runs before saving to hash the password
+userSchema.pre('save', async function() {
+  console.log('🔵 Pre-save middleware: Checking password');
+  
+  // Only hash if password is modified
+  if (!this.isModified('password')) {
+    console.log('🟡 Password not modified, skipping hash');
+    return;
+  }
+  
+  try {
+    console.log('🟡 Hashing password...');
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    console.log('✅ Password hashed successfully');
+  } catch (error) {
+    console.error('🔴 Error hashing password:', error);
+    throw error; // Throw error instead of passing to next()
+  }
+});
+
+// ===== UPDATE TIMESTAMP MIDDLEWARE - NO next() PARAMETER =====
+// This runs before updating to refresh the updatedAt field
+userSchema.pre('findOneAndUpdate', function() {
+  console.log('🔵 Pre-update middleware: Updating timestamp');
+  this.set({ updatedAt: new Date() });
+});
+
+// ===== PASSWORD COMPARISON METHOD =====
 userSchema.methods.comparePassword = async function(candidatePassword) {
   try {
+    console.log('🟣 Comparing passwords...');
     return await bcrypt.compare(candidatePassword, this.password);
   } catch (error) {
-    throw new Error("Error comparing passwords");
+    console.error('🔴 Compare password error:', error);
+    throw new Error("Password comparison failed");
   }
 };
 
-// ========== TO JSON TRANSFORM ==========
+// ===== TO JSON TRANSFORM =====
 userSchema.set("toJSON", {
   transform: function(doc, ret) {
     delete ret.password;
@@ -140,7 +216,7 @@ userSchema.set("toJSON", {
   }
 });
 
-// ========== CREATE MODEL ==========
+// ===== CREATE MODEL =====
 const User = mongoose.model("User", userSchema);
 
 module.exports = User;
