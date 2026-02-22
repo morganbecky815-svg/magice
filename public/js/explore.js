@@ -160,6 +160,7 @@ function addWethToExploreStatsBar(balanceAmount = '0.0000') {
 }
 
 // Create floating balance widget
+// Create floating balance widget - BLACK VERSION (with CSS class)
 function updateFloatingBalanceWidget(balanceAmount) {
     // Check if floating widget already exists
     let floatingBalance = document.getElementById('floatingBalance');
@@ -168,18 +169,19 @@ function updateFloatingBalanceWidget(balanceAmount) {
         // Create floating widget
         floatingBalance = document.createElement('div');
         floatingBalance.id = 'floatingBalance';
-        floatingBalance.className = 'floating-balance';
+        floatingBalance.className = 'floating-balance black-theme';
         floatingBalance.style.cssText = `
             position: fixed;
             bottom: 20px;
             right: 20px;
-            background: white;
+            background: #1a1a1a;
             border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             padding: 15px;
             min-width: 200px;
-            border: 1px solid #e5e7eb;
+            border: 1px solid #333;
             z-index: 1000;
+            color: white;
         `;
         
         floatingBalance.innerHTML = `
@@ -191,16 +193,62 @@ function updateFloatingBalanceWidget(balanceAmount) {
                 ${balanceAmount} WETH
             </div>
             <div class="balance-actions">
-                <button class="btn btn-small" onclick="window.location.href='/dashboard'">
-                    Dashboard
-                </button>
-                <button class="btn btn-small btn-primary" onclick="window.location.href='/add-eth'">
-                    Add Funds
-                </button>
+                <button class="btn btn-small" onclick="window.location.href='/dashboard'">Dashboard</button>
+                <button class="btn btn-small btn-primary" onclick="window.location.href='/add-eth'">Add Funds</button>
             </div>
         `;
         
         document.body.appendChild(floatingBalance);
+        
+        // Add CSS styles
+        const style = document.createElement('style');
+        style.textContent = `
+            .floating-balance.black-theme .balance-header {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 10px;
+                color: #aaa;
+            }
+            .floating-balance.black-theme .balance-header i {
+                color: #8a2be2;
+            }
+            .floating-balance.black-theme .balance-amount {
+                font-size: 18px;
+                font-weight: 700;
+                color: #8a2be2;
+                margin-bottom: 12px;
+            }
+            .floating-balance.black-theme .balance-actions {
+                display: flex;
+                gap: 8px;
+            }
+            .floating-balance.black-theme .balance-actions button {
+                flex: 1;
+                padding: 8px;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 13px;
+                transition: background 0.3s;
+            }
+            .floating-balance.black-theme .balance-actions button:first-child {
+                background: #333;
+                color: white;
+            }
+            .floating-balance.black-theme .balance-actions button:first-child:hover {
+                background: #444;
+            }
+            .floating-balance.black-theme .balance-actions button:last-child {
+                background: #8a2be2;
+                color: white;
+            }
+            .floating-balance.black-theme .balance-actions button:last-child:hover {
+                background: #9d4bff;
+            }
+        `;
+        document.head.appendChild(style);
+        
         console.log('Created floating balance widget:', balanceAmount);
     } else if (floatingBalance) {
         // Update existing widget
