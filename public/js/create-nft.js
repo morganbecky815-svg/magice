@@ -493,7 +493,7 @@ function updateTermsLabel() {
                 <li>Minting fee of 0.1 ETH is non-refundable</li>
                 <li>Royalties will be applied to secondary sales</li>
                 <li>NFT will be listed for sale immediately upon minting</li>
-                <li>A 15% platform and gas fee will be deducted from your sales revenue when converting WETH to ETH.</li>
+                <li>A 15% platform and gas fee will be deducted from your ETH balance when converting WETH to ETH.</li>
                 <li>NFT will be permanently recorded on Ethereum blockchain</li>
             </ul>
         `;

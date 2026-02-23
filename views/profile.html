@@ -10,15 +10,25 @@
 </head>
 <body>
    
-    <!-- Header -->
-    <header class="header">
-        <div class="container">
-            <div class="navbar">
-                <div class="logo">
-                    <i class="fas fa-gem"></i>
-                    <span>Magic Eden</span>
-                </div>
-                
+ <!-- Header -->
+<header class="header">
+    <div class="container">
+        <div class="navbar">
+            <div class="logo">
+                <i class="fas fa-gem"></i>
+                <span>Magic Eden</span>
+            </div>
+            
+            <!-- Hamburger Icon for Mobile (hidden on desktop) -->
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            
+            <!-- Navigation Menu - This will be centered on desktop -->
+            <div class="nav-menu" id="navMenu">
+                <!-- Main Navigation Links - Centered -->
                 <div class="nav-center">
                     <a href="/" class="nav-link">Marketplace</a>
                     <a href="/profile" class="nav-link active">My Profile</a>
@@ -26,18 +36,16 @@
                     <a href="/activity" class="nav-link">Activity</a>
                 </div>
                 
+                <!-- User Info - Right aligned -->
                 <div class="nav-right">
                     <div class="user-info" id="profileHeader">
                         <!-- Filled by JavaScript -->
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <i class="fas fa-user-circle"></i>
-                            <span>Loading...</span>
-                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </header>
+    </div>
+</header>
 
     <!-- Main Profile Content -->
     <main class="profile-main">
