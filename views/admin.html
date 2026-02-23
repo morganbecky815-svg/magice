@@ -634,6 +634,19 @@
         const API_BASE_URL = ''; // Empty string = use same origin
         
         // ========================
+        // NUMBER FORMATTING HELPER - NEW
+        // ========================
+        function formatMarketplaceNumber(num) {
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'M+';
+            } else if (num >= 1000) {
+                return (num / 1000).toFixed(1) + 'K+';
+            } else {
+                return num.toString();
+            }
+        }
+        
+        // ========================
         // TAB SWITCHING FUNCTION
         // ========================
         function showAdminTab(tab, event) {
@@ -1344,7 +1357,7 @@
         }
         
         // ========================
-        // MARKETPLACE STATS FUNCTIONS
+        // MARKETPLACE STATS FUNCTIONS - UPDATED WITH FORMATTING
         // ========================
         async function loadMarketplaceStats() {
             try {
@@ -1366,20 +1379,23 @@
                 if (result.success) {
                     const stats = result.stats;
                     
-                    document.getElementById('displayNfts').textContent = stats.displayed.nfts.toLocaleString();
-                    document.getElementById('displayUsers').textContent = stats.displayed.users.toLocaleString();
-                    document.getElementById('displayVolume').textContent = stats.displayed.volume + ' WETH';
-                    document.getElementById('displayCollections').textContent = stats.displayed.collections.toLocaleString();
+                    // Format displayed numbers with K+ and M+
+                    document.getElementById('displayNfts').textContent = formatMarketplaceNumber(stats.displayed.nfts);
+                    document.getElementById('displayUsers').textContent = formatMarketplaceNumber(stats.displayed.users);
+                    document.getElementById('displayVolume').textContent = formatMarketplaceNumber(stats.displayed.volume) + ' WETH';
+                    document.getElementById('displayCollections').textContent = formatMarketplaceNumber(stats.displayed.collections);
                     
+                    // Keep raw numbers in input fields for editing
                     document.getElementById('editNfts').value = stats.displayed.nfts;
                     document.getElementById('editUsers').value = stats.displayed.users;
                     document.getElementById('editVolume').value = stats.displayed.volume;
                     document.getElementById('editCollections').value = stats.displayed.collections;
                     
-                    document.getElementById('actualNfts').textContent = stats.actual.nfts.toLocaleString();
-                    document.getElementById('actualUsers').textContent = stats.actual.users.toLocaleString();
-                    document.getElementById('actualVolume').textContent = stats.actual.volume + ' WETH';
-                    document.getElementById('actualCollections').textContent = stats.actual.collections.toLocaleString();
+                    // Show actual counts with formatting
+                    document.getElementById('actualNfts').textContent = formatMarketplaceNumber(stats.actual.nfts);
+                    document.getElementById('actualUsers').textContent = formatMarketplaceNumber(stats.actual.users);
+                    document.getElementById('actualVolume').textContent = formatMarketplaceNumber(stats.actual.volume) + ' WETH';
+                    document.getElementById('actualCollections').textContent = formatMarketplaceNumber(stats.actual.collections);
                     
                     console.log('✅ Marketplace stats loaded');
                 } else {
@@ -1417,8 +1433,13 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    document.getElementById(`display${field.charAt(0).toUpperCase() + field.slice(1)}`).textContent = 
-                        field === 'volume' ? `${parseFloat(value).toFixed(1)} WETH` : parseInt(value).toLocaleString();
+                    // Format the displayed value
+                    const displayElement = document.getElementById(`display${field.charAt(0).toUpperCase() + field.slice(1)}`);
+                    if (displayElement) {
+                        let displayText = formatMarketplaceNumber(parseFloat(value) || parseInt(value));
+                        if (field === 'volume') displayText += ' WETH';
+                        displayElement.textContent = displayText;
+                    }
                     
                     const messageEl = document.getElementById('marketplaceMessage');
                     messageEl.textContent = `✅ ${result.message}`;
@@ -1766,6 +1787,7 @@
         window.resetToActual = resetToActual;
         window.closeModal = closeModal;
         window.saveBalances = saveBalances;
+        window.formatMarketplaceNumber = formatMarketplaceNumber; // Make it available globally
     </script>
 </body>
 </html>

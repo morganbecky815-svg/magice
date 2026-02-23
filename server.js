@@ -1361,55 +1361,54 @@ app.get('/api/crypto-prices', async (req, res) => {
 });
 
 // ========================
-// MARKETPLACE STATS
+// MARKETPLACE STATS WITH FORMATTING
 // ========================
 app.get('/api/marketplace/stats', async (req, res) => {
     try {
         const MarketplaceStats = require('./models/MarketplaceStats');
         const stats = await MarketplaceStats.getStats();
         
+        // Helper function to format numbers
+        const formatNumber = (num) => {
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'M+';
+            } else if (num >= 1000) {
+                return (num / 1000).toFixed(1) + 'K+';
+            } else {
+                return num.toString();
+            }
+        };
+        
+        // Format the numbers
+        const formattedNFTs = formatNumber(stats.displayedNFTs);
+        const formattedUsers = formatNumber(stats.displayedUsers);
+        const formattedVolume = formatNumber(stats.displayedVolume);
+        const formattedCollections = formatNumber(stats.displayedCollections);
+        
         res.json({
             success: true,
             stats: {
-                nfts: stats.displayedNFTs,
-                users: stats.displayedUsers,
-                volume: stats.displayedVolume.toFixed(1),
-                collections: stats.displayedCollections,
+                nfts: formattedNFTs,
+                users: formattedUsers,
+                volume: formattedVolume,
+                collections: formattedCollections,
+                // Keep raw numbers for calculations if needed
+                raw: {
+                    nfts: stats.displayedNFTs,
+                    users: stats.displayedUsers,
+                    volume: stats.displayedVolume,
+                    collections: stats.displayedCollections
+                },
                 lastUpdated: stats.lastUpdated
             }
         });
         
     } catch (error) {
-        console.error('Public marketplace stats error:', error);
-        try {
-            const NFT = require('./models/NFT');
-            const User = require('./models/User');
-            
-            const actualNFTs = await NFT.countDocuments({ isListed: true });
-            const actualUsers = await User.countDocuments({ isActive: true });
-            
-            res.json({
-                success: true,
-                stats: {
-                    nfts: actualNFTs,
-                    users: actualUsers,
-                    volume: '0.0',
-                    collections: 0,
-                    lastUpdated: new Date()
-                }
-            });
-        } catch (fallbackError) {
-            res.json({
-                success: true,
-                stats: {
-                    nfts: 0,
-                    users: 0,
-                    volume: '0.0',
-                    collections: 0,
-                    lastUpdated: new Date()
-                }
-            });
-        }
+        console.error('Marketplace stats error:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to fetch marketplace stats' 
+        });
     }
 });
 
