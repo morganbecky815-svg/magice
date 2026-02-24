@@ -189,17 +189,17 @@ app.use(fileUpload({
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ========================
-// ROUTE IMPORTS (DECLARED ONCE)
+// ROUTE IMPORTS
 // ========================
 const authRoutes = require('./routes/auth');
 const nftRoutes = require('./routes/nft');
 const adminRoutes = require('./routes/admin');
 const userRoutes = require('./routes/user');
 const depositRoutes = require('./routes/deposit');
+const withdrawRoutes = require('./routes/withdraw'); // NEW
 const collectionRoutes = require('./routes/collection');
 const ticketRoutes = require('./routes/ticketRoutes');
 const nftImportRoutes = require('./routes/nftImport');
- // If this is different from nftRoutes, keep it
 
 // ========================
 // REGISTER API ROUTES
@@ -208,11 +208,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/nft', nftRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/deposit', depositRoutes);
+app.use('/api/withdraw', withdrawRoutes); // NEW
 app.use('/api/collection', collectionRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/support/tickets', ticketRoutes);
 app.use('/api/nft-import', nftImportRoutes);
-
 
 // ========================
 // HELPER FUNCTIONS
@@ -1413,7 +1413,7 @@ app.get('/api/marketplace/stats', async (req, res) => {
 });
 
 // ========================
-// DASHBOARD DATA ENDPOINT
+// DASHBOARD DATA ENDPOINT (UPDATED with custodial fields)
 // ========================
 app.get('/api/user/me/dashboard', auth, async (req, res) => {
   try {
@@ -1421,7 +1421,7 @@ app.get('/api/user/me/dashboard', auth, async (req, res) => {
       
       const userId = req.user._id;
       
-      const user = await User.findById(userId).select('-password -__v');
+      const user = await User.findById(userId).select('-password -__v -encryptedPrivateKey');
       
       const recentActivities = await Activity.find({ userId: userId })
           .sort({ createdAt: -1 })
@@ -1463,8 +1463,8 @@ app.get('/api/user/me/dashboard', auth, async (req, res) => {
                   twitter: user.twitter,
                   website: user.website,
                   profileImage: user.profileImage,
-                  ethBalance: user.ethBalance || 0,
-                  wethBalance: user.wethBalance || user.balance || 0,
+                  depositAddress: user.depositAddress,
+                  internalBalance: user.internalBalance || 0,
                   nftCount: user.nftCount || 0,
                   createdAt: user.createdAt
               },
@@ -1666,7 +1666,7 @@ app.get('/api/user/:userId/activity', auth, async (req, res) => {
 });
 
 // ========================
-// NFT CREATION ENDPOINT
+// NFT CREATION ENDPOINT (UPDATED to use internalBalance)
 // ========================
 app.post('/api/nft/create', auth, upload.single('image'), async (req, res) => {
   try {
@@ -1765,7 +1765,7 @@ app.post('/api/nft/create', auth, upload.single('image'), async (req, res) => {
 });
 
 // ========================
-// UPDATE USER PROFILE
+// UPDATE USER PROFILE (UPDATED)
 // ========================
 app.put('/api/user/:userId/profile', auth, async (req, res) => {
     try {
@@ -1830,7 +1830,7 @@ app.put('/api/user/:userId/profile', auth, async (req, res) => {
 });
 
 // ========================
-// GET USER'S NFTS
+// GET USER'S NFTS (UPDATED)
 // ========================
 app.get('/api/user/:userId/nfts', auth, async (req, res) => {
     try {
@@ -1862,7 +1862,7 @@ app.get('/api/user/:userId/nfts', auth, async (req, res) => {
 });
 
 // ========================
-// ADD FUNDS ENDPOINT
+// ADD FUNDS ENDPOINT (DEPRECATED - Use deposit system)
 // ========================
 app.post('/api/user/:userId/add-funds', auth, async (req, res) => {
     try {
@@ -1877,8 +1877,7 @@ app.post('/api/user/:userId/add-funds', auth, async (req, res) => {
             userId,
             { 
                 $inc: { 
-                    balance: amount,
-                    wethBalance: amount 
+                    internalBalance: amount 
                 } 
             },
             { new: true }
@@ -1893,8 +1892,8 @@ app.post('/api/user/:userId/add-funds', auth, async (req, res) => {
         
         res.json({
             success: true,
-            message: `Added ${amount} WETH to your wallet`,
-            newBalance: user.balance
+            message: `Added ${amount} to your wallet balance`,
+            newBalance: user.internalBalance
         });
         
     } catch (error) {
@@ -1932,11 +1931,11 @@ app.post('/api/test/add-sample-activities/:userId', auth, async (req, res) => {
             },
             {
                 userId,
-                type: 'funds_added',
-                title: 'Funds Added',
-                description: 'Added 10 WETH to wallet',
-                amount: 10,
-                currency: 'WETH',
+                type: 'deposit_received',
+                title: 'Deposit Received',
+                description: 'ETH deposit credited to your account',
+                amount: 1.5,
+                currency: 'ETH',
                 createdAt: new Date(Date.now() - 10800000)
             },
             {
@@ -2058,6 +2057,18 @@ app.post('/api/upload/image', auth, async (req, res) => {
         });
     }
 });
+
+// ========================
+// START SWEEP JOB (NEW)
+// ========================
+if (process.env.NODE_ENV === 'production' || process.env.ENABLE_SWEEP === 'true') {
+    try {
+        require('./jobs/sweepJob');
+        console.log('✅ Sweep job scheduler started');
+    } catch (error) {
+        console.error('❌ Failed to start sweep job:', error.message);
+    }
+}
 
 // ========================
 // DATABASE CONNECTION
@@ -2182,6 +2193,8 @@ app.listen(PORT, () => {
     console.log(`   • POST /api/nft/create - Create NFT`);
     console.log(`   • POST /api/nft-import/fetch - Fetch NFTs from Moralis`);
     console.log(`   • POST /api/nft-import/save - Save imported NFTs`);
+    console.log(`   • GET  /api/deposit/info - Get deposit address (NEW)`);
+    console.log(`   • POST /api/withdraw/request - Request withdrawal (NEW)`);
     console.log(`🔗 Dashboard: http://localhost:${PORT}/dashboard`);
     console.log(`🔗 Admin Panel: http://localhost:${PORT}/admin.html`);
     console.log(`🔗 Explore page: http://localhost:${PORT}/`);

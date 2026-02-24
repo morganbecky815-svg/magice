@@ -302,6 +302,9 @@
             <button class="admin-tab" data-tab="create">
                 <i class="fas fa-plus"></i> Create NFT
             </button>
+            <button class="admin-tab" data-tab="withdrawals">
+                <i class="fas fa-hand-holding-usd"></i> Withdrawals
+            </button>
         </div>
         
         <!-- Dashboard Tab -->
@@ -426,6 +429,48 @@
             </div>
         </div>
         
+
+       
+<!-- Add this tab content -->
+<div id="withdrawalsTab" class="admin-content">
+    <h2>Withdrawal Requests</h2>
+    
+    <div class="stats-grid">
+        <div class="stat-box">
+            <h3>Pending</h3>
+            <div class="stat-value" id="pendingWithdrawals">0</div>
+        </div>
+        <div class="stat-box">
+            <h3>Completed</h3>
+            <div class="stat-value" id="completedWithdrawals">0</div>
+        </div>
+        <div class="stat-box">
+            <h3>Total Withdrawn</h3>
+            <div class="stat-value" id="totalWithdrawn">0 ETH</div>
+        </div>
+    </div>
+    
+    <div class="data-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Amount</th>
+                    <th>Address</th>
+                    <th>Requested</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="withdrawalsTableBody">
+                <tr>
+                    <td colspan="5" class="loading-spinner">
+                        <i class="fas fa-spinner fa-spin"></i> Loading withdrawal requests...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
         <!-- Support Tickets Tab -->
         <div id="supportTab" class="admin-content">
             <h2>Support Tickets</h2>
