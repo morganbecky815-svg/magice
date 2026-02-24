@@ -13,15 +13,23 @@
     <main class="dashboard">
         <div class="container">
             <!-- Welcome Section -->
-            <div class="welcome-section">
-                <h1 id="welcomeMessage">Welcome back!</h1>
-                <p>Your NFT marketplace dashboard</p>
-                <div class="dashboard-refresh">
-                    <button class="btn btn-small" onclick="refreshAllDashboard()">
-                        <i class="fas fa-sync-alt"></i> Refresh All
-                    </button>
-                </div>
-            </div>
+            <!-- Welcome Section with Logout -->
+<div class="welcome-section">
+    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <div>
+            <h1 id="welcomeMessage">Welcome back!</h1>
+            <p>Your NFT marketplace dashboard</p>
+        </div>
+        <button class="logout-btn" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+    </div>
+    <div class="dashboard-refresh" style="margin-top: 10px;">
+        <button class="btn btn-small" onclick="refreshAllDashboard()">
+            <i class="fas fa-sync-alt"></i> Refresh All
+        </button>
+    </div>
+</div>
 
             <!-- Wallet Balances -->
             <div class="wallet-section">

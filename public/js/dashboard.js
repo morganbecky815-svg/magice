@@ -1,10 +1,14 @@
 // ============================================
-// DASHBOARD.JS - COMPLETE VERSION
+// DASHBOARD.JS - UPDATED WITH AUTO-REFRESH & INTERNAL BALANCE
 // ============================================
 
 let currentDashboardUser = null;
 let currentConversionType = 'ethToWeth';
 const MARKETPLACE_WALLET_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc9e90E4343A9B";
+
+// Auto-refresh variables
+let lastBalance = 0;
+let refreshInterval = null;
 
 // ✅ Get current ETH price
 function getCurrentEthPrice() {
@@ -37,6 +41,7 @@ async function fetchUserFromBackend() {
         const result = await response.json();
         if (!result.success) throw new Error(result.error || 'Failed to fetch user');
         
+        // Save to localStorage
         localStorage.setItem('user', JSON.stringify(result.user));
         return result.user;
         
@@ -399,6 +404,7 @@ async function loadDashboard() {
     }
     
     currentDashboardUser = user;
+    lastBalance = user.internalBalance || 0;
     
     displayDashboardData(user);
     await loadDashboardSections();
@@ -409,11 +415,12 @@ async function loadDashboard() {
     startDashboardAutoRefresh();
 }
 
-// ✅ Display dashboard data
+// ✅ Display dashboard data - UPDATED to use internalBalance
 function displayDashboardData(user) {
     console.log("📊 Displaying dashboard data for:", user.email);
     
     const currentPrice = getCurrentEthPrice();
+    const internalBalance = user.internalBalance || 0;  // ✅ USE THIS
     
     const welcomeMessage = document.getElementById('welcomeMessage');
     if (welcomeMessage) {
@@ -426,37 +433,33 @@ function displayDashboardData(user) {
         welcomeMessage.textContent = `${greeting}, ${name}!`;
     }
     
+    // ✅ UPDATE THESE LINES
     const ethBalanceEl = document.getElementById('ethBalance');
     const ethValueEl = document.getElementById('ethValue');
     
-    if (ethBalanceEl) ethBalanceEl.textContent = `${(user.ethBalance || 0).toFixed(4)} ETH`;
+    if (ethBalanceEl) ethBalanceEl.textContent = `${internalBalance.toFixed(4)} ETH`;
     if (ethValueEl) {
-        ethValueEl.textContent = `$${((user.ethBalance || 0) * currentPrice).toFixed(2)}`;
+        ethValueEl.textContent = `$${(internalBalance * currentPrice).toFixed(2)}`;
     }
     
-    const wethBalanceEl = document.getElementById('wethBalance');
-    const wethValueEl = document.getElementById('wethValue');
-    if (wethBalanceEl) wethBalanceEl.textContent = `${(user.wethBalance || 0).toFixed(4)} WETH`;
-    if (wethValueEl) {
-        wethValueEl.textContent = `$${((user.wethBalance || 0) * currentPrice).toFixed(2)}`;
+    // Update portfolio
+    const portfolioValueEl = document.getElementById('portfolioValue');
+    if (portfolioValueEl) {
+        portfolioValueEl.textContent = `$${(internalBalance * currentPrice).toFixed(2)}`;
     }
     
-    updatePortfolioDisplay(user, currentPrice);
     console.log("✅ Dashboard data displayed");
 }
 
-// ✅ Update portfolio display
-function updatePortfolioDisplay(user, ethPrice) {
+// ✅ Update portfolio display - UPDATED
+function updatePortfolioDisplay(internalBalance, ethPrice) {
     const portfolioValueEl = document.getElementById('portfolioValue');
     const portfolioChangeEl = document.getElementById('portfolioChange');
     
     if (!portfolioValueEl && !portfolioChangeEl) return;
     
     const calculatedEthPrice = ethPrice || getCurrentEthPrice();
-    
-    const ethValue = (user.ethBalance || 0) * calculatedEthPrice;
-    const wethValue = (user.wethBalance || 0) * calculatedEthPrice;
-    const totalPortfolioValue = ethValue + wethValue;
+    const totalPortfolioValue = internalBalance * calculatedEthPrice;
     
     if (portfolioValueEl) {
         portfolioValueEl.textContent = `$${totalPortfolioValue.toFixed(2)}`;
@@ -476,6 +479,115 @@ function updatePortfolioDisplay(user, ethPrice) {
     updatePortfolioHistory(totalPortfolioValue);
 }
 
+// ✅ SIMPLE BALANCE UPDATE FUNCTION (like add-eth.js)
+function updateDashboardBalance() {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return;
+    
+    try {
+        const user = JSON.parse(userStr);
+        const currentPrice = getCurrentEthPrice();
+        const internalBalance = user.internalBalance || 0;
+        
+        // Update ETH Balance
+        const ethBalanceEl = document.getElementById('ethBalance');
+        const ethValueEl = document.getElementById('ethValue');
+        
+        if (ethBalanceEl) ethBalanceEl.textContent = `${internalBalance.toFixed(4)} ETH`;
+        if (ethValueEl) {
+            ethValueEl.textContent = `$${(internalBalance * currentPrice).toFixed(2)}`;
+        }
+        
+        // Update Portfolio
+        const portfolioValueEl = document.getElementById('portfolioValue');
+        if (portfolioValueEl) {
+            portfolioValueEl.textContent = `$${(internalBalance * currentPrice).toFixed(2)}`;
+        }
+        
+        // Update lastBalance
+        lastBalance = internalBalance;
+        
+    } catch (error) {
+        console.error('Error updating dashboard balance:', error);
+    }
+}
+
+// ✅ AUTO-REFRESH FUNCTION - Checks for balance updates
+async function checkForBalanceUpdates() {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        const response = await fetch('/api/user/me/profile', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.user) {
+            const newBalance = data.user.internalBalance || 0;
+            
+            // If balance changed, show notification and update
+            if (lastBalance > 0 && newBalance !== lastBalance) {
+                const difference = (newBalance - lastBalance).toFixed(4);
+                showNotification(`💰 Deposit received: +${difference} ETH`, 'success');
+                
+                // Update localStorage
+                const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+                currentUser.internalBalance = newBalance;
+                localStorage.setItem('user', JSON.stringify(currentUser));
+                
+                // Update display
+                displayDashboardData(data.user);
+                currentDashboardUser = data.user;
+            }
+            
+            lastBalance = newBalance;
+        }
+    } catch (error) {
+        console.error('Error checking balance:', error);
+    }
+}
+
+// ✅ FIXED STORAGE EVENT LISTENER (like add-eth.js)
+window.addEventListener('storage', function(event) {
+    if (event.key === 'user') {
+        console.log('📦 User data changed in localStorage, refreshing balance...');
+        try {
+            const updatedUser = JSON.parse(event.newValue);
+            if (!updatedUser) return;
+            
+            // Update current user
+            currentDashboardUser = updatedUser;
+            lastBalance = updatedUser.internalBalance || 0;
+            
+            // SIMPLE DIRECT UPDATES (like add-eth.js)
+            const currentPrice = getCurrentEthPrice();
+            const internalBalance = updatedUser.internalBalance || 0;
+            
+            // Update ETH Balance
+            const ethBalanceEl = document.getElementById('ethBalance');
+            const ethValueEl = document.getElementById('ethValue');
+            
+            if (ethBalanceEl) ethBalanceEl.textContent = `${internalBalance.toFixed(4)} ETH`;
+            if (ethValueEl) {
+                ethValueEl.textContent = `$${(internalBalance * currentPrice).toFixed(2)}`;
+            }
+            
+            // Update Portfolio Value
+            const portfolioValueEl = document.getElementById('portfolioValue');
+            if (portfolioValueEl) {
+                portfolioValueEl.textContent = `$${(internalBalance * currentPrice).toFixed(2)}`;
+            }
+            
+            console.log('✅ Dashboard updated from storage event');
+            
+        } catch (e) {
+            console.error('Error in storage event:', e);
+        }
+    }
+});
+
 // ✅ Subscribe to ETH price updates
 function subscribeToEthPriceUpdates() {
     if (!window.ethPriceService) {
@@ -489,18 +601,14 @@ function subscribeToEthPriceUpdates() {
         console.log("🔄 ETH price updated to:", newPrice);
         
         if (currentDashboardUser) {
+            const internalBalance = currentDashboardUser.internalBalance || 0;
+            
             const ethValueEl = document.getElementById('ethValue');
-            if (ethValueEl && currentDashboardUser.ethBalance !== undefined) {
-                ethValueEl.textContent = `$${(currentDashboardUser.ethBalance * newPrice).toFixed(2)}`;
+            if (ethValueEl) {
+                ethValueEl.textContent = `$${(internalBalance * newPrice).toFixed(2)}`;
             }
             
-            const wethValueEl = document.getElementById('wethValue');
-            if (wethValueEl && currentDashboardUser.wethBalance !== undefined) {
-                wethValueEl.textContent = `$${(currentDashboardUser.wethBalance * newPrice).toFixed(2)}`;
-            }
-            
-            updatePortfolioDisplay(currentDashboardUser, newPrice);
-            refreshUserNFTs();
+            updatePortfolioDisplay(internalBalance, newPrice);
         }
     });
     
@@ -799,18 +907,35 @@ function startPeriodicSync() {
     }, 30000);
 }
 
+// ✅ UPDATED AUTO-REFRESH FUNCTION
 function startDashboardAutoRefresh() {
+    // Check balance every 10 seconds
     setInterval(() => {
         if (window.location.pathname.includes('dashboard')) {
-            console.log('🔄 Auto-refreshing dashboard...');
+            updateDashboardBalance();  // Use the simple function
+        }
+    }, 10000);
+    
+    // Refresh other sections every 60 seconds
+    setInterval(() => {
+        if (window.location.pathname.includes('dashboard')) {
+            console.log('🔄 Auto-refreshing dashboard sections...');
             updateMarketTrends();
+            // Randomly refresh other sections (like before)
             if (Math.random() > 0.5) refreshRecentActivity();
             if (Math.random() > 0.5) refreshRecommendedNFTs();
         }
     }, 60000);
 }
 
-// ✅ WETH Conversion Functions (NEW - ADD THIS SECTION)
+// ✅ Clean up on page unload
+window.addEventListener('beforeunload', function() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+});
+
+// ✅ WETH Conversion Functions
 function showWETHConversion() {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const ethBalance = user.ethBalance || 0;
@@ -928,7 +1053,7 @@ function closeModal(modalId) {
 // ✅ Basic dashboard functions
 function refreshBalance() {
     if (currentDashboardUser) {
-        displayDashboardData(currentDashboardUser);
+        checkForBalanceUpdates();
         alert('Balance refreshed!');
     } else {
         alert('Please login first');
@@ -973,6 +1098,19 @@ document.addEventListener('DOMContentLoaded', function() {
     loadDashboard();
 }, 500);
 
+// ✅ Logout function
+function logout() {
+    if (confirm('Are you sure you want to logout?')) {
+        // Clear all auth data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('magicEdenCurrentUser');
+        
+        // Redirect to home page
+        window.location.href = '/';
+    }
+}
+
 // ✅ Make functions globally available
 window.refreshBalance = refreshBalance;
 window.transferFunds = transferFunds;
@@ -987,6 +1125,7 @@ window.openMetaMaskBuy = openMetaMaskBuy;
 window.copyAddress = copyAddress;
 window.showDepositInstructions = showDepositInstructions;
 window.buyCrypto = buyCrypto;
+window.logout = logout;
 window.viewPortfolio = viewPortfolio;
 window.updateMarketTrends = updateMarketTrends;
 window.refreshRecentActivity = refreshRecentActivity;

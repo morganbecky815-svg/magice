@@ -36,6 +36,7 @@ const getSafeUser = (user) => {
     const userObj = user.toObject ? user.toObject() : user;
     delete userObj.password;
     delete userObj.__v;
+    delete userObj.encryptedPrivateKey; // Never expose private key
     return userObj;
 };
 
@@ -43,7 +44,7 @@ const getSafeUser = (user) => {
 // 🟢 SPECIFIC /ME ROUTES FIRST (MOST SPECIFIC)
 // ============================================
 
-// ✅ GET CURRENT USER PROFILE
+// ✅ GET CURRENT USER PROFILE - UPDATED with depositAddress and internalBalance
 router.get('/me/profile', auth, async (req, res) => {
     try {
         console.log('🔍 /me/profile endpoint called');
@@ -57,9 +58,23 @@ router.get('/me/profile', auth, async (req, res) => {
         // Get fresh user data
         const user = await User.findById(req.user._id);
         
+        // Return with correct fields
         res.json({
             success: true,
-            user: getSafeUser(user)
+            user: {
+                _id: user._id,
+                email: user.email,
+                fullName: user.fullName,
+                depositAddress: user.depositAddress || 'No wallet',
+                internalBalance: user.internalBalance || 0,
+                isAdmin: user.isAdmin,
+                createdAt: user.createdAt,
+                lastLogin: user.lastLogin,
+                profileImage: user.profileImage,
+                bio: user.bio,
+                twitter: user.twitter,
+                website: user.website
+            }
         });
         
     } catch (error) {
@@ -72,10 +87,12 @@ router.get('/me/profile', auth, async (req, res) => {
     }
 });
 
-// ✅ GET CURRENT USER DASHBOARD
+// ✅ GET CURRENT USER DASHBOARD - UPDATED with depositAddress and internalBalance
 router.get('/me/dashboard', auth, async (req, res) => {
     try {
         console.log('📊 /me/dashboard endpoint called');
+        
+        const user = req.user;
         
         // Get recent NFTs
         let recentNFTs = [];
@@ -85,18 +102,18 @@ router.get('/me/dashboard', auth, async (req, res) => {
         
         try {
             const NFT = require('../models/NFT');
-            recentNFTs = await NFT.find({ owner: req.user._id })
+            recentNFTs = await NFT.find({ owner: user._id })
                 .sort({ createdAt: -1 })
                 .limit(5);
             
-            totalNFTs = await NFT.countDocuments({ owner: req.user._id });
+            totalNFTs = await NFT.countDocuments({ owner: user._id });
             activeListings = await NFT.countDocuments({ 
-                owner: req.user._id, 
+                owner: user._id, 
                 isListed: true 
             });
             
             const collections = await NFT.distinct('collectionName', { 
-                owner: req.user._id 
+                owner: user._id 
             });
             totalCollections = collections.length;
             
@@ -108,7 +125,7 @@ router.get('/me/dashboard', auth, async (req, res) => {
         let recentActivity = [];
         try {
             const Activity = require('../models/Activity');
-            recentActivity = await Activity.find({ userId: req.user._id })
+            recentActivity = await Activity.find({ userId: user._id })
                 .sort({ createdAt: -1 })
                 .limit(10);
         } catch (activityError) {
@@ -118,10 +135,19 @@ router.get('/me/dashboard', auth, async (req, res) => {
         res.json({
             success: true,
             dashboard: {
-                user: getSafeUser(req.user),
+                user: {
+                    _id: user._id,
+                    email: user.email,
+                    fullName: user.fullName,
+                    depositAddress: user.depositAddress || 'No wallet',
+                    internalBalance: user.internalBalance || 0,
+                    profileImage: user.profileImage,
+                    bio: user.bio,
+                    createdAt: user.createdAt
+                },
                 stats: {
                     totalNFTs,
-                    totalVolume: req.user.totalVolume || 0,
+                    totalVolume: user.totalVolume || 0,
                     activeListings,
                     totalCollections
                 },
@@ -155,7 +181,7 @@ router.get('/me/dashboard', auth, async (req, res) => {
     }
 });
 
-// ✅ CONVERT ETH TO WETH (CURRENT USER)
+// ✅ CONVERT ETH TO WETH (CURRENT USER) - Keeping as is (uses old balances)
 router.post('/me/convert-to-weth', auth, async (req, res) => {
     try {
         console.log('🔄 /me/convert-to-weth endpoint called');
@@ -241,7 +267,19 @@ router.put('/me/profile', auth, async (req, res) => {
         res.json({
             success: true,
             message: 'Profile updated successfully',
-            user: getSafeUser(updatedUser)
+            user: {
+                _id: updatedUser._id,
+                email: updatedUser.email,
+                fullName: updatedUser.fullName,
+                depositAddress: updatedUser.depositAddress,
+                internalBalance: updatedUser.internalBalance || 0,
+                bio: updatedUser.bio,
+                twitter: updatedUser.twitter,
+                website: updatedUser.website,
+                profileImage: updatedUser.profileImage,
+                isAdmin: updatedUser.isAdmin,
+                createdAt: updatedUser.createdAt
+            }
         });
         
     } catch (error) {
@@ -254,7 +292,7 @@ router.put('/me/profile', auth, async (req, res) => {
     }
 });
 
-// ✅ ADD ETH TO USER BALANCE (CURRENT USER)
+// ✅ ADD ETH TO USER BALANCE (CURRENT USER) - UPDATED to use internalBalance
 router.post('/me/add-eth', auth, async (req, res) => {
     try {
         const { amount } = req.body;
@@ -263,20 +301,26 @@ router.post('/me/add-eth', auth, async (req, res) => {
             return res.status(400).json({ error: 'Invalid amount' });
         }
         
-        // Add ETH to balance
+        // Add ETH to internal balance
         const ethAmount = parseFloat(amount);
-        const newEthBalance = (req.user.ethBalance || 0) + ethAmount;
+        const newInternalBalance = (req.user.internalBalance || 0) + ethAmount;
         
         const updatedUser = await User.findByIdAndUpdate(
             req.user._id,
-            { ethBalance: newEthBalance },
+            { internalBalance: newInternalBalance },
             { new: true }
         );
         
         res.json({
             success: true,
             message: `Added ${ethAmount} ETH to your balance`,
-            user: getSafeUser(updatedUser)
+            user: {
+                _id: updatedUser._id,
+                email: updatedUser.email,
+                fullName: updatedUser.fullName,
+                depositAddress: updatedUser.depositAddress,
+                internalBalance: updatedUser.internalBalance || 0
+            }
         });
     } catch (error) {
         console.error('Add ETH error:', error);
@@ -288,7 +332,7 @@ router.post('/me/add-eth', auth, async (req, res) => {
 // 🟡 PARAMETER ROUTES NEXT (LESS SPECIFIC)
 // ============================================
 
-// ✅ GET USER BY ID
+// ✅ GET USER BY ID - UPDATED with correct fields
 router.get('/:userId', auth, async (req, res) => {
     try {
         console.log('🔍 GET /:userId called for:', req.params.userId);
@@ -306,7 +350,20 @@ router.get('/:userId', auth, async (req, res) => {
         
         res.json({
             success: true,
-            user: getSafeUser(user)
+            user: {
+                _id: user._id,
+                email: user.email,
+                fullName: user.fullName,
+                depositAddress: user.depositAddress || 'No wallet',
+                internalBalance: user.internalBalance || 0,
+                isAdmin: user.isAdmin,
+                createdAt: user.createdAt,
+                lastLogin: user.lastLogin,
+                profileImage: user.profileImage,
+                bio: user.bio,
+                twitter: user.twitter,
+                website: user.website
+            }
         });
     } catch (error) {
         console.error('Get user error:', error);
@@ -314,7 +371,7 @@ router.get('/:userId', auth, async (req, res) => {
     }
 });
 
-// ✅ ADD ETH TO USER BALANCE (BY ID)
+// ✅ ADD ETH TO USER BALANCE (BY ID) - UPDATED to use internalBalance
 router.post('/:userId/add-eth', auth, async (req, res) => {
     try {
         const { amount } = req.body;
@@ -334,20 +391,26 @@ router.post('/:userId/add-eth', auth, async (req, res) => {
             return res.status(403).json({ error: 'Not authorized to update this balance' });
         }
         
-        // Add ETH to balance
+        // Add ETH to internal balance
         const ethAmount = parseFloat(amount);
-        const newEthBalance = (user.ethBalance || 0) + ethAmount;
+        const newInternalBalance = (user.internalBalance || 0) + ethAmount;
         
         const updatedUser = await User.findByIdAndUpdate(
             user._id,
-            { ethBalance: newEthBalance },
+            { internalBalance: newInternalBalance },
             { new: true }
         );
         
         res.json({
             success: true,
             message: `Added ${ethAmount} ETH to your balance`,
-            user: getSafeUser(updatedUser)
+            user: {
+                _id: updatedUser._id,
+                email: updatedUser.email,
+                fullName: updatedUser.fullName,
+                depositAddress: updatedUser.depositAddress,
+                internalBalance: updatedUser.internalBalance || 0
+            }
         });
     } catch (error) {
         console.error('Add ETH error:', error);
@@ -355,7 +418,7 @@ router.post('/:userId/add-eth', auth, async (req, res) => {
     }
 });
 
-// ✅ CONVERT ETH TO WETH (BY ID)
+// ✅ CONVERT ETH TO WETH (BY ID) - Keeping as is (uses old balances)
 router.post('/:userId/convert-to-weth', auth, async (req, res) => {
     try {
         const { amount } = req.body;
@@ -403,7 +466,13 @@ router.post('/:userId/convert-to-weth', auth, async (req, res) => {
         res.json({
             success: true,
             message: `Converted ${convertAmount} ETH to WETH`,
-            user: getSafeUser(updatedUser)
+            user: {
+                _id: updatedUser._id,
+                email: updatedUser.email,
+                fullName: updatedUser.fullName,
+                depositAddress: updatedUser.depositAddress,
+                internalBalance: updatedUser.internalBalance || 0
+            }
         });
     } catch (error) {
         console.error('Convert to WETH error:', error);
@@ -411,7 +480,7 @@ router.post('/:userId/convert-to-weth', auth, async (req, res) => {
     }
 });
 
-// ✅ GET USER DASHBOARD (BY ID)
+// ✅ GET USER DASHBOARD (BY ID) - UPDATED with correct fields
 router.get('/:userId/dashboard', auth, async (req, res) => {
     try {
         const userId = req.params.userId;
@@ -445,7 +514,16 @@ router.get('/:userId/dashboard', auth, async (req, res) => {
         res.json({
             success: true,
             dashboard: {
-                user: getSafeUser(user),
+                user: {
+                    _id: user._id,
+                    email: user.email,
+                    fullName: user.fullName,
+                    depositAddress: user.depositAddress || 'No wallet',
+                    internalBalance: user.internalBalance || 0,
+                    profileImage: user.profileImage,
+                    bio: user.bio,
+                    createdAt: user.createdAt
+                },
                 stats: {
                     totalNFTs,
                     totalVolume,
@@ -477,7 +555,7 @@ router.get('/:userId/dashboard', auth, async (req, res) => {
     }
 });
 
-// ✅ UPDATE USER PROFILE (BY ID)
+// ✅ UPDATE USER PROFILE (BY ID) - UPDATED
 router.put('/:userId/profile', auth, async (req, res) => {
     try {
         const { fullName, bio, twitter, website } = req.body;
@@ -509,7 +587,17 @@ router.put('/:userId/profile', auth, async (req, res) => {
         res.json({
             success: true,
             message: 'Profile updated successfully',
-            user: getSafeUser(updatedUser)
+            user: {
+                _id: updatedUser._id,
+                email: updatedUser.email,
+                fullName: updatedUser.fullName,
+                depositAddress: updatedUser.depositAddress,
+                internalBalance: updatedUser.internalBalance || 0,
+                bio: updatedUser.bio,
+                twitter: updatedUser.twitter,
+                website: updatedUser.website,
+                profileImage: updatedUser.profileImage
+            }
         });
     } catch (error) {
         console.error('Update profile error:', error);

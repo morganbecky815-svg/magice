@@ -2059,15 +2059,26 @@ app.post('/api/upload/image', auth, async (req, res) => {
 });
 
 // ========================
-// START SWEEP JOB (NEW)
+// START SWEEP JOB - WITH VISIBLE LOGS
 // ========================
-if (process.env.NODE_ENV === 'production' || process.env.ENABLE_SWEEP === 'true') {
-    try {
-        require('./jobs/sweepJob');
-        console.log('✅ Sweep job scheduler started');
-    } catch (error) {
-        console.error('❌ Failed to start sweep job:', error.message);
-    }
+console.log('\n' + '🔴'.repeat(20));
+console.log('🔴 ATTEMPTING TO START SWEEP JOB');
+console.log('🔴'.repeat(20) + '\n');
+
+try {
+    console.log('📂 Loading sweep job module from: ./jobs/sweepJob');
+    const sweepJob = require('./jobs/sweepJob');
+    console.log('✅ Sweep job module loaded successfully');
+    
+    // Verify the job was scheduled
+    setTimeout(() => {
+        console.log('⏰ Sweep job should be running every 3 minutes');
+        console.log('   Check back at:', new Date(Date.now() + 3 * 60 * 1000).toISOString());
+    }, 1000);
+    
+} catch (error) {
+    console.error('❌ CRITICAL: Failed to start sweep job:', error);
+    console.error('❌ Error stack:', error.stack);
 }
 
 // ========================
@@ -2083,6 +2094,70 @@ mongoose.connect(MONGODB_URI)
         console.log('⚠️ MongoDB Connection Note:', err.message);
         console.log('⚠️ App will continue without database');
     });
+
+    // ========================
+// DEBUG ENDPOINT - Test wallet decryption
+// ========================
+app.get('/api/debug/wallet/:email', async (req, res) => {
+    try {
+        const { email } = req.params;
+        
+        // Find user
+        const user = await User.findOne({ email }).select('+encryptedPrivateKey');
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const CryptoJS = require('crypto-js');
+        const { ethers } = require('ethers');
+        
+        const result = {
+            user: user.email,
+            depositAddress: user.depositAddress,
+            hasEncryptedKey: !!user.encryptedPrivateKey,
+            encryptedKeyLength: user.encryptedPrivateKey?.length || 0,
+            envKeyPresent: !!process.env.WALLET_ENCRYPTION_KEY,
+            envKeyLength: process.env.WALLET_ENCRYPTION_KEY?.length || 0,
+        };
+
+        // Test decryption
+        if (user.encryptedPrivateKey && process.env.WALLET_ENCRYPTION_KEY) {
+            try {
+                const bytes = CryptoJS.AES.decrypt(
+                    user.encryptedPrivateKey, 
+                    process.env.WALLET_ENCRYPTION_KEY
+                );
+                const privateKey = bytes.toString(CryptoJS.enc.Utf8);
+                
+                result.decryptionSuccess = !!privateKey;
+                result.privateKeyLength = privateKey?.length || 0;
+                
+                if (privateKey) {
+                    // Create wallet from private key
+                    const wallet = new ethers.Wallet(privateKey);
+                    result.recoveredAddress = wallet.address;
+                    result.addressMatch = wallet.address === user.depositAddress;
+                    
+                    // Check balance
+                    const provider = new ethers.JsonRpcProvider(process.env.ETH_NODE_URL);
+                    const balance = await provider.getBalance(wallet.address);
+                    result.balance = ethers.formatEther(balance);
+                } else {
+                    result.decryptionSuccess = false;
+                    result.error = 'Decryption returned empty string - WRONG ENCRYPTION KEY';
+                }
+            } catch (error) {
+                result.decryptionSuccess = false;
+                result.error = error.message;
+            }
+        }
+
+        res.json(result);
+        
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // ========================
 // TEST TICKET ENDPOINT
