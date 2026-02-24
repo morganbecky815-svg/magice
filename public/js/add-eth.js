@@ -45,7 +45,7 @@ function loadUserWalletAddress() {
     
     try {
         const user = JSON.parse(userStr);
-        const walletAddress = user.systemWalletAddress || user.walletAddress;
+        const walletAddress = user.depositAddress || user.walletAddress;
         
         if (walletAddress) {
             console.log('✅ Found wallet address:', walletAddress);
