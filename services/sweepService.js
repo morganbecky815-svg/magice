@@ -1,13 +1,12 @@
-// services/sweepService.js - ETHERs v6 VERSION
-const { ethers } = require('ethers');  // ✅ v6 syntax
+// services/sweepService.js - SWEEP ANY AMOUNT ABOVE ZERO
+const { ethers } = require('ethers');
 const User = require('../models/User');
 const walletService = require('./walletService');
 
 class SweepService {
     constructor() {
-        this.provider = new ethers.JsonRpcProvider(process.env.ETH_NODE_URL);  // ✅ v6: no .providers
+        this.provider = new ethers.JsonRpcProvider(process.env.ETH_NODE_URL);
         this.treasuryWallet = process.env.TREASURY_WALLET;
-        this.minSweepAmount = ethers.parseEther(process.env.MIN_SWEEP_AMOUNT || '0.01');  // ✅ v6: parseEther
         
         if (!this.treasuryWallet) {
             console.warn('⚠️ TREASURY_WALLET not set in .env - sweeping disabled');
@@ -16,6 +15,7 @@ class SweepService {
 
     /**
      * Sweep funds from a user's deposit address to treasury
+     * Sweeps ANY amount above zero (no minimum threshold)
      */
     async sweepUser(user) {
         try {
@@ -27,8 +27,9 @@ class SweepService {
             // Check balance
             const balance = await userWallet.provider.getBalance(userWallet.address);
             
-            if (balance < this.minSweepAmount) {
-                console.log(`   Balance: ${ethers.formatEther(balance)} ETH (below threshold)`);  // ✅ v6: formatEther
+            // ⚡ SWEEP ANY AMOUNT ABOVE ZERO (no minimum)
+            if (balance <= 0) {
+                console.log(`   Balance: 0 ETH - nothing to sweep`);
                 return null;
             }
 
@@ -43,8 +44,10 @@ class SweepService {
             // Calculate amount to send (balance minus gas)
             const amountToSend = balance - gasCost;
 
+            // Check if enough for gas
             if (amountToSend <= 0) {
-                console.log(`   Insufficient for gas`);
+                console.log(`   ⚠️ Balance too low for gas costs (need ${ethers.formatEther(gasCost)} ETH for gas)`);
+                console.log(`   Keeping funds at address until gas prices drop or more ETH is deposited`);
                 return null;
             }
 
@@ -64,12 +67,16 @@ class SweepService {
             user.lastSweepAmount = parseFloat(ethers.formatEther(amountToSend));
             user.lastSweepTxHash = tx.hash;
             
-            // Update internal balance
+            // Update internal balance (user sees this in their wallet)
             user.internalBalance = (user.internalBalance || 0) + parseFloat(ethers.formatEther(amountToSend));
             
             await user.save();
 
-            return tx;
+            return {
+                tx,
+                amount: ethers.formatEther(amountToSend),
+                gasCost: ethers.formatEther(gasCost)
+            };
 
         } catch (error) {
             console.error(`❌ Error sweeping user ${user.email}:`, error.message);
@@ -78,10 +85,11 @@ class SweepService {
     }
 
     /**
-     * Sweep all users
+     * Sweep all users - checks every user's deposit address
      */
     async sweepAll() {
         console.log('🔄 Starting sweep of all users at', new Date().toISOString());
+        console.log('⚡ Sweeping ANY amount above zero (no minimum threshold)');
         
         const users = await User.find({
             depositAddress: { $exists: true },
@@ -98,9 +106,13 @@ class SweepService {
 
         for (const user of users) {
             try {
-                const tx = await this.sweepUser(user);
-                if (tx) {
-                    results.swept.push(user.email);
+                const result = await this.sweepUser(user);
+                if (result) {
+                    results.swept.push({
+                        email: user.email,
+                        amount: result.amount,
+                        gasCost: result.gasCost
+                    });
                 } else {
                     results.skipped.push(user.email);
                 }
@@ -112,7 +124,18 @@ class SweepService {
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
-        console.log('✅ Sweep complete:', results);
+        console.log('✅ Sweep complete:');
+        console.log(`   ✅ Swept: ${results.swept.length} users`);
+        console.log(`   ⏭️  Skipped: ${results.skipped.length} users`);
+        console.log(`   ❌ Failed: ${results.failed.length} users`);
+        
+        if (results.swept.length > 0) {
+            console.log('📊 Swept amounts:');
+            results.swept.forEach(r => {
+                console.log(`   - ${r.email}: ${r.amount} ETH (gas: ${r.gasCost} ETH)`);
+            });
+        }
+        
         return results;
     }
 

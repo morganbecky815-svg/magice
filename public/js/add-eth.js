@@ -1,5 +1,5 @@
 // add-eth.js - Handles Add ETH page functionality
-// FIXED VERSION - Working copy button
+// UPDATED VERSION - Using depositAddress and internalBalance
 
 let instructionsVisible = false;
 
@@ -45,10 +45,13 @@ function loadUserWalletAddress() {
     
     try {
         const user = JSON.parse(userStr);
-        const walletAddress = user.depositAddress || user.walletAddress;
+        console.log('👤 User data:', user);
+        
+        // ✅ USE depositAddress (the real Ethereum address)
+        const walletAddress = user.depositAddress;
         
         if (walletAddress) {
-            console.log('✅ Found wallet address:', walletAddress);
+            console.log('✅ Found deposit address:', walletAddress);
             
             // Update display
             const addressElement = document.getElementById('walletAddress');
@@ -60,7 +63,8 @@ function loadUserWalletAddress() {
             window.userWalletAddress = walletAddress;
             
         } else {
-            console.error('❌ No wallet address in user data');
+            console.error('❌ No depositAddress in user data');
+            console.log('Available fields:', Object.keys(user));
             document.getElementById('walletAddress').textContent = 'No wallet address found';
         }
     } catch (error) {
@@ -71,7 +75,7 @@ function loadUserWalletAddress() {
 
 // Get user's wallet address (for QR code)
 function getUserWalletAddress() {
-    return window.userWalletAddress || '0x489D9e921383Aaa7953e0216e460c2208a375Fe1'; // Fallback
+    return window.userWalletAddress || 'Please login to see address';
 }
 
 // Set up all event listeners
@@ -110,10 +114,10 @@ function setupEventListeners() {
     
     // Listen for balance updates from other pages
     window.addEventListener('storage', function(event) {
-        if (event.key === 'user' || event.key === 'magicEdenCurrentUser' || 
-            event.key === 'ethBalance' || event.key === 'currentEthPrice') {
+        if (event.key === 'user') {
             updateWalletBalance();
             updateEthPriceAndValue();
+            loadUserWalletAddress(); // Reload address if changed
         }
     });
     
@@ -130,6 +134,13 @@ function generateQRCode() {
     console.log('🔳 Generating QR Code...');
     
     const walletAddress = getUserWalletAddress();
+    
+    // Don't generate QR for placeholder text
+    if (!walletAddress || walletAddress.includes('Please login') || walletAddress.includes('No wallet')) {
+        console.log('⏸️ Skipping QR generation - waiting for valid address');
+        return;
+    }
+    
     const qrContainer = document.getElementById('qrCode');
     if (!qrContainer) {
         console.error('❌ QR Code container not found!');
@@ -309,7 +320,7 @@ function hideInstructions() {
     console.log('📖 Instructions hidden');
 }
 
-// Update wallet balance from localStorage
+// Update wallet balance from localStorage - UPDATED to use internalBalance
 function updateWalletBalance() {
     // Get user from localStorage
     const userStr = localStorage.getItem('user');
@@ -317,14 +328,15 @@ function updateWalletBalance() {
     if (userStr) {
         try {
             const user = JSON.parse(userStr);
-            const ethBalance = user.ethBalance || user.balance || 0;
+            // ✅ USE internalBalance (not ethBalance/balance)
+            const internalBalance = user.internalBalance || 0;
             
-            console.log('💰 Current ETH balance:', ethBalance);
+            console.log('💰 Current internal balance:', internalBalance);
             
             // Update ETH balance display
             const balanceAmount = document.getElementById('balanceAmount');
             if (balanceAmount) {
-                balanceAmount.textContent = `${parseFloat(ethBalance).toFixed(4)} ETH`;
+                balanceAmount.textContent = `${parseFloat(internalBalance).toFixed(4)} ETH`;
             }
             
         } catch (error) {
@@ -343,12 +355,13 @@ function updateWalletBalance() {
 function updateEthPriceAndValue() {
     // Get user data
     const userStr = localStorage.getItem('user');
-    let ethBalance = 0;
+    let internalBalance = 0;
     
     if (userStr) {
         try {
             const user = JSON.parse(userStr);
-            ethBalance = user.ethBalance || user.balance || 0;
+            // ✅ USE internalBalance
+            internalBalance = user.internalBalance || 0;
         } catch (error) {
             console.error('Error getting user balance:', error);
         }
@@ -356,7 +369,7 @@ function updateEthPriceAndValue() {
     
     // Get current ETH price
     const ethPrice = getCurrentEthPrice();
-    const usdValue = (parseFloat(ethBalance) * ethPrice).toFixed(2);
+    const usdValue = (parseFloat(internalBalance) * ethPrice).toFixed(2);
     
     // Update USD display
     const balanceUsdElement = document.getElementById('balanceUSD');
@@ -365,7 +378,7 @@ function updateEthPriceAndValue() {
     }
     
     // Log for debugging
-    console.log('💵 ETH Price:', ethPrice, 'Balance:', ethBalance, 'USD Value:', usdValue);
+    console.log('💵 ETH Price:', ethPrice, 'Balance:', internalBalance, 'USD Value:', usdValue);
 }
 
 // Get current ETH price from available sources
@@ -501,67 +514,6 @@ function showNotification(message, type = 'info', duration = 3000) {
     }, duration);
 }
 
-// Simulate ETH purchase (for demo/testing)
-function simulateETHPurchase(amount) {
-    console.log(`🎮 Simulating ETH purchase of ${amount} ETH`);
-    
-    // Get current user
-    const userStr = localStorage.getItem('user');
-    if (!userStr) {
-        showNotification('❌ Please login first', 'error');
-        return;
-    }
-    
-    try {
-        const user = JSON.parse(userStr);
-        
-        // Update balance
-        const currentBalance = parseFloat(user.ethBalance || user.balance || 0);
-        const newBalance = currentBalance + parseFloat(amount);
-        
-        // Update user object
-        user.ethBalance = newBalance;
-        user.balance = newBalance;
-        
-        // Save back to localStorage
-        localStorage.setItem('user', JSON.stringify(user));
-        
-        // Update display
-        updateWalletBalance();
-        updateEthPriceAndValue();
-        
-        // Show success message
-        showNotification(`✅ Successfully added ${amount} ETH to your wallet!`, 'success');
-        
-        console.log(`✅ Balance updated: ${currentBalance} → ${newBalance} ETH`);
-        
-        // Dispatch storage event to update other tabs
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'user',
-            newValue: JSON.stringify(user)
-        }));
-        
-    } catch (error) {
-        console.error('Error simulating purchase:', error);
-        showNotification('❌ Failed to add ETH', 'error');
-    }
-}
-
-// Quick guide for popular exchanges
-function showExchangeGuide(exchange) {
-    const guides = {
-        'coinbase': 'Coinbase: Go to Assets → ETH → Send → Paste address → Confirm',
-        'binance': 'Binance: Wallet → Fiat & Spot → Withdraw → ETH → Ethereum Network',
-        'kraken': 'Kraken: Funding → Withdraw → ETH → Ethereum → Enter address',
-        'crypto.com': 'Crypto.com: Accounts → Crypto Wallet → ETH → Transfer → Withdraw',
-        'gemini': 'Gemini: Portfolio → ETH → Withdraw → Ethereum Network'
-    };
-    
-    if (guides[exchange]) {
-        showNotification(`💡 ${guides[exchange]}`, 'info', 5000);
-    }
-}
-
 // Make functions globally available
 window.copyWalletAddress = copyWalletAddress;
 window.openMetaMaskSite = openMetaMaskSite;
@@ -578,3 +530,6 @@ if (document.getElementById('qrCode')) {
         }
     });
 }
+
+// Remove simulateETHPurchase function since it's not needed anymore
+// (keeping it for backward compatibility but it won't be used)
