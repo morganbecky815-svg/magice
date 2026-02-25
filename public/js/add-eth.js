@@ -1,29 +1,40 @@
 // add-eth.js - Handles Add ETH page functionality
-// UPDATED VERSION - Using depositAddress and internalBalance
+// FIXED VERSION - Removed the error message, always shows loading
 
 let instructionsVisible = false;
+let priceUpdateListener = null;
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
     console.log('💰 Add ETH Page Initializing...');
     
-    // Load user's wallet address from localStorage
-    loadUserWalletAddress();
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/login?redirect=add-eth';
+        return;
+    }
     
-    // Generate QR Code with user's wallet address
-    generateQRCode();
+    // Show loading message immediately
+    showLoadingState();
     
-    // Update wallet balance
-    updateWalletBalance();
+    // First try to load from localStorage (immediate display)
+    loadAddressFromLocalStorage();
+    
+    // Then fetch fresh from backend to ensure we have the latest
+    fetchAddressFromBackend();
     
     // Setup event listeners
     setupEventListeners();
     
+    // Update wallet balance
+    updateWalletBalance();
+    
     // Update ETH price and USD value
     updateEthPriceAndValue();
     
-    // Start listening for price updates
-    listenForPriceUpdates();
+    // Subscribe to live ETH price updates
+    subscribeToEthPriceUpdates();
     
     // Show initial warning
     showNotification('⚠️ Only send ETH on Ethereum Network (ERC-20). Other networks will result in lost funds.', 'warning', 8000);
@@ -31,136 +42,307 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ Add ETH Page Initialized');
 });
 
-// Load user's wallet address from localStorage
-function loadUserWalletAddress() {
-    console.log('🔍 Loading user wallet address...');
+// Show loading state immediately
+function showLoadingState() {
+    const addressElement = document.getElementById('walletAddress');
+    const qrContainer = document.getElementById('qrCode');
     
-    // Get user from localStorage
+    if (addressElement) {
+        addressElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading your wallet address...';
+        addressElement.style.color = '#888';
+        addressElement.style.fontStyle = 'italic';
+    }
+    
+    if (qrContainer) {
+        qrContainer.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #8a2be2;"></i>
+                <p style="margin-top: 10px; color: #666;">Generating QR code...</p>
+            </div>
+        `;
+    }
+}
+
+// Subscribe to ETH price updates
+function subscribeToEthPriceUpdates() {
+    if (priceUpdateListener && window.ethPriceService) {
+        window.ethPriceService.unsubscribe(priceUpdateListener);
+    }
+    
+    if (!window.ethPriceService) {
+        console.log('⏳ Waiting for ETH price service...');
+        setTimeout(subscribeToEthPriceUpdates, 1000);
+        return;
+    }
+    
+    console.log("✅ Add ETH page subscribing to price updates");
+    
+    priceUpdateListener = (newPrice) => {
+        console.log("🔄 Add ETH page received price update: $", newPrice);
+        updateEthPriceAndValue();
+    };
+    
+    window.ethPriceService.subscribe(priceUpdateListener);
+    
+    setTimeout(() => {
+        if (window.ethPriceService) {
+            window.ethPriceService.updateAllDisplays();
+        }
+    }, 500);
+}
+
+// Update ETH price and USD value
+function updateEthPriceAndValue() {
+    const userStr = localStorage.getItem('user');
+    let internalBalance = 0;
+    
+    if (userStr) {
+        try {
+            const user = JSON.parse(userStr);
+            internalBalance = user.internalBalance || 0;
+        } catch (error) {
+            console.error('Error getting user balance:', error);
+        }
+    }
+    
+    const ethPrice = getCurrentEthPrice();
+    const usdValue = (parseFloat(internalBalance) * ethPrice).toFixed(2);
+    
+    console.log('💵 Updating USD display - Balance:', internalBalance, 'ETH Price:', ethPrice, 'USD:', usdValue);
+    
+    const balanceUsdElement = document.getElementById('balanceUSD');
+    if (balanceUsdElement) {
+        balanceUsdElement.textContent = `$${usdValue} USD`;
+        
+        balanceUsdElement.style.transition = 'color 0.3s ease';
+        balanceUsdElement.style.color = '#10b981';
+        setTimeout(() => {
+            balanceUsdElement.style.color = '#888';
+        }, 500);
+    }
+}
+
+// Get current ETH price
+function getCurrentEthPrice() {
+    if (window.ethPriceService && window.ethPriceService.currentPrice) {
+        return window.ethPriceService.currentPrice;
+    } else if (window.ETH_PRICE) {
+        return window.ETH_PRICE;
+    } else {
+        const cached = localStorage.getItem('ethPriceCache');
+        if (cached) {
+            try {
+                const cacheData = JSON.parse(cached);
+                return cacheData.price || 2500;
+            } catch (e) {
+                return 2500;
+            }
+        }
+        return 2500;
+    }
+}
+
+// Update wallet balance
+function updateWalletBalance() {
+    const userStr = localStorage.getItem('user');
+    
+    if (userStr) {
+        try {
+            const user = JSON.parse(userStr);
+            const internalBalance = user.internalBalance || 0;
+            
+            console.log('💰 Current balance:', internalBalance);
+            
+            const balanceAmount = document.getElementById('balanceAmount');
+            if (balanceAmount) {
+                balanceAmount.textContent = `${parseFloat(internalBalance).toFixed(4)} ETH`;
+            }
+            
+            updateEthPriceAndValue();
+            
+        } catch (error) {
+            console.error('Error parsing user data:', error);
+        }
+    }
+}
+
+// Load address from localStorage immediately
+function loadAddressFromLocalStorage() {
+    console.log('🔍 Checking localStorage for address...');
+    
     const userStr = localStorage.getItem('user');
     if (!userStr) {
-        console.error('❌ No user data found');
-        document.getElementById('walletAddress').textContent = 'Please login first';
+        console.log('❌ No user data in localStorage');
         return;
     }
     
     try {
         const user = JSON.parse(userStr);
-        console.log('👤 User data:', user);
+        console.log('👤 User from localStorage:', user);
         
-        // ✅ USE depositAddress (the real Ethereum address)
-        const walletAddress = user.depositAddress;
+        const possibleAddressFields = [
+            'depositAddress',
+            'walletAddress', 
+            'ethAddress',
+            'address',
+            'publicAddress',
+            'systemWalletAddress',
+            'deposit_address',
+            'wallet_address',
+            'eth_wallet'
+        ];
         
-        if (walletAddress) {
-            console.log('✅ Found deposit address:', walletAddress);
+        let foundAddress = null;
+        
+        for (const field of possibleAddressFields) {
+            if (user[field]) {
+                foundAddress = user[field];
+                console.log(`✅ Found address in field '${field}':`, foundAddress);
+                break;
+            }
+        }
+        
+        if (foundAddress) {
+            updateAddressDisplay(foundAddress);
+            window.userAddress = foundAddress;
+            generateQRCode(foundAddress);
+        }
+        // ✅ REMOVED: No error message shown here
+        
+    } catch (error) {
+        console.error('❌ Error parsing user from localStorage:', error);
+        // Keep showing loading state
+    }
+}
+
+// Fetch address from backend
+async function fetchAddressFromBackend() {
+    console.log('📡 Fetching address from backend...');
+    
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('No token');
+        }
+        
+        console.log('🔑 Making API request to /api/user/me/profile');
+        
+        const response = await fetch('/api/user/me/profile', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('📥 API Response status:', response.status);
+        
+        if (!response.ok) {
+            if (response.status === 401) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login?redirect=add-eth';
+                return;
+            }
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📦 API Response data:', data);
+        
+        if (data.success && data.user) {
+            const user = data.user;
+            console.log('👤 User from backend:', user);
             
-            // Update display
-            const addressElement = document.getElementById('walletAddress');
-            if (addressElement) {
-                addressElement.textContent = walletAddress;
+            const possibleAddressFields = [
+                'depositAddress',
+                'walletAddress', 
+                'ethAddress',
+                'address',
+                'publicAddress',
+                'systemWalletAddress',
+                'deposit_address',
+                'wallet_address',
+                'eth_wallet'
+            ];
+            
+            let foundAddress = null;
+            let foundField = null;
+            
+            for (const field of possibleAddressFields) {
+                if (user[field]) {
+                    foundAddress = user[field];
+                    foundField = field;
+                    console.log(`✅ Found address in field '${foundField}':`, foundAddress);
+                    break;
+                }
             }
             
-            // Store for QR code generation
-            window.userWalletAddress = walletAddress;
-            
-        } else {
-            console.error('❌ No depositAddress in user data');
-            console.log('Available fields:', Object.keys(user));
-            document.getElementById('walletAddress').textContent = 'No wallet address found';
+            if (foundAddress) {
+                // Update localStorage
+                const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+                currentUser.depositAddress = foundAddress;
+                currentUser.internalBalance = user.internalBalance || currentUser.internalBalance || 0;
+                localStorage.setItem('user', JSON.stringify(currentUser));
+                
+                // Update display
+                updateAddressDisplay(foundAddress);
+                window.userAddress = foundAddress;
+                generateQRCode(foundAddress);
+                
+                // Update balance and USD
+                updateWalletBalance();
+                updateEthPriceAndValue();
+                
+                console.log('✅ Address loaded successfully:', foundAddress);
+                
+            } else {
+                console.log('⏳ No address found yet - this is normal for new accounts');
+                // ✅ REMOVED: No error message shown here
+                // Just keep showing the loading state
+            }
         }
+        
     } catch (error) {
-        console.error('❌ Error parsing user data:', error);
-        document.getElementById('walletAddress').textContent = 'Error loading wallet';
+        console.error('❌ Error fetching from backend:', error);
+        // ✅ REMOVED: No error message shown here
+        // Just keep showing the loading state
     }
 }
 
-// Get user's wallet address (for QR code)
-function getUserWalletAddress() {
-    return window.userWalletAddress || 'Please login to see address';
-}
-
-// Set up all event listeners
-function setupEventListeners() {
-    // Copy address button
-    const copyBtn = document.getElementById('copyAddressBtn');
-    if (copyBtn) {
-        copyBtn.addEventListener('click', copyWalletAddress);
-    }
+// Update address display
+function updateAddressDisplay(address) {
+    const addressElement = document.getElementById('walletAddress');
+    if (!addressElement) return;
     
-    // MetaMask button
-    const metamaskBtn = document.getElementById('openMetaMaskBtn');
-    if (metamaskBtn) {
-        metamaskBtn.addEventListener('click', openMetaMaskSite);
-    }
-    
-    // Show instructions button
-    const showInstructionsBtn = document.getElementById('showInstructionsBtn');
-    if (showInstructionsBtn) {
-        showInstructionsBtn.addEventListener('click', toggleInstructions);
-    }
-    
-    // Close instructions button
-    const closeInstructionsBtn = document.getElementById('closeInstructionsBtn');
-    if (closeInstructionsBtn) {
-        closeInstructionsBtn.addEventListener('click', hideInstructions);
-    }
-    
-    // Exchange logo click handlers
-    document.querySelectorAll('.exchange-logo').forEach(logo => {
-        logo.addEventListener('click', function() {
-            const exchangeName = this.querySelector('span').textContent;
-            console.log(`Opening ${exchangeName} exchange`);
-        });
-    });
-    
-    // Listen for balance updates from other pages
-    window.addEventListener('storage', function(event) {
-        if (event.key === 'user') {
-            updateWalletBalance();
-            updateEthPriceAndValue();
-            loadUserWalletAddress(); // Reload address if changed
-        }
-    });
-    
-    // Show network comparison warnings
-    document.querySelectorAll('.incompatible').forEach(row => {
-        row.addEventListener('click', function() {
-            showNotification('This network is NOT compatible! Funds sent here will be lost.', 'error', 5000);
-        });
-    });
-}
-
-// SIMPLE, RELIABLE QR CODE FUNCTION
-function generateQRCode() {
-    console.log('🔳 Generating QR Code...');
-    
-    const walletAddress = getUserWalletAddress();
-    
-    // Don't generate QR for placeholder text
-    if (!walletAddress || walletAddress.includes('Please login') || walletAddress.includes('No wallet')) {
-        console.log('⏸️ Skipping QR generation - waiting for valid address');
-        return;
-    }
-    
-    const qrContainer = document.getElementById('qrCode');
-    if (!qrContainer) {
-        console.error('❌ QR Code container not found!');
-        return;
-    }
-    
-    // Clear container and show loading
-    qrContainer.innerHTML = `
-        <div class="qr-loading" style="text-align: center; padding: 40px; color: #666;">
-            <i class="fas fa-spinner fa-spin" style="font-size: 30px; margin-bottom: 10px; color: #8a2be2;"></i>
-            <p>Loading QR Code...</p>
-        </div>
+    addressElement.textContent = address;
+    addressElement.style.cssText = `
+        color: #8a2be2;
+        font-weight: 600;
+        font-family: monospace;
+        font-size: 14px;
+        word-break: break-all;
+        padding: 8px;
+        background: #f8f5ff;
+        border-radius: 8px;
+        border: 1px solid #e2d9f0;
+        font-style: normal;
     `;
     
-    // Use reliable QR code service with fallback
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(walletAddress)}&format=png&color=000000&bgcolor=FFFFFF&margin=10`;
+    console.log('✅ Address display updated');
+}
+
+// Generate QR code
+function generateQRCode(address) {
+    console.log('🔳 Generating QR code for:', address);
     
-    // Create image element
+    const qrContainer = document.getElementById('qrCode');
+    if (!qrContainer) return;
+    
+    qrContainer.innerHTML = '';
+    
     const qrImage = new Image();
-    qrImage.src = qrUrl;
+    qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(address)}&format=png&color=000000&bgcolor=FFFFFF&margin=10`;
     qrImage.alt = "Ethereum Wallet QR Code";
     qrImage.style.cssText = `
         width: 250px;
@@ -175,67 +357,60 @@ function generateQRCode() {
         transition: all 0.3s ease;
     `;
     qrImage.title = "Click to copy address";
-    
-    // Add click to copy functionality
     qrImage.onclick = copyWalletAddress;
     
-    // Add hover effects
-    qrImage.addEventListener('mouseover', function() {
-        this.style.transform = "scale(1.03)";
-        this.style.boxShadow = "0 8px 30px rgba(0,0,0,0.15)";
-    });
-    
-    qrImage.addEventListener('mouseout', function() {
-        this.style.transform = "scale(1)";
-        this.style.boxShadow = "0 4px 20px rgba(0,0,0,0.1)";
-    });
-    
-    // Add load event
-    qrImage.addEventListener('load', function() {
-        console.log('✅ QR Code loaded successfully!');
-        qrContainer.innerHTML = '';
+    qrImage.onload = () => {
         qrContainer.appendChild(qrImage);
-    });
+        console.log('✅ QR code generated successfully');
+    };
     
-    // Add error handling with fallback
-    qrImage.addEventListener('error', function() {
-        console.warn('QR Server failed, using Google Charts fallback...');
-        const fallbackUrl = `https://chart.googleapis.com/chart?chs=250x250&cht=qr&chl=${encodeURIComponent(walletAddress)}&choe=UTF-8`;
-        this.src = fallbackUrl;
-    });
+    qrImage.onerror = () => {
+        console.log('⚠️ QR generation failed, showing fallback');
+        
+        qrContainer.innerHTML = `
+            <div style="text-align: center;">
+                <div style="
+                    background: #f8f5ff;
+                    padding: 20px;
+                    border-radius: 12px;
+                    border: 2px dashed #8a2be2;
+                    margin-bottom: 10px;
+                ">
+                    <i class="fas fa-qrcode" style="font-size: 48px; color: #8a2be2;"></i>
+                    <p style="margin: 10px 0; font-family: monospace; word-break: break-all;">
+                        ${address}
+                    </p>
+                </div>
+                <button onclick="copyWalletAddress()" style="
+                    background: #8a2be2;
+                    color: white;
+                    border: none;
+                    padding: 8px 16px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                ">
+                    <i class="fas fa-copy"></i> Copy Address
+                </button>
+            </div>
+        `;
+    };
 }
 
-// ========== FIXED COPY WALLET ADDRESS FUNCTION ==========
+// Copy wallet address
 function copyWalletAddress() {
     console.log('📋 Copy button clicked');
     
-    // Get wallet address from the page
-    const addressElement = document.getElementById('walletAddress');
-    if (!addressElement) {
-        console.error('❌ Wallet address element not found');
-        showNotification('❌ Wallet address not found', 'error');
+    const address = window.userAddress || document.getElementById('walletAddress')?.textContent;
+    
+    if (!address || address.includes('Loading') || address.includes('loading') || address.includes('spinner')) {
+        console.error('❌ No valid address to copy yet');
+        showNotification('Wallet address is still loading...', 'info', 2000);
         return;
     }
     
-    const walletAddress = addressElement.textContent.trim();
-    console.log('📋 Wallet address to copy:', walletAddress);
-    
-    // Don't copy if it's a placeholder
-    if (!walletAddress || 
-        walletAddress === 'Please login first' || 
-        walletAddress === 'No wallet address found' || 
-        walletAddress === 'Error loading wallet' ||
-        walletAddress.includes('Loading')) {
-        console.error('❌ Invalid wallet address:', walletAddress);
-        showNotification('❌ Wallet address not available', 'error');
-        return;
-    }
-    
-    // Copy to clipboard
-    navigator.clipboard.writeText(walletAddress).then(() => {
-        console.log('✅ Address copied successfully');
+    navigator.clipboard.writeText(address).then(() => {
+        console.log('✅ Address copied:', address);
         
-        // Show feedback on copy button
         const copyBtn = document.getElementById('copyAddressBtn');
         if (copyBtn) {
             const originalHTML = copyBtn.innerHTML;
@@ -248,54 +423,66 @@ function copyWalletAddress() {
             }, 2000);
         }
         
-        // Visual feedback on QR code
-        const qrImage = document.querySelector('#qrCode img');
-        if (qrImage) {
-            qrImage.style.borderColor = '#10b981';
-            qrImage.style.transform = 'scale(0.95)';
-            
-            setTimeout(() => {
-                qrImage.style.borderColor = '#e2e8f0';
-                qrImage.style.transform = 'scale(1)';
-            }, 500);
-        }
-        
-        showNotification('✅ Wallet address copied!', 'success', 2000);
+        showNotification('Wallet address copied!', 'success', 2000);
     }).catch(err => {
         console.error('❌ Failed to copy:', err);
-        showNotification('❌ Failed to copy. Please copy manually.', 'error');
+        showNotification('Failed to copy address', 'error');
     });
 }
 
-// Open official MetaMask website
-function openMetaMaskSite() {
-    console.log('🦊 Opening MetaMask official website');
-    window.open('https://metamask.io/', '_blank');
-    showNotification('Opening MetaMask official website...', 'info', 3000);
+// Setup event listeners
+function setupEventListeners() {
+    const copyBtn = document.getElementById('copyAddressBtn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', copyWalletAddress);
+    }
+    
+    const metamaskBtn = document.getElementById('openMetaMaskBtn');
+    if (metamaskBtn) {
+        metamaskBtn.addEventListener('click', () => {
+            window.open('https://metamask.io/', '_blank');
+        });
+    }
+    
+    const showInstructionsBtn = document.getElementById('showInstructionsBtn');
+    if (showInstructionsBtn) {
+        showInstructionsBtn.addEventListener('click', toggleInstructions);
+    }
+    
+    const closeInstructionsBtn = document.getElementById('closeInstructionsBtn');
+    if (closeInstructionsBtn) {
+        closeInstructionsBtn.addEventListener('click', hideInstructions);
+    }
+    
+    document.querySelectorAll('.incompatible').forEach(row => {
+        row.addEventListener('click', () => {
+            showNotification('This network is NOT compatible! Funds sent here will be lost.', 'error', 5000);
+        });
+    });
+    
+    window.addEventListener('storage', (event) => {
+        if (event.key === 'user') {
+            console.log('📦 User data updated in another tab');
+            loadAddressFromLocalStorage();
+            updateWalletBalance();
+            updateEthPriceAndValue();
+        }
+    });
 }
 
-// Toggle instructions visibility
+// Toggle instructions
 function toggleInstructions() {
     const instructions = document.getElementById('transferInstructions');
     const showInstructionsBtn = document.getElementById('showInstructionsBtn');
     
     if (!instructionsVisible) {
-        // Show instructions
         instructions.style.display = 'block';
         instructionsVisible = true;
         
-        // Update button text
         if (showInstructionsBtn) {
             showInstructionsBtn.innerHTML = '<i class="fas fa-times"></i> Hide Instructions';
             showInstructionsBtn.style.background = '#6b7280';
         }
-        
-        console.log('📖 Instructions shown');
-        
-        // Smooth scroll to instructions
-        setTimeout(() => {
-            instructions.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }, 100);
     } else {
         hideInstructions();
     }
@@ -311,225 +498,63 @@ function hideInstructions() {
         instructionsVisible = false;
     }
     
-    // Reset button text
     if (showInstructionsBtn) {
         showInstructionsBtn.innerHTML = '<i class="fas fa-university"></i> Show Instructions';
         showInstructionsBtn.style.background = '';
     }
-    
-    console.log('📖 Instructions hidden');
-}
-
-// Update wallet balance from localStorage - UPDATED to use internalBalance
-function updateWalletBalance() {
-    // Get user from localStorage
-    const userStr = localStorage.getItem('user');
-    
-    if (userStr) {
-        try {
-            const user = JSON.parse(userStr);
-            // ✅ USE internalBalance (not ethBalance/balance)
-            const internalBalance = user.internalBalance || 0;
-            
-            console.log('💰 Current internal balance:', internalBalance);
-            
-            // Update ETH balance display
-            const balanceAmount = document.getElementById('balanceAmount');
-            if (balanceAmount) {
-                balanceAmount.textContent = `${parseFloat(internalBalance).toFixed(4)} ETH`;
-            }
-            
-        } catch (error) {
-            console.error('Error parsing user data:', error);
-        }
-    } else {
-        // Default display if no user
-        const balanceAmount = document.getElementById('balanceAmount');
-        if (balanceAmount) {
-            balanceAmount.textContent = '0.0000 ETH';
-        }
-    }
-}
-
-// Update ETH price and calculate USD value
-function updateEthPriceAndValue() {
-    // Get user data
-    const userStr = localStorage.getItem('user');
-    let internalBalance = 0;
-    
-    if (userStr) {
-        try {
-            const user = JSON.parse(userStr);
-            // ✅ USE internalBalance
-            internalBalance = user.internalBalance || 0;
-        } catch (error) {
-            console.error('Error getting user balance:', error);
-        }
-    }
-    
-    // Get current ETH price
-    const ethPrice = getCurrentEthPrice();
-    const usdValue = (parseFloat(internalBalance) * ethPrice).toFixed(2);
-    
-    // Update USD display
-    const balanceUsdElement = document.getElementById('balanceUSD');
-    if (balanceUsdElement) {
-        balanceUsdElement.textContent = `$${usdValue} USD`;
-    }
-    
-    // Log for debugging
-    console.log('💵 ETH Price:', ethPrice, 'Balance:', internalBalance, 'USD Value:', usdValue);
-}
-
-// Get current ETH price from available sources
-function getCurrentEthPrice() {
-    // Priority 1: Use ethPriceService (live price)
-    if (window.ethPriceService && window.ethPriceService.currentPrice) {
-        return window.ethPriceService.currentPrice;
-    }
-    // Priority 2: Use global variable
-    else if (window.ETH_PRICE) {
-        return window.ETH_PRICE;
-    }
-    // Priority 3: Try localStorage cache
-    else {
-        const cached = localStorage.getItem('ethPriceCache');
-        if (cached) {
-            try {
-                const cacheData = JSON.parse(cached);
-                return cacheData.price || 2500;
-            } catch (e) {
-                return 2500;
-            }
-        }
-        return 2500; // Default fallback
-    }
-}
-
-// Listen for price updates from ethPriceService
-function listenForPriceUpdates() {
-    if (!window.ethPriceService) {
-        // Try again after 1 second
-        setTimeout(listenForPriceUpdates, 1000);
-        return;
-    }
-    
-    // Subscribe to price updates
-    window.ethPriceService.subscribe((newPrice) => {
-        console.log('🔄 Add-ETH page received price update:', newPrice);
-        updateEthPriceAndValue();
-    });
-    
-    // Force initial update
-    setTimeout(() => {
-        if (window.ethPriceService) {
-            window.ethPriceService.updateAllDisplays();
-        }
-    }, 1500);
 }
 
 // Show notification
 function showNotification(message, type = 'info', duration = 3000) {
-    // Remove existing notification
-    const existingNotification = document.querySelector('.eth-notification');
-    if (existingNotification) {
-        existingNotification.remove();
-    }
+    const existing = document.querySelector('.eth-notification');
+    if (existing) existing.remove();
     
-    // Create notification element
     const notification = document.createElement('div');
-    notification.className = `eth-notification eth-notification-${type}`;
+    notification.className = 'eth-notification';
     
-    // Set icon based on type
-    let icon = 'info-circle';
-    if (type === 'success') icon = 'check-circle';
-    if (type === 'error') icon = 'exclamation-circle';
-    if (type === 'warning') icon = 'exclamation-triangle';
+    const colors = {
+        success: '#10b981',
+        error: '#ef4444',
+        warning: '#f59e0b',
+        info: '#3b82f6'
+    };
     
-    notification.innerHTML = `
-        <i class="fas fa-${icon}"></i>
-        <span>${message}</span>
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 8px;
+        background: ${colors[type] || colors.info};
+        color: white;
+        z-index: 9999;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateX(150%);
+        transition: transform 0.3s ease;
+        max-width: 400px;
     `;
     
-    // Add styles if not already present
-    if (!document.querySelector('#notification-styles')) {
-        const styles = document.createElement('style');
-        styles.id = 'notification-styles';
-        styles.textContent = `
-            .eth-notification {
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                padding: 12px 20px;
-                border-radius: 8px;
-                background: white;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                z-index: 1000;
-                transform: translateX(150%);
-                transition: transform 0.3s ease;
-                max-width: 400px;
-            }
-            .eth-notification.show {
-                transform: translateX(0);
-            }
-            .eth-notification-success {
-                border-left: 4px solid #10b981;
-                color: #065f46;
-            }
-            .eth-notification-error {
-                border-left: 4px solid #ef4444;
-                color: #991b1b;
-            }
-            .eth-notification-warning {
-                border-left: 4px solid #f59e0b;
-                color: #92400e;
-            }
-            .eth-notification-info {
-                border-left: 4px solid #3b82f6;
-                color: #1e40af;
-            }
-        `;
-        document.head.appendChild(styles);
-    }
-    
-    // Add to page
+    notification.textContent = message;
     document.body.appendChild(notification);
     
-    // Show with animation
     setTimeout(() => {
-        notification.classList.add('show');
+        notification.style.transform = 'translateX(0)';
     }, 10);
     
-    // Remove after duration
     setTimeout(() => {
-        notification.classList.remove('show');
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.remove();
-            }
-        }, 300);
+        notification.style.transform = 'translateX(150%)';
+        setTimeout(() => notification.remove(), 300);
     }, duration);
 }
 
+// Clean up on page unload
+window.addEventListener('beforeunload', function() {
+    if (priceUpdateListener && window.ethPriceService) {
+        window.ethPriceService.unsubscribe(priceUpdateListener);
+    }
+});
+
 // Make functions globally available
 window.copyWalletAddress = copyWalletAddress;
-window.openMetaMaskSite = openMetaMaskSite;
 window.toggleInstructions = toggleInstructions;
 window.hideInstructions = hideInstructions;
-window.simulateETHPurchase = simulateETHPurchase;
-window.showExchangeGuide = showExchangeGuide;
-
-// QR Code click handler for the hardcoded image in HTML
-if (document.getElementById('qrCode')) {
-    document.getElementById('qrCode').addEventListener('click', function(e) {
-        if (e.target.tagName === 'IMG') {
-            copyWalletAddress();
-        }
-    });
-}
-
-// Remove simulateETHPurchase function since it's not needed anymore
-// (keeping it for backward compatibility but it won't be used)
