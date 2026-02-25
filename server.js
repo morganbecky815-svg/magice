@@ -84,6 +84,42 @@ async function initRedis() {
             console.log('✅ Redis connected and ready on Railway!');
             redisReady = true;
         });
+
+        // Add this to your server.js
+app.get('/api/eth-price/nuke-cache', async (req, res) => {
+    try {
+      if (redisReady && redisClient) {
+        // Delete ALL possible price keys
+        await redisClient.del('eth:price');
+        await redisClient.del('eth:price:time');
+        await redisClient.del('eth_price');
+        await redisClient.del('ethereum_price');
+        await redisClient.del('price:eth');
+        
+        // Fetch fresh price
+        const response = await axios.get(
+          'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd',
+          { timeout: 5000 }
+        );
+        
+        const freshPrice = response.data.ethereum.usd;
+        
+        // Save to ALL possible key formats to ensure it sticks
+        await redisClient.set('eth:price', freshPrice.toString());
+        await redisClient.set('eth_price', freshPrice.toString());
+        await redisClient.set('price:eth', freshPrice.toString());
+        await redisClient.set('eth:price:time', Date.now().toString());
+        
+        res.json({
+          success: true,
+          message: 'Cache nuked and reset',
+          price: freshPrice
+        });
+      }
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
         
         await Promise.race([
             redisClient.connect(),
@@ -1227,108 +1263,268 @@ app.get('/api/test-user-routes', async (req, res) => {
 });
 
 // ========================
-// ETH PRICE ENDPOINT
+// ETH PRICE ENDPOINT - ULTRA DEBUG VERSION
 // ========================
 app.get('/api/eth-price', async (req, res) => {
-  console.log('🌐 ETH price request received');
-  
-  try {
-    let cachedPrice = null;
-    let cachedTime = null;
-    
-    if (redisReady && redisClient) {
-      try {
-        cachedPrice = await redisClient.get('eth:price');
-        cachedTime = await redisClient.get('eth:price:time');
-        console.log('📦 Redis cache:', cachedPrice ? 'HIT' : 'MISS');
-      } catch (redisErr) {
-        console.log('⚠️ Redis cache error:', redisErr.message);
-      }
-    }
-    
-    const now = Date.now();
-    const CACHE_DURATION = 60000;
-    
-    if (cachedPrice && cachedTime && (now - parseInt(cachedTime)) < CACHE_DURATION) {
-      return res.json({
-        success: true,
-        price: parseFloat(cachedPrice),
-        cached: true,
-        timestamp: cachedTime,
-        source: 'redis-cache'
-      });
-    }
-    
-    console.log('🔄 Fetching fresh ETH price from CoinGecko...');
+    console.log('\n' + '='.repeat(50));
+    console.log('🌐 ETH PRICE REQUEST RECEIVED at', new Date().toISOString());
+    console.log('='.repeat(50));
     
     try {
-      const response = await axios.get(
-        'https://api.coingecko.com/api/v3/simple/price',
-        {
-          params: {
-            ids: 'ethereum',
-            vs_currencies: 'usd'
-          },
-          headers: {
-            'User-Agent': 'MagicEden-NFT-Marketplace/1.0',
-            'Accept': 'application/json'
-          },
-          timeout: 10000
+        // ============================================
+        // STEP 1: CHECK REDIS CACHE
+        // ============================================
+        let cachedPrice = null;
+        let cachedTime = null;
+        let redisStatus = 'NOT READY';
+        
+        if (redisReady && redisClient) {
+            redisStatus = 'READY';
+            try {
+                console.log('📦 Checking Redis cache...');
+                cachedPrice = await redisClient.get('eth:price');
+                cachedTime = await redisClient.get('eth:price:time');
+                
+                console.log(`   ├─ Raw cached price: "${cachedPrice}"`);
+                console.log(`   ├─ Raw cached time: "${cachedTime}"`);
+                console.log(`   └─ Parsed price: ${cachedPrice ? parseFloat(cachedPrice) : 'null'}`);
+                
+            } catch (redisErr) {
+                console.log('⚠️ Redis read error:', redisErr.message);
+            }
+        } else {
+            console.log('📦 Redis not ready, skipping cache');
         }
-      );
-      
-      const data = response.data;
-      const price = data.ethereum?.usd || 2500;
-      console.log('✅ CoinGecko response:', price);
-      
-      if (redisReady && redisClient) {
+        
+        // ============================================
+        // STEP 2: CHECK FOR BAD CACHE VALUES
+        // ============================================
+        const now = Date.now();
+        const CACHE_DURATION = 60000; // 1 minute
+        
+        // 🚨 AGGRESSIVELY DELETE ANY BAD CACHE
+        if (cachedPrice) {
+            const priceValue = parseFloat(cachedPrice);
+            
+            // If price is invalid (not between 1000-5000)
+            if (priceValue < 1000 || priceValue > 5000) {
+                console.log(`🔥🔥🔥 BAD CACHE DETECTED: ${priceValue} - DELETING!`);
+                
+                if (redisReady && redisClient) {
+                    try {
+                        await redisClient.del('eth:price');
+                        await redisClient.del('eth:price:time');
+                        await redisClient.del('eth_price');
+                        await redisClient.del('price:eth');
+                        console.log('✅ Bad cache keys deleted');
+                        
+                        // Reset variables
+                        cachedPrice = null;
+                        cachedTime = null;
+                    } catch (delErr) {
+                        console.log('❌ Failed to delete bad cache:', delErr.message);
+                    }
+                }
+            } else {
+                console.log(`✅ Cached price is valid: ${priceValue}`);
+            }
+        }
+        
+        // ============================================
+        // STEP 3: TRY TO USE VALID CACHE
+        // ============================================
+        if (cachedPrice && cachedTime && (now - parseInt(cachedTime)) < CACHE_DURATION) {
+            const priceValue = parseFloat(cachedPrice);
+            
+            // Double-check validation
+            if (priceValue > 1000 && priceValue < 5000) {
+                console.log(`✅ USING VALID CACHED PRICE: $${priceValue}`);
+                console.log(`   ├─ Cache age: ${((now - parseInt(cachedTime))/1000).toFixed(0)} seconds`);
+                console.log(`   └─ Returning cached response`);
+                
+                return res.json({
+                    success: true,
+                    price: priceValue,
+                    cached: true,
+                    timestamp: cachedTime,
+                    source: 'redis-cache'
+                });
+            }
+        }
+        
+        // ============================================
+        // STEP 4: FETCH FRESH PRICE FROM APIs
+        // ============================================
+        console.log('🔄 Fetching fresh ETH price...');
+        
+        let price = 2500;
+        let source = 'fallback';
+        let apiResults = [];
+        
+        // TRY COINGECKO FIRST
         try {
-          await redisClient.set('eth:price', price.toString());
-          await redisClient.set('eth:price:time', now.toString());
-          console.log('💾 Price saved to Redis cache');
-        } catch (setErr) {
-          console.log('⚠️ Could not save to Redis:', setErr.message);
+            console.log('   ├─ Trying CoinGecko...');
+            const startTime = Date.now();
+            
+            const response = await axios.get(
+                'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd',
+                {
+                    timeout: 5000,
+                    headers: {
+                        'User-Agent': 'MagicEden-NFT-Marketplace/1.0',
+                        'Accept': 'application/json'
+                    }
+                }
+            );
+            
+            const latency = Date.now() - startTime;
+            console.log(`   ├─ CoinGecko responded in ${latency}ms`);
+            
+            if (response.data && response.data.ethereum && response.data.ethereum.usd) {
+                const fetchedPrice = response.data.ethereum.usd;
+                console.log(`   ├─ CoinGecko raw price: ${fetchedPrice}`);
+                
+                if (fetchedPrice > 1000 && fetchedPrice < 5000) {
+                    price = fetchedPrice;
+                    source = 'coingecko';
+                    apiResults.push(`✅ CoinGecko: $${price} (${latency}ms)`);
+                    console.log(`   ✅ Valid CoinGecko price: $${price}`);
+                } else {
+                    apiResults.push(`❌ CoinGecko: invalid price ${fetchedPrice}`);
+                }
+            }
+        } catch (coingeckoError) {
+            console.log(`   ❌ CoinGecko failed: ${coingeckoError.message}`);
+            apiResults.push(`❌ CoinGecko: ${coingeckoError.message}`);
         }
-      }
-      
-      return res.json({
-        success: true,
-        price: price,
-        cached: false,
-        timestamp: now,
-        source: 'coingecko-fresh'
-      });
-      
-    } catch (axiosError) {
-      console.error('❌ Axios CoinGecko error:', axiosError.message);
-      
-      if (cachedPrice) {
-        console.log('⚠️ Using stale cache due to CoinGecko error');
-        return res.json({
-          success: true,
-          price: parseFloat(cachedPrice),
-          cached: true,
-          stale: true,
-          timestamp: cachedTime,
-          source: 'stale-cache-error'
+        
+        // IF COINGECKO FAILED, TRY BINANCE
+        if (source === 'fallback') {
+            try {
+                console.log('   ├─ Trying Binance as fallback...');
+                const startTime = Date.now();
+                
+                const binanceResponse = await axios.get(
+                    'https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT',
+                    { timeout: 3000 }
+                );
+                
+                const latency = Date.now() - startTime;
+                console.log(`   ├─ Binance responded in ${latency}ms`);
+                
+                if (binanceResponse.data && binanceResponse.data.price) {
+                    const binancePrice = parseFloat(binanceResponse.data.price);
+                    console.log(`   ├─ Binance raw price: ${binancePrice}`);
+                    
+                    if (binancePrice > 1000 && binancePrice < 5000) {
+                        price = binancePrice;
+                        source = 'binance';
+                        apiResults.push(`✅ Binance: $${price} (${latency}ms)`);
+                        console.log(`   ✅ Valid Binance price: $${price}`);
+                    }
+                }
+            } catch (binanceError) {
+                console.log(`   ❌ Binance failed: ${binanceError.message}`);
+                apiResults.push(`❌ Binance: ${binanceError.message}`);
+            }
+        }
+        
+        // IF BINANCE FAILED, TRY KRAKEN
+        if (source === 'fallback') {
+            try {
+                console.log('   ├─ Trying Kraken as fallback...');
+                const startTime = Date.now();
+                
+                const krakenResponse = await axios.get(
+                    'https://api.kraken.com/0/public/Ticker?pair=ETHUSD',
+                    { timeout: 3000 }
+                );
+                
+                const latency = Date.now() - startTime;
+                console.log(`   ├─ Kraken responded in ${latency}ms`);
+                
+                if (krakenResponse.data && krakenResponse.data.result) {
+                    const krakenData = krakenResponse.data.result;
+                    const pair = krakenData.XETHZUSD || krakenData.ETHUSD;
+                    if (pair && pair.c && pair.c[0]) {
+                        const krakenPrice = parseFloat(pair.c[0]);
+                        console.log(`   ├─ Kraken raw price: ${krakenPrice}`);
+                        
+                        if (krakenPrice > 1000 && krakenPrice < 5000) {
+                            price = krakenPrice;
+                            source = 'kraken';
+                            apiResults.push(`✅ Kraken: $${price} (${latency}ms)`);
+                            console.log(`   ✅ Valid Kraken price: $${price}`);
+                        }
+                    }
+                }
+            } catch (krakenError) {
+                console.log(`   ❌ Kraken failed: ${krakenError.message}`);
+                apiResults.push(`❌ Kraken: ${krakenError.message}`);
+            }
+        }
+        
+        // ============================================
+        // STEP 5: SAVE TO REDIS (ONLY IF VALID)
+        // ============================================
+        if (redisReady && redisClient && price > 1000 && price < 5000) {
+            try {
+                console.log('💾 Saving to Redis...');
+                await redisClient.set('eth:price', price.toString());
+                await redisClient.set('eth:price:time', now.toString());
+                
+                // Verify it was saved correctly
+                const verifyPrice = await redisClient.get('eth:price');
+                const verifyTime = await redisClient.get('eth:price:time');
+                console.log(`   ├─ Saved price: ${verifyPrice}`);
+                console.log(`   └─ Saved time: ${verifyTime}`);
+                
+            } catch (setErr) {
+                console.log('⚠️ Redis save error:', setErr.message);
+            }
+        } else {
+            console.log('⚠️ Not saving to Redis - price invalid or Redis not ready');
+        }
+        
+        // ============================================
+        // STEP 6: RETURN RESPONSE
+        // ============================================
+        console.log('\n📊 FINAL RESULT:');
+        console.log(`   ├─ Price: $${price}`);
+        console.log(`   ├─ Source: ${source}`);
+        console.log(`   └─ Timestamp: ${new Date(now).toISOString()}`);
+        
+        console.log('\n📋 API Results:');
+        apiResults.forEach((result, i) => {
+            console.log(`   ${i+1}. ${result}`);
         });
-      }
-      
-      throw new Error(`CoinGecko API error: ${axiosError.message}`);
+        
+        console.log('='.repeat(50) + '\n');
+        
+        return res.json({
+            success: true,
+            price: price,
+            source: source,
+            timestamp: now,
+            debug: {
+                redis: redisStatus,
+                cached_price: cachedPrice,
+                api_results: apiResults
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ FATAL ERROR:', error.message);
+        console.error(error.stack);
+        
+        return res.json({
+            success: true,
+            price: 2500,
+            source: 'error-fallback',
+            timestamp: Date.now(),
+            error: error.message
+        });
     }
-    
-  } catch (error) {
-    console.error('❌ ETH price endpoint error:', error.message);
-    
-    return res.json({
-      success: false,
-      price: 2500,
-      cached: false,
-      error: true,
-      message: 'Using default price',
-      timestamp: Date.now()
-    });
-  }
 });
 
 // ========================

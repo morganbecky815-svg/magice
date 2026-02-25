@@ -1,34 +1,31 @@
 /**
- * EthPriceService.js
+ * EthPriceService.js - Improved Version
  * Real-time Ethereum price tracker for web applications
- * Automatically updates ETH prices across all pages
  */
 
 class EthPriceService {
-  constructor() {
-    this.currentPrice = 2500; // Default fallback price
+  constructor(options = {}) {
+    this.currentPrice = 2000;
     this.lastUpdated = 0;
-    this.cacheDuration = 30000; // 30 seconds cache
+    this.cacheDuration = options.cacheDuration || 30000;
+    this.apiEndpoint = options.apiEndpoint || '/api/eth-price';
     this.isFetching = false;
     this.listeners = new Set();
     this.observer = null;
+    this.retryAttempts = options.retryAttempts || 3;
+    this._lastNotifiedPrice = null;
     
-    // Initialize dynamic content observer
-    this.setupDynamicObserver();
-    
-    // Load cached price from localStorage if available
     this.loadCachedPrice();
+    this.setupDynamicObserver();
   }
   
-  // Load price from localStorage on initialization
   loadCachedPrice() {
     try {
       const cached = localStorage.getItem('ethPriceCache');
       if (cached) {
         const { price, timestamp } = JSON.parse(cached);
         const now = Date.now();
-        // Use cache if less than 5 minutes old
-        if (now - timestamp < 300000) {
+        if (now - timestamp < 300000) { // 5 minutes
           this.currentPrice = price;
           this.lastUpdated = timestamp;
         }
@@ -38,16 +35,36 @@ class EthPriceService {
     }
   }
   
-  // Get price with intelligent caching
+  async fetchWithRetry(attempts = this.retryAttempts) {
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const response = await fetch(this.apiEndpoint, {
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
+        return await response.json();
+      } catch (error) {
+        if (i === attempts - 1) throw error;
+        
+        // Exponential backoff
+        const delay = Math.pow(2, i) * 1000;
+        console.log(`Retry ${i + 1}/${attempts} in ${delay}ms...`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+  }
+  
   async getPrice() {
     const now = Date.now();
     
-    // Return cached price if still valid
     if (now - this.lastUpdated < this.cacheDuration && this.currentPrice) {
       return this.currentPrice;
     }
     
-    // Prevent multiple simultaneous fetches
     if (this.isFetching) {
       return new Promise(resolve => {
         const check = () => {
@@ -66,24 +83,21 @@ class EthPriceService {
     try {
       console.log('🔄 Fetching ETH price from backend...');
       
-      const response = await fetch('/api/eth-price', {
-        headers: {
-          'Cache-Control': 'no-cache'
-        }
-      });
+      const data = await this.fetchWithRetry();
       
-      if (!response.ok) {
-        throw new Error(`Backend error: ${response.status}`);
+      if (!data || !data.price) {
+        throw new Error('Invalid price data');
       }
       
-      const data = await response.json();
       this.currentPrice = data.price;
       this.lastUpdated = now;
       
-      // Notify all listeners
-      this.notifyListeners();
+      localStorage.setItem('ethPriceCache', JSON.stringify({
+        price: this.currentPrice,
+        timestamp: now
+      }));
       
-      // Update all displays
+      this.notifyListeners();
       this.updatePriceDisplays(this.currentPrice);
       
       return this.currentPrice;
@@ -91,11 +105,10 @@ class EthPriceService {
     } catch (error) {
       console.warn('Failed to fetch ETH price:', error);
       
-      // Use localStorage as fallback cache
       const cached = localStorage.getItem('ethPriceCache');
       if (cached) {
         const { price, timestamp } = JSON.parse(cached);
-        if (now - timestamp < 300000) { // 5 minutes
+        if (now - timestamp < 300000) {
           this.currentPrice = price;
           this.updatePriceDisplays(this.currentPrice);
         }
@@ -107,239 +120,191 @@ class EthPriceService {
     }
   }
   
-  // Universal DOM updater for all pages
-  updatePriceDisplays(price) {
-    const formattedPrice = `$${price.toLocaleString(undefined, {
+  formatPrice(price) {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    })}`;
-    
-    // Format with 2 decimal places for calculations
+    }).format(price);
+  }
+  
+  updatePriceDisplays(price) {
+    const formattedPrice = this.formatPrice(price);
     const priceNumber = parseFloat(price);
     
-    // === METHOD 1: CSS Classes (Easiest - Use this in HTML) ===
-    const priceClasses = [
-      'eth-price',
-      'live-eth-price',
-      'eth-price-display',
-      'ethereum-price',
-      'crypto-price-ticker'
-    ];
-    
+    // Update by CSS classes
+    const priceClasses = ['eth-price', 'live-eth-price', 'eth-price-display'];
     priceClasses.forEach(className => {
       document.querySelectorAll(`.${className}`).forEach(el => {
         if (el.textContent !== formattedPrice) {
           el.textContent = formattedPrice;
-          el.classList.add('price-updated');
-          setTimeout(() => el.classList.remove('price-updated'), 1000);
+          this.addUpdateEffect(el);
         }
       });
     });
     
-    // === METHOD 2: Data Attributes (For ETH-to-USD conversion) ===
+    // Update by data attributes
     document.querySelectorAll('[data-eth-price]').forEach(el => {
       const ethAmount = parseFloat(el.getAttribute('data-eth-amount') || 1);
       const usdValue = ethAmount * priceNumber;
-      const formattedUSD = `$${usdValue.toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      })}`;
+      const formattedUSD = this.formatPrice(usdValue);
       
       if (el.textContent !== formattedUSD) {
         el.textContent = formattedUSD;
-        el.classList.add('price-updated');
-        setTimeout(() => el.classList.remove('price-updated'), 1000);
+        this.addUpdateEffect(el);
       }
     });
     
-    // === METHOD 3: Common Element IDs ===
-    const elementIds = [
-      'currentEthPrice', 'ethPriceDisplay', 'navEthPrice',
-      'headerEthPrice', 'footerEthPrice', 'sidebarEthPrice',
-      'ethPrice', 'ethereumPrice', 'cryptoPrice',
-      'priceTicker', 'marketPrice', 'livePrice'
-    ];
-    
+    // Update by IDs
+    const elementIds = ['currentEthPrice', 'ethPriceDisplay', 'navEthPrice'];
     elementIds.forEach(id => {
       const el = document.getElementById(id);
       if (el && el.textContent !== formattedPrice) {
         el.textContent = formattedPrice;
-        el.classList.add('price-updated');
-        setTimeout(() => el.classList.remove('price-updated'), 1000);
+        this.addUpdateEffect(el);
       }
     });
     
-    // === METHOD 4: Update timestamp display ===
-    const timeElements = document.querySelectorAll('.price-updated-time, .last-updated');
-    if (timeElements.length > 0) {
+    // Update timestamps
+    document.querySelectorAll('.price-updated-time, .last-updated').forEach(el => {
       const now = new Date();
-      const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      timeElements.forEach(el => {
-        el.textContent = timeString;
-      });
-    }
-    
-    // === METHOD 5: Update input placeholders ===
-    document.querySelectorAll('input[data-eth-placeholder]').forEach(input => {
-      const ethAmount = parseFloat(input.getAttribute('data-eth-placeholder') || 1);
-      const usdValue = ethAmount * priceNumber;
-      input.placeholder = `≈ $${usdValue.toFixed(2)} USD`;
+      el.textContent = now.toLocaleTimeString();
     });
     
-    // Update global variable
     window.ETH_PRICE = priceNumber;
   }
   
-  // Update all displays on the page
-  async updateAllDisplays() {
-    const price = await this.getPrice();
-    
-    // Store in localStorage as backup
-    localStorage.setItem('ethPriceCache', JSON.stringify({
-      price: price,
-      timestamp: Date.now()
-    }));
-    
-    return price;
+  addUpdateEffect(el) {
+    el.classList.add('price-updated');
+    setTimeout(() => el.classList.remove('price-updated'), 1000);
   }
   
-  // Setup observer for dynamically added content
   setupDynamicObserver() {
     this.observer = new MutationObserver((mutations) => {
       let shouldUpdate = false;
       
       mutations.forEach((mutation) => {
-        // Check if new nodes contain price-related elements
         mutation.addedNodes.forEach((node) => {
-          if (node.nodeType === 1) { // Element node
-            if (node.classList && (
-              node.classList.contains('eth-price') ||
-              node.classList.contains('live-eth-price') ||
-              node.hasAttribute('data-eth-price')
-            )) {
+          if (node.nodeType === 1) {
+            if (node.classList?.contains('eth-price') || 
+                node.hasAttribute?.('data-eth-price')) {
               shouldUpdate = true;
             }
             
-            // Check child elements
             if (node.querySelectorAll) {
               const priceElements = node.querySelectorAll(
-                '.eth-price, .live-eth-price, [data-eth-price]'
+                '.eth-price, [data-eth-price]'
               );
-              if (priceElements.length > 0) {
-                shouldUpdate = true;
-              }
+              if (priceElements.length > 0) shouldUpdate = true;
             }
           }
         });
       });
       
-      // Update prices if new elements were added
       if (shouldUpdate && this.currentPrice) {
         this.updatePriceDisplays(this.currentPrice);
       }
     });
     
-    // Start observing the document
     this.observer.observe(document.body, {
       childList: true,
       subtree: true
     });
   }
   
-  // Subscribe to price updates
   subscribe(callback) {
     this.listeners.add(callback);
-    // Immediately call with current price
     if (this.currentPrice) {
-      setTimeout(() => callback(this.currentPrice), 0);
+      setTimeout(() => callback(this.currentPrice, this._lastNotifiedPrice), 0);
     }
     return () => this.listeners.delete(callback);
   }
   
+  unsubscribe(callback) {
+    this.listeners.delete(callback);
+  }
+  
   notifyListeners() {
+    const oldPrice = this._lastNotifiedPrice;
     this.listeners.forEach(callback => {
       try {
-        callback(this.currentPrice);
+        callback(this.currentPrice, oldPrice);
       } catch (error) {
         console.error('Error in price listener:', error);
       }
     });
+    this._lastNotifiedPrice = this.currentPrice;
   }
   
-  // Start periodic updates
-  startAutoRefresh(interval = 60000) { // 1 minute default
+  startAutoRefresh(interval = 60000) {
     if (this.intervalId) clearInterval(this.intervalId);
     
-    // Update immediately
     this.updateAllDisplays();
     
-    // Set up interval
     this.intervalId = setInterval(() => {
       this.updateAllDisplays();
     }, interval);
     
-    // Also update when tab becomes visible
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
-        this.updateAllDisplays();
-      }
-    });
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
   }
   
-  // Stop updates
+  handleVisibilityChange = () => {
+    if (!document.hidden) {
+      this.updateAllDisplays();
+    }
+  };
+  
   stopAutoRefresh() {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
-    
-    // Remove visibility change listener
-    document.removeEventListener('visibilitychange', () => {});
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
   }
   
-  // Get current price without fetching
+  destroy() {
+    this.stopAutoRefresh();
+    this.observer?.disconnect();
+    this.listeners.clear();
+    this._lastNotifiedPrice = null;
+  }
+  
+  async updateAllDisplays() {
+    return await this.getPrice();
+  }
+  
   getCurrentPrice() {
     return this.currentPrice;
   }
   
-  // Manually set price (for testing)
   setPrice(price) {
     this.currentPrice = price;
     this.lastUpdated = Date.now();
     this.updatePriceDisplays(price);
     this.notifyListeners();
+    
+    localStorage.setItem('ethPriceCache', JSON.stringify({
+      price: price,
+      timestamp: Date.now()
+    }));
   }
   
-  // Convert ETH to USD
   convertToUSD(ethAmount) {
-    return ethAmount * (this.currentPrice || 2500);
-  }
-  
-  // Format USD value
-  formatUSD(value) {
-    return `$${value.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    })}`;
+    return ethAmount * (this.currentPrice ||2000 );
   }
 }
 
-// Create global instance
+// Create and initialize
 window.ethPriceService = new EthPriceService();
 
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', () => {
-  // Load price after a short delay
-  setTimeout(() => {
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
     window.ethPriceService.updateAllDisplays();
-  }, 500);
-  
-  // Start auto-refresh
-  window.ethPriceService.startAutoRefresh();
-});
-
-// Also initialize if script loads after DOMContentLoaded
-if (document.readyState === 'interactive' || document.readyState === 'complete') {
+    window.ethPriceService.startAutoRefresh();
+  });
+} else {
   setTimeout(() => {
     window.ethPriceService.updateAllDisplays();
     window.ethPriceService.startAutoRefresh();
