@@ -1,4 +1,4 @@
-// convert-weth.js - FIXED to match dashboard pattern
+// convert-weth.js - COMPLETE FIXED VERSION with proper ETH/WETH balance handling
 console.log('💱 convert-weth.js loaded');
 
 let currentConversionType = 'ethToWeth';
@@ -6,12 +6,12 @@ let userEthBalance = 0;
 let userWethBalance = 0;
 let priceUpdateListener = null;
 
-// Get current ETH price (same as dashboard)
+// Get current ETH price
 function getCurrentEthPrice() {
     return window.ethPriceService?.currentPrice || 2500;
 }
 
-// ✅ Fetch user data from backend - EXACT same as dashboard
+// ✅ Fetch user data from backend
 async function fetchUserFromBackend() {
     try {
         const token = localStorage.getItem('token');
@@ -49,7 +49,7 @@ async function fetchUserFromBackend() {
             wethBalance: result.user.wethBalance
         });
         
-        // Save to localStorage (same as dashboard)
+        // Save to localStorage
         localStorage.setItem('user', JSON.stringify(result.user));
         return result.user;
         
@@ -59,7 +59,7 @@ async function fetchUserFromBackend() {
     }
 }
 
-// ✅ Update USD displays (same as dashboard)
+// ✅ Update USD displays
 function updateUSDDisplays(ethPrice) {
     const ethValueEl = document.getElementById('ethValueDisplay');
     const wethValueEl = document.getElementById('wethValueDisplay');
@@ -83,7 +83,7 @@ function updateUSDDisplays(ethPrice) {
     }
 }
 
-// ✅ Subscribe to price updates (same as dashboard)
+// ✅ Subscribe to price updates
 function subscribeToEthPriceUpdates() {
     if (priceUpdateListener && window.ethPriceService) {
         window.ethPriceService.unsubscribe(priceUpdateListener);
@@ -111,7 +111,7 @@ function subscribeToEthPriceUpdates() {
     }, 100);
 }
 
-// ✅ Display user data (copied from dashboard pattern)
+// ✅ Display user data
 function displayUserData(user) {
     if (!user) return;
     
@@ -120,7 +120,8 @@ function displayUserData(user) {
         wethBalance: user.wethBalance
     });
     
-    userEthBalance = parseFloat(user.internalBalance || user.ethBalance || 0);
+    // Use the correct fields from your database
+    userEthBalance = parseFloat(user.internalBalance || 0);
     userWethBalance = parseFloat(user.wethBalance || 0);
     
     // Update ETH Balance display
@@ -173,7 +174,7 @@ function showLoadingStates() {
     if (wethValueEl) wethValueEl.innerHTML = '<span class="loading-skeleton">$0.00</span>';
 }
 
-// Storage event listener (same as dashboard)
+// Storage event listener
 window.addEventListener('storage', function(event) {
     if (event.key === 'user' && event.newValue) {
         console.log('📦 User data changed in localStorage');
@@ -503,4 +504,4 @@ window.setMaxAmount = setMaxAmount;
 window.updateConversionPreview = updateConversionPreview;
 window.executeConversion = executeConversion;
 
-console.log('✅ Fixed convert-weth.js loaded - matches dashboard pattern');
+console.log('✅ Complete convert-weth.js loaded - ready to use internalBalance and wethBalance');
