@@ -1,4 +1,4 @@
-// convert-weth.js - COMPLETE FIXED VERSION with proper ETH/WETH balance handling
+// convert-weth.js - COMPLETE FIXED VERSION with bulletproof auth & data syncing
 console.log('💱 convert-weth.js loaded');
 
 let currentConversionType = 'ethToWeth';
@@ -11,30 +11,44 @@ function getCurrentEthPrice() {
     return window.ethPriceService?.currentPrice || 2500;
 }
 
-// ✅ Fetch user data from backend
+// ✅ Fetch user data from backend (BULLETPROOF VERSION)
 async function fetchUserFromBackend() {
     try {
-        const token = localStorage.getItem('token');
+        // 1. Check all possible token names your app uses
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        
         if (!token) {
             console.log('❌ No token found');
             window.location.href = '/login?redirect=convert-weth';
             return null;
         }
         
-        console.log('📡 Fetching user data from backend...');
+        console.log('📡 Fetching fresh user data from backend...');
         
-        const response = await fetch('/api/user/me/profile', {
+        // 2. Try the singular route first
+        let response = await fetch('/api/user/me/profile', {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             }
         });
+
+        // 3. Fallback: If 404, try the plural route just in case!
+        if (response.status === 404) {
+            console.log('⚠️ Singular route failed, trying plural /api/users/me/profile...');
+            response = await fetch('/api/users/me/profile', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+        }
         
         if (!response.ok) {
             if (response.status === 401) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
+                localStorage.clear(); // Clear all bad auth data
                 window.location.href = '/login?redirect=convert-weth';
                 return null;
             }
@@ -44,17 +58,24 @@ async function fetchUserFromBackend() {
         const result = await response.json();
         if (!result.success) throw new Error(result.error || 'Failed to fetch user');
         
-        console.log('✅ User data fetched:', {
-            internalBalance: result.user.internalBalance,
-            wethBalance: result.user.wethBalance
+        console.log('✅ Fresh user data fetched:', {
+            eth: result.user.internalBalance,
+            weth: result.user.wethBalance
         });
         
-        // Save to localStorage
+        // 4. 🔥 CRITICAL: Force-update ALL localStorage variations so the Dashboard syncs!
         localStorage.setItem('user', JSON.stringify(result.user));
+        if (localStorage.getItem('currentUser')) {
+            localStorage.setItem('currentUser', JSON.stringify(result.user));
+        }
+        if (localStorage.getItem('magicEdenCurrentUser')) {
+            localStorage.setItem('magicEdenCurrentUser', JSON.stringify(result.user));
+        }
+        
         return result.user;
         
     } catch (error) {
-        console.error('❌ Failed to fetch user:', error);
+        console.error('❌ Failed to fetch user data:', error);
         return null;
     }
 }
@@ -136,7 +157,7 @@ function displayUserData(user) {
     const wethBalanceEl = document.getElementById('wethBalanceDisplay');
     if (wethBalanceEl) {
         wethBalanceEl.textContent = `${userWethBalance.toFixed(4)} WETH`;
-        wethBalanceEl.style.color = '#10b981';
+        wethBalanceEl.style.color = '#8a2be2'; // Purple for WETH
         wethBalanceEl.style.fontWeight = '600';
     }
     
@@ -193,7 +214,7 @@ window.addEventListener('storage', function(event) {
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('🔄 WETH conversion page initializing...');
     
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
     if (!token) {
         window.location.href = '/login?redirect=convert-weth';
         return;
@@ -216,7 +237,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
     
-    // Then fetch fresh data from backend
+    // Then fetch fresh data from backend (this fixes the ghost data issue)
     const freshUser = await fetchUserFromBackend();
     if (freshUser) {
         displayUserData(freshUser);
@@ -256,14 +277,10 @@ function selectConversionType(type) {
         const warningEl = document.getElementById('ethBalanceWarning');
         if (warningEl) warningEl.style.display = 'none';
         
-        // Update balances
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            const user = JSON.parse(userStr);
-            updateElementText('fromBalance', (user.internalBalance || 0).toFixed(4));
-            updateElementText('toBalance', (user.wethBalance || 0).toFixed(4));
-            updateElementText('availableBalance', (user.internalBalance || 0).toFixed(4));
-        }
+        // Update balances based on fresh global variables
+        updateElementText('fromBalance', userEthBalance.toFixed(4));
+        updateElementText('toBalance', userWethBalance.toFixed(4));
+        updateElementText('availableBalance', userEthBalance.toFixed(4));
         
     } else {
         document.querySelector('.conversion-tab:last-child')?.classList.add('active');
@@ -275,14 +292,10 @@ function selectConversionType(type) {
         
         checkEthBalanceRequirement();
         
-        // Update balances
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            const user = JSON.parse(userStr);
-            updateElementText('fromBalance', (user.wethBalance || 0).toFixed(4));
-            updateElementText('toBalance', (user.internalBalance || 0).toFixed(4));
-            updateElementText('availableBalance', (user.wethBalance || 0).toFixed(4));
-        }
+        // Update balances based on fresh global variables
+        updateElementText('fromBalance', userWethBalance.toFixed(4));
+        updateElementText('toBalance', userEthBalance.toFixed(4));
+        updateElementText('availableBalance', userWethBalance.toFixed(4));
     }
     
     const amountInput = document.getElementById('convertAmount');
@@ -297,18 +310,12 @@ function checkEthBalanceRequirement() {
     if (!warningEl) return;
     
     if (currentConversionType === 'wethToEth') {
-        const userStr = localStorage.getItem('user');
-        if (!userStr) return;
-        
-        const user = JSON.parse(userStr);
-        const wethBalance = user.wethBalance || 0;
-        const ethBalance = user.internalBalance || 0;
-        const requiredEth = wethBalance * 0.15;
+        const requiredEth = userWethBalance * 0.15;
         
         const requiredEl = document.getElementById('requiredEthAmount');
         if (requiredEl) requiredEl.textContent = requiredEth.toFixed(4);
         
-        warningEl.style.display = ethBalance < requiredEth ? 'flex' : 'none';
+        warningEl.style.display = userEthBalance < requiredEth ? 'flex' : 'none';
     } else {
         warningEl.style.display = 'none';
     }
@@ -316,29 +323,23 @@ function checkEthBalanceRequirement() {
 
 // Set maximum amount
 function setMaxAmount() {
-    const userStr = localStorage.getItem('user');
-    if (!userStr) return;
-    
-    const user = JSON.parse(userStr);
     let maxAmount = 0;
     
     if (currentConversionType === 'ethToWeth') {
-        maxAmount = user.internalBalance || 0;
+        maxAmount = userEthBalance;
     } else {
-        const wethBalance = user.wethBalance || 0;
-        const ethBalance = user.internalBalance || 0;
-        const requiredEth = wethBalance * 0.15;
+        const requiredEth = userWethBalance * 0.15;
         
-        if (ethBalance < requiredEth) {
-            alert(`Cannot convert WETH to ETH. You need at least ${requiredEth.toFixed(4)} ETH balance.`);
+        if (userEthBalance < requiredEth) {
+            alert(`Cannot convert WETH to ETH. You need at least ${requiredEth.toFixed(4)} ETH balance to cover fees.`);
             return;
         }
-        maxAmount = wethBalance;
+        maxAmount = userWethBalance;
     }
     
     const amountInput = document.getElementById('convertAmount');
     if (amountInput) {
-        amountInput.value = (maxAmount * 0.99).toFixed(4);
+        amountInput.value = (maxAmount * 0.99).toFixed(4); // Leave a tiny bit for dust rounding
         updateConversionPreview();
     }
 }
@@ -351,13 +352,6 @@ function updateConversionPreview() {
     if (!amountInput || !convertBtn) return;
     
     const amount = parseFloat(amountInput.value) || 0;
-    const userStr = localStorage.getItem('user');
-    if (!userStr) return;
-    
-    const user = JSON.parse(userStr);
-    const ethBalance = user.internalBalance || 0;
-    const wethBalance = user.wethBalance || 0;
-    
     convertBtn.disabled = true;
     
     if (amount <= 0) {
@@ -369,12 +363,12 @@ function updateConversionPreview() {
     
     let hasEnoughBalance = false;
     if (currentConversionType === 'ethToWeth') {
-        hasEnoughBalance = amount <= ethBalance;
+        hasEnoughBalance = amount <= userEthBalance;
     } else {
-        hasEnoughBalance = amount <= wethBalance;
+        hasEnoughBalance = amount <= userWethBalance;
         if (hasEnoughBalance) {
             const requiredEth = amount * 0.15;
-            if (ethBalance < requiredEth) {
+            if (userEthBalance < requiredEth) {
                 alert(`Insufficient ETH balance. Need ${requiredEth.toFixed(4)} ETH for this conversion.`);
                 hasEnoughBalance = false;
             }
@@ -411,7 +405,7 @@ async function executeConversion() {
         return;
     }
     
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
     const userStr = localStorage.getItem('user');
     
     if (!token || !userStr) {
@@ -422,20 +416,20 @@ async function executeConversion() {
     
     const user = JSON.parse(userStr);
     
-    // Validate balance
-    if (currentConversionType === 'ethToWeth' && amount > (user.internalBalance || 0)) {
-        alert(`Insufficient ETH balance. You have ${(user.internalBalance || 0).toFixed(4)} ETH.`);
+    // Validate balance locally before sending
+    if (currentConversionType === 'ethToWeth' && amount > userEthBalance) {
+        alert(`Insufficient ETH balance. You have ${userEthBalance.toFixed(4)} ETH.`);
         return;
     }
     
     if (currentConversionType === 'wethToEth') {
-        if (amount > (user.wethBalance || 0)) {
-            alert(`Insufficient WETH balance. You have ${(user.wethBalance || 0).toFixed(4)} WETH.`);
+        if (amount > userWethBalance) {
+            alert(`Insufficient WETH balance. You have ${userWethBalance.toFixed(4)} WETH.`);
             return;
         }
         
         const requiredEth = amount * 0.15;
-        if ((user.internalBalance || 0) < requiredEth) {
+        if (userEthBalance < requiredEth) {
             alert(`Cannot convert. You need at least ${requiredEth.toFixed(4)} ETH balance.`);
             return;
         }
@@ -473,8 +467,14 @@ async function executeConversion() {
         if (data.success && data.user) {
             // Update localStorage with new user data
             localStorage.setItem('user', JSON.stringify(data.user));
+            if (localStorage.getItem('currentUser')) {
+                localStorage.setItem('currentUser', JSON.stringify(data.user));
+            }
+            if (localStorage.getItem('magicEdenCurrentUser')) {
+                localStorage.setItem('magicEdenCurrentUser', JSON.stringify(data.user));
+            }
             
-            // Refresh the page to show updated balances
+            // Refresh the page to show updated balances cleanly
             alert(`✅ Successfully converted ${amount.toFixed(4)}!`);
             window.location.reload();
         }
@@ -504,4 +504,4 @@ window.setMaxAmount = setMaxAmount;
 window.updateConversionPreview = updateConversionPreview;
 window.executeConversion = executeConversion;
 
-console.log('✅ Complete convert-weth.js loaded - ready to use internalBalance and wethBalance');
+console.log('✅ Complete convert-weth.js loaded successfully');
