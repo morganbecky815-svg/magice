@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 
-// Authentication middleware - FIXED: Fetch full user document
+// Authentication middleware
 const auth = async (req, res, next) => {
     try {
         const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -14,7 +14,6 @@ const auth = async (req, res, next) => {
         
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
         
-        // Fetch full user document (without .select('-password'))
         const user = await User.findById(decoded.userId);
         
         if (!user) {
@@ -30,35 +29,32 @@ const auth = async (req, res, next) => {
     }
 };
 
-// Helper function to get safe user object (without password)
+// Helper function to get safe user object
 const getSafeUser = (user) => {
     if (!user) return null;
     const userObj = user.toObject ? user.toObject() : user;
     delete userObj.password;
     delete userObj.__v;
-    delete userObj.encryptedPrivateKey; // Never expose private key
+    delete userObj.encryptedPrivateKey;
     return userObj;
 };
 
 // ============================================
-// 🟢 SPECIFIC /ME ROUTES FIRST (MOST SPECIFIC)
+// 🟢 /ME ROUTES
 // ============================================
 
-// ✅ GET CURRENT USER PROFILE - UPDATED with depositAddress and internalBalance
+// GET CURRENT USER PROFILE
 router.get('/me/profile', auth, async (req, res) => {
     try {
         console.log('🔍 /me/profile endpoint called');
         
-        // Update last login time
         await User.findByIdAndUpdate(
             req.user._id,
             { lastLogin: new Date() }
         );
         
-        // Get fresh user data
         const user = await User.findById(req.user._id);
         
-        // Return with correct fields
         res.json({
             success: true,
             user: {
@@ -67,6 +63,7 @@ router.get('/me/profile', auth, async (req, res) => {
                 fullName: user.fullName,
                 depositAddress: user.depositAddress || 'No wallet',
                 internalBalance: user.internalBalance || 0,
+                wethBalance: user.wethBalance || 0,
                 isAdmin: user.isAdmin,
                 createdAt: user.createdAt,
                 lastLogin: user.lastLogin,
@@ -87,14 +84,13 @@ router.get('/me/profile', auth, async (req, res) => {
     }
 });
 
-// ✅ GET CURRENT USER DASHBOARD - UPDATED with depositAddress and internalBalance
+// GET CURRENT USER DASHBOARD
 router.get('/me/dashboard', auth, async (req, res) => {
     try {
         console.log('📊 /me/dashboard endpoint called');
         
         const user = req.user;
         
-        // Get recent NFTs
         let recentNFTs = [];
         let totalNFTs = 0;
         let activeListings = 0;
@@ -121,7 +117,6 @@ router.get('/me/dashboard', auth, async (req, res) => {
             console.log('⚠️ NFT data not available:', dbError.message);
         }
         
-        // Get recent activity
         let recentActivity = [];
         try {
             const Activity = require('../models/Activity');
@@ -141,6 +136,7 @@ router.get('/me/dashboard', auth, async (req, res) => {
                     fullName: user.fullName,
                     depositAddress: user.depositAddress || 'No wallet',
                     internalBalance: user.internalBalance || 0,
+                    wethBalance: user.wethBalance || 0,
                     profileImage: user.profileImage,
                     bio: user.bio,
                     createdAt: user.createdAt
@@ -181,7 +177,7 @@ router.get('/me/dashboard', auth, async (req, res) => {
     }
 });
 
-// ✅ CONVERT ETH TO WETH (CURRENT USER) - Keeping as is (uses old balances)
+// CONVERT ETH TO WETH (CURRENT USER)
 router.post('/me/convert-to-weth', auth, async (req, res) => {
     try {
         console.log('🔄 /me/convert-to-weth endpoint called');
@@ -197,35 +193,31 @@ router.post('/me/convert-to-weth', auth, async (req, res) => {
         const convertAmount = parseFloat(amount);
         
         console.log(`Converting ${convertAmount} ETH to WETH for user:`, req.user.email);
-        console.log('Current ETH balance:', req.user.ethBalance || 0);
+        console.log('Current ETH balance:', req.user.internalBalance || 0);
         
-        // Check if user has enough ETH
-        if ((req.user.ethBalance || 0) < convertAmount) {
+        if ((req.user.internalBalance || 0) < convertAmount) {
             return res.status(400).json({ 
                 success: false,
                 error: 'Insufficient ETH balance',
-                currentEthBalance: req.user.ethBalance || 0,
+                currentEthBalance: req.user.internalBalance || 0,
                 required: convertAmount
             });
         }
         
-        // Calculate new balances
-        const newEthBalance = (req.user.ethBalance || 0) - convertAmount;
+        const newInternalBalance = (req.user.internalBalance || 0) - convertAmount;
         const newWethBalance = (req.user.wethBalance || 0) + convertAmount;
         
-        // Use findByIdAndUpdate
         const updatedUser = await User.findByIdAndUpdate(
             req.user._id,
             {
-                ethBalance: newEthBalance,
-                wethBalance: newWethBalance,
-                balance: newWethBalance
+                internalBalance: newInternalBalance,
+                wethBalance: newWethBalance
             },
             { new: true }
         );
         
         console.log('✅ Conversion successful');
-        console.log('New ETH balance:', newEthBalance);
+        console.log('New ETH balance:', newInternalBalance);
         console.log('New WETH balance:', newWethBalance);
         
         res.json({
@@ -244,20 +236,18 @@ router.post('/me/convert-to-weth', auth, async (req, res) => {
     }
 });
 
-// ✅ UPDATE CURRENT USER PROFILE
+// UPDATE CURRENT USER PROFILE
 router.put('/me/profile', auth, async (req, res) => {
     try {
         console.log('📝 /me/profile update called');
         const { fullName, bio, twitter, website } = req.body;
         
-        // Build update object
         const updateData = {};
         if (fullName !== undefined) updateData.fullName = fullName;
         if (bio !== undefined) updateData.bio = bio;
         if (twitter !== undefined) updateData.twitter = twitter;
         if (website !== undefined) updateData.website = website;
         
-        // Use findByIdAndUpdate
         const updatedUser = await User.findByIdAndUpdate(
             req.user._id,
             updateData,
@@ -273,6 +263,7 @@ router.put('/me/profile', auth, async (req, res) => {
                 fullName: updatedUser.fullName,
                 depositAddress: updatedUser.depositAddress,
                 internalBalance: updatedUser.internalBalance || 0,
+                wethBalance: updatedUser.wethBalance || 0,
                 bio: updatedUser.bio,
                 twitter: updatedUser.twitter,
                 website: updatedUser.website,
@@ -292,7 +283,7 @@ router.put('/me/profile', auth, async (req, res) => {
     }
 });
 
-// ✅ ADD ETH TO USER BALANCE (CURRENT USER) - UPDATED to use internalBalance
+// ADD ETH TO USER BALANCE (CURRENT USER)
 router.post('/me/add-eth', auth, async (req, res) => {
     try {
         const { amount } = req.body;
@@ -301,7 +292,6 @@ router.post('/me/add-eth', auth, async (req, res) => {
             return res.status(400).json({ error: 'Invalid amount' });
         }
         
-        // Add ETH to internal balance
         const ethAmount = parseFloat(amount);
         const newInternalBalance = (req.user.internalBalance || 0) + ethAmount;
         
@@ -319,7 +309,8 @@ router.post('/me/add-eth', auth, async (req, res) => {
                 email: updatedUser.email,
                 fullName: updatedUser.fullName,
                 depositAddress: updatedUser.depositAddress,
-                internalBalance: updatedUser.internalBalance || 0
+                internalBalance: updatedUser.internalBalance || 0,
+                wethBalance: updatedUser.wethBalance || 0
             }
         });
     } catch (error) {
@@ -329,10 +320,10 @@ router.post('/me/add-eth', auth, async (req, res) => {
 });
 
 // ============================================
-// 🟡 PARAMETER ROUTES NEXT (LESS SPECIFIC)
+// 🟡 PARAMETER ROUTES
 // ============================================
 
-// ✅ GET USER BY ID - UPDATED with correct fields
+// GET USER BY ID
 router.get('/:userId', auth, async (req, res) => {
     try {
         console.log('🔍 GET /:userId called for:', req.params.userId);
@@ -343,7 +334,6 @@ router.get('/:userId', auth, async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
         
-        // Check authorization
         if (req.user._id.toString() !== req.params.userId && !req.user.isAdmin) {
             return res.status(403).json({ error: 'Not authorized' });
         }
@@ -356,6 +346,7 @@ router.get('/:userId', auth, async (req, res) => {
                 fullName: user.fullName,
                 depositAddress: user.depositAddress || 'No wallet',
                 internalBalance: user.internalBalance || 0,
+                wethBalance: user.wethBalance || 0,
                 isAdmin: user.isAdmin,
                 createdAt: user.createdAt,
                 lastLogin: user.lastLogin,
@@ -371,7 +362,7 @@ router.get('/:userId', auth, async (req, res) => {
     }
 });
 
-// ✅ ADD ETH TO USER BALANCE (BY ID) - UPDATED to use internalBalance
+// ADD ETH TO USER BALANCE (BY ID)
 router.post('/:userId/add-eth', auth, async (req, res) => {
     try {
         const { amount } = req.body;
@@ -386,12 +377,10 @@ router.post('/:userId/add-eth', auth, async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
         
-        // Check authorization
         if (req.user._id.toString() !== req.params.userId && !req.user.isAdmin) {
             return res.status(403).json({ error: 'Not authorized to update this balance' });
         }
         
-        // Add ETH to internal balance
         const ethAmount = parseFloat(amount);
         const newInternalBalance = (user.internalBalance || 0) + ethAmount;
         
@@ -409,7 +398,8 @@ router.post('/:userId/add-eth', auth, async (req, res) => {
                 email: updatedUser.email,
                 fullName: updatedUser.fullName,
                 depositAddress: updatedUser.depositAddress,
-                internalBalance: updatedUser.internalBalance || 0
+                internalBalance: updatedUser.internalBalance || 0,
+                wethBalance: updatedUser.wethBalance || 0
             }
         });
     } catch (error) {
@@ -418,7 +408,7 @@ router.post('/:userId/add-eth', auth, async (req, res) => {
     }
 });
 
-// ✅ CONVERT ETH TO WETH (BY ID) - Keeping as is (uses old balances)
+// CONVERT ETH TO WETH (BY ID)
 router.post('/:userId/convert-to-weth', auth, async (req, res) => {
     try {
         const { amount } = req.body;
@@ -428,37 +418,32 @@ router.post('/:userId/convert-to-weth', auth, async (req, res) => {
         }
         
         const user = await User.findById(req.params.userId);
-        
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
         
-        // Check authorization
         if (req.user._id.toString() !== req.params.userId && !req.user.isAdmin) {
             return res.status(403).json({ error: 'Not authorized' });
         }
         
         const convertAmount = parseFloat(amount);
         
-        // Check if user has enough ETH
-        if ((user.ethBalance || 0) < convertAmount) {
+        if ((user.internalBalance || 0) < convertAmount) {
             return res.status(400).json({ 
                 error: 'Insufficient ETH balance',
-                currentEthBalance: user.ethBalance || 0,
+                currentEthBalance: user.internalBalance || 0,
                 required: convertAmount
             });
         }
         
-        // Calculate new balances
-        const newEthBalance = (user.ethBalance || 0) - convertAmount;
+        const newInternalBalance = (user.internalBalance || 0) - convertAmount;
         const newWethBalance = (user.wethBalance || 0) + convertAmount;
         
         const updatedUser = await User.findByIdAndUpdate(
             user._id,
             {
-                ethBalance: newEthBalance,
-                wethBalance: newWethBalance,
-                balance: newWethBalance
+                internalBalance: newInternalBalance,
+                wethBalance: newWethBalance
             },
             { new: true }
         );
@@ -471,7 +456,8 @@ router.post('/:userId/convert-to-weth', auth, async (req, res) => {
                 email: updatedUser.email,
                 fullName: updatedUser.fullName,
                 depositAddress: updatedUser.depositAddress,
-                internalBalance: updatedUser.internalBalance || 0
+                internalBalance: updatedUser.internalBalance || 0,
+                wethBalance: updatedUser.wethBalance || 0
             }
         });
     } catch (error) {
@@ -480,12 +466,78 @@ router.post('/:userId/convert-to-weth', auth, async (req, res) => {
     }
 });
 
-// ✅ GET USER DASHBOARD (BY ID) - UPDATED with correct fields
+// CONVERT WETH TO ETH (BY ID)
+router.post('/:userId/convert-to-eth', auth, async (req, res) => {
+    try {
+        const { amount } = req.body;
+        
+        if (!amount || isNaN(amount) || amount <= 0) {
+            return res.status(400).json({ error: 'Invalid amount' });
+        }
+        
+        const user = await User.findById(req.params.userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        if (req.user._id.toString() !== req.params.userId && !req.user.isAdmin) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+        
+        const convertAmount = parseFloat(amount);
+        
+        if ((user.wethBalance || 0) < convertAmount) {
+            return res.status(400).json({ 
+                error: 'Insufficient WETH balance',
+                currentWethBalance: user.wethBalance || 0,
+                required: convertAmount
+            });
+        }
+        
+        const requiredEth = convertAmount * 0.15;
+        if ((user.internalBalance || 0) < requiredEth) {
+            return res.status(400).json({ 
+                error: `Need at least ${requiredEth.toFixed(4)} ETH for gas fees`,
+                requiredEth: requiredEth,
+                currentEth: user.internalBalance || 0
+            });
+        }
+        
+        const newWethBalance = (user.wethBalance || 0) - convertAmount;
+        const newInternalBalance = (user.internalBalance || 0) + convertAmount;
+        
+        const updatedUser = await User.findByIdAndUpdate(
+            user._id,
+            {
+                wethBalance: newWethBalance,
+                internalBalance: newInternalBalance
+            },
+            { new: true }
+        );
+        
+        res.json({
+            success: true,
+            message: `Converted ${convertAmount} WETH to ETH`,
+            user: {
+                _id: updatedUser._id,
+                email: updatedUser.email,
+                fullName: updatedUser.fullName,
+                depositAddress: updatedUser.depositAddress,
+                internalBalance: updatedUser.internalBalance || 0,
+                wethBalance: updatedUser.wethBalance || 0
+            }
+        });
+    } catch (error) {
+        console.error('Convert to ETH error:', error);
+        res.status(500).json({ error: 'Failed to convert to ETH' });
+    }
+});
+
+// GET USER DASHBOARD (BY ID)
 router.get('/:userId/dashboard', auth, async (req, res) => {
     try {
         const userId = req.params.userId;
         
-        // Verify user access
         if (req.user._id.toString() !== userId && !req.user.isAdmin) {
             return res.status(403).json({ error: 'Not authorized' });
         }
@@ -495,19 +547,16 @@ router.get('/:userId/dashboard', auth, async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
         
-        // Get recent NFTs (last 5)
         const NFT = require('../models/NFT');
         const recentNFTs = await NFT.find({ owner: userId })
             .sort({ createdAt: -1 })
             .limit(5);
         
-        // Get recent activity
         const Activity = require('../models/Activity');
         const recentActivity = await Activity.find({ userId: userId })
             .sort({ createdAt: -1 })
             .limit(10);
         
-        // Calculate stats
         const totalNFTs = await NFT.countDocuments({ owner: userId });
         const totalVolume = user.totalVolume || 0;
         
@@ -520,6 +569,7 @@ router.get('/:userId/dashboard', auth, async (req, res) => {
                     fullName: user.fullName,
                     depositAddress: user.depositAddress || 'No wallet',
                     internalBalance: user.internalBalance || 0,
+                    wethBalance: user.wethBalance || 0,
                     profileImage: user.profileImage,
                     bio: user.bio,
                     createdAt: user.createdAt
@@ -555,7 +605,7 @@ router.get('/:userId/dashboard', auth, async (req, res) => {
     }
 });
 
-// ✅ UPDATE USER PROFILE (BY ID) - UPDATED
+// UPDATE USER PROFILE (BY ID)
 router.put('/:userId/profile', auth, async (req, res) => {
     try {
         const { fullName, bio, twitter, website } = req.body;
@@ -566,12 +616,10 @@ router.put('/:userId/profile', auth, async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
         
-        // Check authorization
         if (req.user._id.toString() !== req.params.userId && !req.user.isAdmin) {
             return res.status(403).json({ error: 'Not authorized to update this profile' });
         }
         
-        // Build update object
         const updateData = {};
         if (fullName !== undefined) updateData.fullName = fullName;
         if (bio !== undefined) updateData.bio = bio;
@@ -593,6 +641,7 @@ router.put('/:userId/profile', auth, async (req, res) => {
                 fullName: updatedUser.fullName,
                 depositAddress: updatedUser.depositAddress,
                 internalBalance: updatedUser.internalBalance || 0,
+                wethBalance: updatedUser.wethBalance || 0,
                 bio: updatedUser.bio,
                 twitter: updatedUser.twitter,
                 website: updatedUser.website,
