@@ -115,7 +115,7 @@ router.get('/stats', adminAuth, async (req, res) => {
 // USER MANAGEMENT
 // ========================
 
-// Get all users - UPDATED with correct fields
+// Get all users - UPDATED with complete wethBalance field
 router.get('/users', adminAuth, async (req, res) => {
     try {
         console.log('🔍 Admin fetching all users');
@@ -132,6 +132,7 @@ router.get('/users', adminAuth, async (req, res) => {
                 fullName: user.fullName,
                 depositAddress: user.depositAddress || 'No wallet',
                 internalBalance: user.internalBalance || 0,
+                wethBalance: user.wethBalance || 0, // ✅ Fix: Added wethBalance
                 isAdmin: user.isAdmin,
                 createdAt: user.createdAt,
                 lastLogin: user.lastLogin
@@ -147,27 +148,36 @@ router.get('/users', adminAuth, async (req, res) => {
     }
 });
 
-// Update user internal balance
+// Update user balances (ETH and WETH separately)
 router.put('/users/:id/balance', adminAuth, async (req, res) => {
     try {
-        const { balance } = req.body;
+        const { internalBalance, wethBalance } = req.body; // ✅ Fix: Grab both balances
         const user = await User.findById(req.params.id);
 
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        user.internalBalance = parseFloat(balance);
+        // ✅ Fix: Only update the values that are actually sent
+        if (internalBalance !== undefined && !isNaN(internalBalance)) {
+            user.internalBalance = parseFloat(internalBalance);
+        }
+        
+        if (wethBalance !== undefined && !isNaN(wethBalance)) {
+            user.wethBalance = parseFloat(wethBalance);
+        }
+
         await user.save();
 
         res.json({
             success: true,
-            message: `Balance updated to ${user.internalBalance} ETH`,
+            message: `Balances updated successfully`,
             user: {
                 id: user._id,
                 email: user.email,
                 depositAddress: user.depositAddress,
-                internalBalance: user.internalBalance
+                internalBalance: user.internalBalance,
+                wethBalance: user.wethBalance
             }
         });
 
@@ -181,7 +191,7 @@ router.put('/users/:id/balance', adminAuth, async (req, res) => {
 // WALLET SEARCH ROUTES
 // ========================
 
-// Search users by wallet address (partial match) - UPDATED
+// Search users by wallet address (partial match)
 router.get('/users/search', adminAuth, async (req, res) => {
     try {
         const { wallet } = req.query;
@@ -213,6 +223,7 @@ router.get('/users/search', adminAuth, async (req, res) => {
                 fullName: user.fullName,
                 depositAddress: user.depositAddress,
                 internalBalance: user.internalBalance || 0,
+                wethBalance: user.wethBalance || 0, // ✅ Fix: Added wethBalance to search
                 isAdmin: user.isAdmin,
                 createdAt: user.createdAt,
                 lastLogin: user.lastLogin
@@ -229,7 +240,7 @@ router.get('/users/search', adminAuth, async (req, res) => {
     }
 });
 
-// Search users by wallet address (exact match) - UPDATED
+// Search users by wallet address (exact match)
 router.get('/users/exact-search', adminAuth, async (req, res) => {
     try {
         const { wallet } = req.query;
@@ -264,6 +275,7 @@ router.get('/users/exact-search', adminAuth, async (req, res) => {
                 fullName: user.fullName,
                 depositAddress: user.depositAddress,
                 internalBalance: user.internalBalance || 0,
+                wethBalance: user.wethBalance || 0, // ✅ Fix: Added wethBalance to search
                 isAdmin: user.isAdmin,
                 createdAt: user.createdAt,
                 lastLogin: user.lastLogin
