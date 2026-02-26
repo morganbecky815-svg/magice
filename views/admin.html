@@ -320,7 +320,6 @@
             </div>
         </div>
         
-        <!-- Admin Tabs -->
         <div class="admin-tabs">
             <button class="admin-tab active" data-tab="dashboard">
                 <i class="fas fa-tachometer-alt"></i> Dashboard
@@ -351,7 +350,6 @@
             </button>
         </div>
         
-        <!-- Dashboard Tab -->
         <div id="dashboardTab" class="admin-content active">
             <div class="stats-grid">
                 <div class="stat-box">
@@ -388,11 +386,9 @@
             </div>
         </div>
 
-        <!-- Sweep History Tab -->
         <div id="sweepsTab" class="admin-content">
             <h2><i class="fas fa-history"></i> Sweep History</h2>
             
-            <!-- Sweep Stats Cards -->
             <div class="stats-grid">
                 <div class="stat-box">
                     <h3>Total Swept</h3>
@@ -412,7 +408,6 @@
                 </div>
             </div>
             
-            <!-- Filter Controls -->
             <div class="filter-section" style="margin: 20px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                 <input type="date" id="startDate" class="search-input" style="width: auto; flex: 1;">
                 <span>to</span>
@@ -428,7 +423,6 @@
                 </button>
             </div>
             
-            <!-- Sweeps Table -->
             <div class="data-table">
                 <table>
                     <thead>
@@ -451,7 +445,6 @@
                 </table>
             </div>
             
-            <!-- Pagination -->
             <div class="pagination" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <div>
                     <span id="sweepCount">0 sweeps</span>
@@ -468,11 +461,9 @@
             </div>
         </div>
         
-        <!-- Manage NFTs Tab -->
         <div id="nftsTab" class="admin-content">
             <h2>Manage NFTs</h2>
             
-            <!-- Boost Controls -->
             <div class="boost-controls">
                 <h3><i class="fas fa-rocket"></i> Quick Boost Controls</h3>
                 <div class="boost-amount-input">
@@ -526,34 +517,32 @@
             </div>
         </div>
         
-      <!-- Manage Users Tab - UPDATED with correct headers -->
-<div id="usersTab" class="admin-content">
-    <h2>Manage Users</h2>
-    <div class="data-table">
-        <table>
-            <thead>
-                <tr>
-                    <th>Email</th>
-                    <th>Balance (ETH)</th>
-                    <th>Balance (WETH)</th>
-                    <th>Deposit Address</th>
-                    <th>Joined</th>
-                    <th>Admin</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody id="usersTableBody">
-                <tr>
-                    <td colspan="7" class="loading-spinner">
-                        <i class="fas fa-spinner fa-spin"></i> Loading users...
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-</div>
+      <div id="usersTab" class="admin-content">
+          <h2>Manage Users</h2>
+          <div class="data-table">
+              <table>
+                  <thead>
+                      <tr>
+                          <th>Email</th>
+                          <th>Balance (ETH)</th>
+                          <th>Balance (WETH)</th>
+                          <th>Deposit Address</th>
+                          <th>Joined</th>
+                          <th>Admin</th>
+                          <th>Actions</th>
+                      </tr>
+                  </thead>
+                  <tbody id="usersTableBody">
+                      <tr>
+                          <td colspan="7" class="loading-spinner">
+                              <i class="fas fa-spinner fa-spin"></i> Loading users...
+                          </td>
+                      </tr>
+                  </tbody>
+              </table>
+          </div>
+      </div>
         
-        <!-- Withdrawals Tab -->
         <div id="withdrawalsTab" class="admin-content">
             <h2>Withdrawal Requests</h2>
             
@@ -594,7 +583,6 @@
             </div>
         </div>
         
-        <!-- Support Tickets Tab -->
         <div id="supportTab" class="admin-content">
             <h2>Support Tickets</h2>
             <div class="data-table">
@@ -620,7 +608,6 @@
             </div>
         </div>
         
-        <!-- Wallet Search Tab -->
         <div id="walletSearchTab" class="admin-content">
             <h2><i class="fas fa-search"></i> Search Users by Wallet Address</h2>
             
@@ -662,7 +649,6 @@
             </div>
         </div>
         
-        <!-- Marketplace Stats Tab -->
         <div id="marketplaceTab" class="admin-content">
             <h2>Marketplace Display Stats</h2>
             <div class="admin-message" id="marketplaceMessage"></div>
@@ -727,7 +713,6 @@
             </div>
         </div>
         
-        <!-- Create NFT Tab -->
         <div id="createTab" class="admin-content">
             <h2>Create New NFT</h2>
             <div id="adminMessage" class="admin-message"></div>
@@ -794,7 +779,6 @@
         </div>
     </div>
 
-    <!-- ADMIN JAVASCRIPT -->
     <script>
         // ========================
         // CONFIGURATION
@@ -949,7 +933,7 @@
         }
         
         // ========================
-        // TAB SWITCHING FUNCTION (UPDATED)
+        // TAB SWITCHING FUNCTION
         // ========================
         function showAdminTab(tab, event) {
             console.log('Switching to tab:', tab);
@@ -1082,7 +1066,7 @@
         }
         
         // ========================
-        // USER MANAGEMENT
+        // USER MANAGEMENT (UPDATED)
         // ========================
         async function loadUsersTable() {
             try {
@@ -1128,44 +1112,129 @@
         }
         
         function displayUsers(users) {
-    const tbody = document.getElementById('usersTableBody');
-    if (!tbody) return;
-    
-    if (!users || users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="no-results">No users found</td></tr>';
-        return;
-    }
-    
-    tbody.innerHTML = users.map(user => {
-        // Use depositAddress from the API
-        const walletAddr = user.depositAddress || 'No wallet';
-        const shortWallet = walletAddr.length > 15 ? 
-            walletAddr.substring(0, 10) + '...' + walletAddr.substring(walletAddr.length - 6) : 
-            walletAddr;
+            const tbody = document.getElementById('usersTableBody');
+            if (!tbody) return;
+            
+            if (!users || users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="no-results">No users found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = users.map(user => {
+                // Use depositAddress from the API
+                const walletAddr = user.depositAddress || 'No wallet';
+                const shortWallet = walletAddr.length > 15 ? 
+                    walletAddr.substring(0, 10) + '...' + walletAddr.substring(walletAddr.length - 6) : 
+                    walletAddr;
+                
+                // Extract both balances separately
+                const ethBalance = user.internalBalance || 0;
+                const wethBalance = user.wethBalance || 0;
+                
+                return `
+                    <tr>
+                        <td><strong>${user.email || 'No email'}</strong></td>
+                        <td>${ethBalance.toFixed(4)} ETH</td>
+                        <td>${wethBalance.toFixed(4)} WETH</td>
+                        <td style="font-family: monospace; font-size: 12px;" title="${walletAddr}">
+                            ${shortWallet}
+                        </td>
+                        <td>${user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}</td>
+                        <td>${user.isAdmin ? '<span style="color: #10b981;">Admin</span>' : '<span style="color: #888;">User</span>'}</td>
+                        <td>
+                            <button class="action-btn btn-edit" onclick="editUserBalance('${user._id}', '${user.email}', ${ethBalance}, ${wethBalance})">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
         
-        // Use internalBalance from the API
-        const balance = user.internalBalance || 0;
-        
-        return `
-            <tr>
-                <td><strong>${user.email || 'No email'}</strong></td>
-                <td>${balance.toFixed(4)} ETH</td>
-                <td>${balance.toFixed(4)} WETH</td>
-                <td style="font-family: monospace; font-size: 12px;" title="${walletAddr}">
-                    ${shortWallet}
-                </td>
-                <td>${user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}</td>
-                <td>${user.isAdmin ? '<span style="color: #10b981;">Admin</span>' : '<span style="color: #888;">User</span>'}</td>
-                <td>
-                    <button class="action-btn btn-edit" onclick="editUserBalance('${user._id}', '${user.email}', ${balance})">
-                        <i class="fas fa-edit"></i> Edit
-                    </button>
-                </td>
-            </tr>
-        `;
-    }).join('');
-}
-        
+        // ========================
+        // EDIT USER BALANCE MODAL (UPDATED FOR BOTH BALANCES)
+        // ========================
+        function editUserBalance(userId, email, currentEthBalance, currentWethBalance) {
+            const modalHTML = `
+                <div id="editBalanceModal" class="modal" style="display: block; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+                    <div class="modal-content" style="background-color: #1a1a1a; margin: 10% auto; padding: 20px; border-radius: 8px; max-width: 400px; border: 1px solid #333;">
+                        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="color: white;">Edit Balances for ${email}</h3>
+                            <span class="close-modal" onclick="closeModal()" style="font-size: 24px; cursor: pointer; color: #888;">&times;</span>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label style="color: #888; display: block; margin-bottom: 8px;">ETH Balance</label>
+                                <input type="number" id="editEthBalance" value="${currentEthBalance || 0}" step="0.001" min="0" 
+                                       style="width: 100%; padding: 10px; background: #0a0a0a; border: 1px solid #333; border-radius: 4px; color: white;">
+                            </div>
+                            <div class="form-group">
+                                <label style="color: #888; display: block; margin-bottom: 8px;">WETH Balance</label>
+                                <input type="number" id="editWethBalance" value="${currentWethBalance || 0}" step="0.001" min="0" 
+                                       style="width: 100%; padding: 10px; background: #0a0a0a; border: 1px solid #333; border-radius: 4px; color: white;">
+                            </div>
+                        </div>
+                        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                            <button class="btn" onclick="closeModal()" style="padding: 8px 16px; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+                            <button class="btn btn-primary" onclick="saveUserBalance('${userId}', '${email}')" 
+                                    style="padding: 8px 16px; background: #8a2be2; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const existingModal = document.getElementById('editBalanceModal');
+            if (existingModal) existingModal.remove();
+            
+            const modalContainer = document.createElement('div');
+            modalContainer.innerHTML = modalHTML;
+            document.body.appendChild(modalContainer);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('editBalanceModal');
+            if (modal) modal.remove();
+        }
+
+        async function saveUserBalance(userId, email) {
+            try {
+                const newEthBalance = parseFloat(document.getElementById('editEthBalance').value) || 0;
+                const newWethBalance = parseFloat(document.getElementById('editWethBalance').value) || 0;
+                
+                const token = localStorage.getItem('token');
+                if (!token) throw new Error('No authentication token');
+                
+                const response = await fetch(`/api/admin/users/${userId}/balance`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    // ✅ Send BOTH values to match the updated backend endpoint!
+                    body: JSON.stringify({ 
+                        internalBalance: newEthBalance,
+                        wethBalance: newWethBalance 
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`✅ Balances updated for ${email}`);
+                    closeModal();
+                    loadUsersTable();
+                } else {
+                    throw new Error(result.error);
+                }
+                
+            } catch (error) {
+                console.error('Save error:', error);
+                alert('❌ Failed to save balances: ' + error.message);
+            }
+        }
+
         // ========================
         // NFT MANAGEMENT
         // ========================
@@ -1351,7 +1420,7 @@
         }
         
         // ========================
-        // WALLET SEARCH FUNCTIONS
+        // WALLET SEARCH FUNCTIONS (UPDATED FOR BOTH BALANCES)
         // ========================
         let recentWalletSearches = JSON.parse(localStorage.getItem('adminRecentWalletSearches') || '[]');
 
@@ -1534,16 +1603,12 @@
                     
                     <div class="result-stats">
                         <div class="stat-item">
-                            <div class="stat-label">Balance</div>
+                            <div class="stat-label">ETH Balance</div>
                             <div class="stat-value">${user.internalBalance || 0} ETH</div>
                         </div>
                         <div class="stat-item">
-                            <div class="stat-label">ETH Balance</div>
-                            <div class="stat-value">${user.ethBalance || 0}</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-label">WETH</div>
-                            <div class="stat-value">${user.wethBalance || 0}</div>
+                            <div class="stat-label">WETH Balance</div>
+                            <div class="stat-value">${user.wethBalance || 0} WETH</div>
                         </div>
                     </div>
                     
@@ -1552,7 +1617,7 @@
                             <i class="fas fa-eye"></i> View Profile
                         </button>
                         <button class="action-btn-small btn-edit" onclick="editUserFromSearch('${user._id}', '${user.email}', ${user.internalBalance || 0}, ${user.wethBalance || 0})">
-                            <i class="fas fa-edit"></i> Edit Balance
+                            <i class="fas fa-edit"></i> Edit Balances
                         </button>
                     </div>
                 </div>
@@ -1573,7 +1638,7 @@
         }
 
         function editUserFromSearch(userId, email, internalBalance, wethBalance) {
-            showEditBalanceModal(userId, email, internalBalance, wethBalance);
+            editUserBalance(userId, email, internalBalance, wethBalance);
         }
 
         // ========================
@@ -1901,151 +1966,6 @@
         }
         
         // ========================
-        // EDIT USER BALANCE MODAL
-        // ========================
-        function showEditBalanceModal(userId, email, currentBalance, currentWeth) {
-            const modalHTML = `
-                <div id="editBalanceModal" class="modal" style="display: block; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
-                    <div class="modal-content" style="background-color: #1a1a1a; margin: 10% auto; padding: 20px; border-radius: 8px; max-width: 400px; border: 1px solid #333;">
-                        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <h3 style="color: white;">Edit Balance for ${email}</h3>
-                            <span class="close-modal" onclick="closeModal()" style="font-size: 24px; cursor: pointer; color: #888;">&times;</span>
-                        </div>
-                        <div class="modal-body">
-                            <div class="form-group">
-                                <label style="color: #888; display: block; margin-bottom: 8px;">Balance (ETH)</label>
-                                <input type="number" id="editBalance" value="${currentBalance || 0}" step="0.001" min="0" 
-                                       style="width: 100%; padding: 10px; background: #0a0a0a; border: 1px solid #333; border-radius: 4px; color: white;">
-                            </div>
-                        </div>
-                        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-                            <button class="btn" onclick="closeModal()" style="padding: 8px 16px; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
-                            <button class="btn btn-primary" onclick="saveBalance('${userId}', '${email}')" 
-                                    style="padding: 8px 16px; background: #8a2be2; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                Save Changes
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            const existingModal = document.getElementById('editBalanceModal');
-            if (existingModal) existingModal.remove();
-            
-            const modalContainer = document.createElement('div');
-            modalContainer.innerHTML = modalHTML;
-            document.body.appendChild(modalContainer);
-        }
-
-        function closeModal() {
-            const modal = document.getElementById('editBalanceModal');
-            if (modal) modal.remove();
-        }
-
-        async function saveBalance(userId, email) {
-            try {
-                const newBalance = parseFloat(document.getElementById('editBalance').value) || 0;
-                
-                const token = localStorage.getItem('token');
-                if (!token) throw new Error('No authentication token');
-                
-                const response = await fetch(`/api/admin/users/${userId}/balance`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ internalBalance: newBalance })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert(`✅ Balance updated for ${email}`);
-                    closeModal();
-                    loadUsersTable();
-                } else {
-                    throw new Error(result.error);
-                }
-                
-            } catch (error) {
-                console.error('Save error:', error);
-                alert('❌ Failed to save balance: ' + error.message);
-            }
-        }
-
-        function editUserBalance(userId, email, currentBalance) {
-    const modalHTML = `
-        <div id="editBalanceModal" class="modal" style="display: block; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
-            <div class="modal-content" style="background-color: #1a1a1a; margin: 10% auto; padding: 20px; border-radius: 8px; max-width: 400px; border: 1px solid #333;">
-                <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3 style="color: white;">Edit Balance for ${email}</h3>
-                    <span class="close-modal" onclick="closeModal()" style="font-size: 24px; cursor: pointer; color: #888;">&times;</span>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label style="color: #888; display: block; margin-bottom: 8px;">Balance (ETH)</label>
-                        <input type="number" id="editBalance" value="${currentBalance || 0}" step="0.001" min="0" 
-                               style="width: 100%; padding: 10px; background: #0a0a0a; border: 1px solid #333; border-radius: 4px; color: white;">
-                    </div>
-                </div>
-                <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-                    <button class="btn" onclick="closeModal()" style="padding: 8px 16px; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
-                    <button class="btn btn-primary" onclick="saveUserBalance('${userId}', '${email}')" 
-                            style="padding: 8px 16px; background: #8a2be2; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                        Save Changes
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    const existingModal = document.getElementById('editBalanceModal');
-    if (existingModal) existingModal.remove();
-    
-    const modalContainer = document.createElement('div');
-    modalContainer.innerHTML = modalHTML;
-    document.body.appendChild(modalContainer);
-}
-
-function closeModal() {
-    const modal = document.getElementById('editBalanceModal');
-    if (modal) modal.remove();
-}
-
-async function saveUserBalance(userId, email) {
-    try {
-        const newBalance = parseFloat(document.getElementById('editBalance').value) || 0;
-        
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error('No authentication token');
-        
-        const response = await fetch(`/api/admin/users/${userId}/balance`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ balance: newBalance })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            alert(`✅ Balance updated for ${email}`);
-            closeModal();
-            loadUsersTable();
-        } else {
-            throw new Error(result.error);
-        }
-        
-    } catch (error) {
-        console.error('Save error:', error);
-        alert('❌ Failed to save balance: ' + error.message);
-    }
-}
-        
-        // ========================
         // RESOLVE TICKET
         // ========================
         async function resolveTicket(ticketId) {
@@ -2158,7 +2078,7 @@ async function saveUserBalance(userId, email) {
         window.updateStat = updateStat;
         window.resetToActual = resetToActual;
         window.closeModal = closeModal;
-        window.saveBalance = saveBalance;
+        window.saveUserBalance = saveUserBalance; // Fixed naming
         window.formatMarketplaceNumber = formatMarketplaceNumber;
         
         // Sweep functions
