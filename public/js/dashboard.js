@@ -1,13 +1,13 @@
 // ============================================
-// DASHBOARD.JS - FIXED WITH IMMEDIATE PRICE SUBSCRIPTION
+// DASHBOARD.JS - FIXED WITH COMPLETE ETH & WETH SUPPORT
 // ============================================
 
 let currentDashboardUser = null;
-let currentConversionType = 'ethToWeth';
 const MARKETPLACE_WALLET_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc9e90E4343A9B";
 
 // Auto-refresh variables
-let lastBalance = 0;
+let lastEthBalance = 0;
+let lastWethBalance = 0;
 let balanceCheckInterval = null;
 let refreshInterval = null;
 let priceUpdateListener = null;
@@ -17,27 +17,45 @@ function getCurrentEthPrice() {
     return window.ethPriceService?.currentPrice || 2500;
 }
 
-// ✅ Fetch user data from backend
+// ✅ Fetch fresh user data from backend (BULLETPROOF VERSION)
 async function fetchUserFromBackend() {
     try {
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error('No authentication token');
+        // 1. Check all possible token names
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        
+        if (!token) {
+            console.log('❌ No token found');
+            window.location.href = '/login';
+            return null;
+        }
         
         console.log('📡 Fetching fresh user data from backend...');
         
-        const response = await fetch('/api/user/me/profile', {
+        // 2. Try singular route first
+        let response = await fetch('/api/user/me/profile', {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             }
         });
+
+        // 3. Fallback to plural route
+        if (response.status === 404) {
+            response = await fetch('/api/users/me/profile', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+        }
         
         if (!response.ok) {
             if (response.status === 401) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                throw new Error('Session expired');
+                localStorage.clear();
+                window.location.href = '/login';
+                return null;
             }
             throw new Error(`HTTP ${response.status}`);
         }
@@ -45,129 +63,118 @@ async function fetchUserFromBackend() {
         const result = await response.json();
         if (!result.success) throw new Error(result.error || 'Failed to fetch user');
         
-        console.log('✅ User data fetched from DB:', {
-            internalBalance: result.user.internalBalance,
-            depositAddress: result.user.depositAddress
+        console.log('✅ Fresh user data fetched:', {
+            eth: result.user.internalBalance,
+            weth: result.user.wethBalance
         });
         
-        // Save to localStorage
+        // 4. 🔥 CRITICAL: Force-update ALL localStorage variations so Admin edits sync instantly!
         localStorage.setItem('user', JSON.stringify(result.user));
+        if (localStorage.getItem('currentUser')) {
+            localStorage.setItem('currentUser', JSON.stringify(result.user));
+        }
+        if (localStorage.getItem('magicEdenCurrentUser')) {
+            localStorage.setItem('magicEdenCurrentUser', JSON.stringify(result.user));
+        }
+        
         return result.user;
         
     } catch (error) {
-        console.error('❌ Failed to fetch user:', error.message);
-        if (error.message.includes('Session expired')) {
-            window.location.href = '/login';
-        }
+        console.error('❌ Failed to fetch user data:', error);
         return null;
     }
 }
 
 // ✅ Helper function to update USD displays
 function updateUSDDisplays(ethPrice) {
-    // Try to get user from currentDashboardUser first, then from localStorage
     let user = currentDashboardUser;
     if (!user) {
         const userStr = localStorage.getItem('user');
         if (userStr) {
-            try {
-                user = JSON.parse(userStr);
-            } catch (e) {
-                console.error('Error parsing user from localStorage:', e);
-            }
+            try { user = JSON.parse(userStr); } catch (e) {}
         }
     }
     
     const ethBalance = user?.internalBalance || 0;
-    const usdValue = ethBalance * ethPrice;
+    const wethBalance = user?.wethBalance || 0;
     
+    const ethUsdValue = ethBalance * ethPrice;
+    const wethUsdValue = wethBalance * ethPrice;
+    const totalPortfolioValue = ethUsdValue + wethUsdValue;
+    
+    // Elements (Ensure these IDs match your Dashboard HTML)
     const ethValueEl = document.getElementById('ethValue');
+    const wethValueEl = document.getElementById('wethValue'); // If your dashboard HTML has this
     const portfolioValueEl = document.getElementById('portfolioValue');
     
     if (ethValueEl) {
-        ethValueEl.textContent = `$${usdValue.toFixed(2)}`;
-        // Add visual feedback
+        ethValueEl.textContent = `$${ethUsdValue.toFixed(2)}`;
         ethValueEl.style.transition = 'color 0.3s ease';
         ethValueEl.style.color = '#10b981';
-        setTimeout(() => {
-            ethValueEl.style.color = '#888';
-        }, 500);
+        setTimeout(() => { ethValueEl.style.color = '#888'; }, 500);
+    }
+    
+    // Check if there is a specific WETH USD element
+    if (wethValueEl) {
+        wethValueEl.textContent = `$${wethUsdValue.toFixed(2)}`;
+        wethValueEl.style.transition = 'color 0.3s ease';
+        wethValueEl.style.color = '#8a2be2';
+        setTimeout(() => { wethValueEl.style.color = '#888'; }, 500);
     }
     
     if (portfolioValueEl) {
-        portfolioValueEl.textContent = `$${usdValue.toFixed(2)}`;
+        portfolioValueEl.textContent = `$${totalPortfolioValue.toFixed(2)}`;
     }
 }
 
 // ✅ FIXED: Subscribe to price updates IMMEDIATELY
 function subscribeToEthPriceUpdates() {
-    // Clear existing listener if any
     if (priceUpdateListener && window.ethPriceService) {
         window.ethPriceService.unsubscribe(priceUpdateListener);
     }
     
     if (!window.ethPriceService) {
-        console.log('⏳ Dashboard waiting for ETH price service...');
-        setTimeout(subscribeToEthPriceUpdates, 500); // Check every 500ms
+        setTimeout(subscribeToEthPriceUpdates, 500); 
         return;
     }
     
-    console.log("✅ Dashboard subscribing to price updates");
-    
-    // Create listener function
     priceUpdateListener = (newPrice) => {
-        console.log("🔄 Dashboard received price update: $", newPrice);
         updateUSDDisplays(newPrice);
     };
     
-    // Subscribe to price updates
     window.ethPriceService.subscribe(priceUpdateListener);
     
-    // Force initial update
     setTimeout(() => {
-        if (window.ethPriceService) {
-            window.ethPriceService.updateAllDisplays();
-        }
+        if (window.ethPriceService) window.ethPriceService.updateAllDisplays();
     }, 100);
 }
 
 // ✅ Check for balance updates from backend
 async function checkForBalanceUpdates() {
     try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
+        const freshUser = await fetchUserFromBackend();
+        if (!freshUser) return;
         
-        console.log('🔄 Checking for balance updates...');
+        const newEthBalance = freshUser.internalBalance || 0;
+        const newWethBalance = freshUser.wethBalance || 0;
         
-        const response = await fetch('/api/user/me/profile', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) throw new Error('Failed to fetch');
-        
-        const data = await response.json();
-        
-        if (data.success && data.user) {
-            const newBalance = data.user.internalBalance || 0;
-            
-            const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-            
-            if (lastBalance > 0 && newBalance !== lastBalance) {
-                const difference = (newBalance - lastBalance).toFixed(4);
-                const changeType = newBalance > lastBalance ? 'received' : 'spent';
-                
-                showNotification(`💰 ${difference} ETH ${changeType}`, 'success');
-                console.log(`💰 Balance updated: ${lastBalance} → ${newBalance} ETH`);
-            }
-            
-            currentUser.internalBalance = newBalance;
-            currentUser.depositAddress = data.user.depositAddress || currentUser.depositAddress;
-            localStorage.setItem('user', JSON.stringify(currentUser));
-            
-            displayDashboardData(currentUser);
-            currentDashboardUser = currentUser;
-            lastBalance = newBalance;
+        // Notification logic for ETH
+        if (lastEthBalance > 0 && newEthBalance !== lastEthBalance) {
+            const diff = (newEthBalance - lastEthBalance).toFixed(4);
+            const changeType = newEthBalance > lastEthBalance ? 'received' : 'spent';
+            showNotification(`💰 ${diff} ETH ${changeType}`, 'success');
         }
+        
+        // Notification logic for WETH
+        if (lastWethBalance > 0 && newWethBalance !== lastWethBalance) {
+            const diff = (newWethBalance - lastWethBalance).toFixed(4);
+            const changeType = newWethBalance > lastWethBalance ? 'received' : 'spent';
+            showNotification(`🔄 ${diff} WETH ${changeType}`, 'info');
+        }
+        
+        currentDashboardUser = freshUser;
+        displayDashboardData(freshUser);
+        
     } catch (error) {
         console.error('Error checking balance:', error);
     }
@@ -176,17 +183,12 @@ async function checkForBalanceUpdates() {
 // ✅ Storage event listener
 window.addEventListener('storage', function(event) {
     if (event.key === 'user' && event.newValue) {
-        console.log('📦 User data changed in localStorage');
         try {
             const updatedUser = JSON.parse(event.newValue);
             if (!updatedUser) return;
             
             currentDashboardUser = updatedUser;
-            lastBalance = updatedUser.internalBalance || 0;
-            
             displayDashboardData(updatedUser);
-            
-            console.log('✅ Dashboard updated from storage event, balance:', updatedUser.internalBalance);
             
         } catch (e) {
             console.error('Error in storage event:', e);
@@ -194,13 +196,17 @@ window.addEventListener('storage', function(event) {
     }
 });
 
-// ✅ Display dashboard data
+// ✅ FIXED: Display dashboard data (NOW HANDLES WETH)
 function displayDashboardData(user) {
     if (!user) return;
     
-    console.log('📊 Displaying dashboard data with balance:', user.internalBalance);
+    console.log('📊 Updating dashboard UI with balances:', {
+        eth: user.internalBalance,
+        weth: user.wethBalance
+    });
     
-    const ethBalance = user.internalBalance || 0;
+    const ethBalance = parseFloat(user.internalBalance || 0);
+    const wethBalance = parseFloat(user.wethBalance || 0);
     const ethPrice = getCurrentEthPrice();
     
     // Update ETH Balance display
@@ -211,21 +217,26 @@ function displayDashboardData(user) {
         ethBalanceEl.style.fontWeight = '600';
     }
     
-    // Update USD displays using current price
+    // Update WETH Balance display (Make sure your HTML has id="wethBalance" on the dashboard!)
+    const wethBalanceEl = document.getElementById('wethBalance');
+    if (wethBalanceEl) {
+        wethBalanceEl.textContent = `${wethBalance.toFixed(4)} WETH`;
+        wethBalanceEl.style.color = '#8a2be2'; // Purple to match WETH styling
+        wethBalanceEl.style.fontWeight = '600';
+    }
+    
+    // Update USD displays
     updateUSDDisplays(ethPrice);
     
-    // Update last balance
-    lastBalance = ethBalance;
+    // Update tracking variables
+    lastEthBalance = ethBalance;
+    lastWethBalance = wethBalance;
 }
 
 // ✅ Auto-refresh setup
 function startAutoRefresh() {
-    if (balanceCheckInterval) {
-        clearInterval(balanceCheckInterval);
-    }
-    if (refreshInterval) {
-        clearInterval(refreshInterval);
-    }
+    if (balanceCheckInterval) clearInterval(balanceCheckInterval);
+    if (refreshInterval) clearInterval(refreshInterval);
     
     balanceCheckInterval = setInterval(() => {
         if (window.location.pathname.includes('dashboard')) {
@@ -235,62 +246,55 @@ function startAutoRefresh() {
     
     refreshInterval = setInterval(() => {
         if (window.location.pathname.includes('dashboard')) {
-            console.log('🔄 Refreshing dashboard sections...');
             updateMarketTrends();
             if (Math.random() > 0.7) refreshRecentActivity();
             if (Math.random() > 0.7) refreshRecommendedNFTs();
         }
     }, 30000);
-    
-    console.log('✅ Auto-refresh started (10s balance, 30s sections)');
 }
 
 // ✅ Main dashboard loading function
 async function loadDashboard() {
     console.log("🚀 Dashboard initializing...");
     
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
     if (!token) {
         window.location.href = '/login';
         return;
     }
     
-    // Show loading states
     showLoadingStates();
     
-    // Try to get initial user from localStorage for immediate display
+    // Try local storage first for speed
     const initialUserStr = localStorage.getItem('user');
     if (initialUserStr) {
         try {
             const initialUser = JSON.parse(initialUserStr);
             currentDashboardUser = initialUser;
             displayDashboardData(initialUser);
-        } catch (e) {
-            console.error('Error parsing initial user:', e);
-        }
+        } catch (e) {}
     }
     
     // Then fetch fresh data from backend
     const freshUser = await fetchUserFromBackend();
     
     if (freshUser) {
-        console.log("✅ Using fresh data from server with balance:", freshUser.internalBalance);
         currentDashboardUser = freshUser;
-        lastBalance = freshUser.internalBalance || 0;
-        
         displayDashboardData(freshUser);
         await loadDashboardSections();
         updateMarketTrends();
     }
 }
 
-// ✅ Show loading states
+// ✅ Show loading states (UPDATED FOR WETH)
 function showLoadingStates() {
     const ethBalanceEl = document.getElementById('ethBalance');
+    const wethBalanceEl = document.getElementById('wethBalance');
     const ethValueEl = document.getElementById('ethValue');
     const portfolioValueEl = document.getElementById('portfolioValue');
     
     if (ethBalanceEl) ethBalanceEl.innerHTML = '<span class="loading-skeleton">0.0000 ETH</span>';
+    if (wethBalanceEl) wethBalanceEl.innerHTML = '<span class="loading-skeleton">0.0000 WETH</span>';
     if (ethValueEl) ethValueEl.innerHTML = '<span class="loading-skeleton">$0.00</span>';
     if (portfolioValueEl) portfolioValueEl.innerHTML = '<span class="loading-skeleton">$0.00</span>';
 }
@@ -298,14 +302,9 @@ function showLoadingStates() {
 // ✅ Load all dashboard sections
 async function loadDashboardSections() {
     try {
-        console.log('📊 Loading all dashboard sections...');
-        
         await displayRecentActivity();
         await displayUserNFTs();
         await displayRecommendedNFTs();
-        
-        console.log('✅ All dashboard sections loaded');
-        
     } catch (error) {
         console.error('❌ Error loading dashboard sections:', error);
     }
@@ -314,7 +313,7 @@ async function loadDashboardSections() {
 // ✅ Fetch Recent Activity
 async function fetchRecentActivity() {
     try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
         if (!token) return null;
         
         const user = JSON.parse(localStorage.getItem('user'));
@@ -332,11 +331,8 @@ async function fetchRecentActivity() {
             const result = await response.json();
             if (result.success) return result.activities;
         }
-        
         return generateMockActivity();
-        
     } catch (error) {
-        console.error('❌ Failed to fetch activity:', error);
         return generateMockActivity();
     }
 }
@@ -390,7 +386,7 @@ async function displayRecentActivity() {
 // ✅ Fetch User's NFTs
 async function fetchUserNFTs() {
     try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
         if (!token) return null;
         
         const user = JSON.parse(localStorage.getItem('user'));
@@ -412,11 +408,8 @@ async function fetchUserNFTs() {
                     .slice(0, 2);
             }
         }
-        
         return generateMockUserNFTs();
-        
     } catch (error) {
-        console.error('❌ Failed to fetch user NFTs:', error);
         return generateMockUserNFTs();
     }
 }
@@ -426,7 +419,7 @@ async function displayUserNFTs() {
     const nftsContainer = document.getElementById('userNFTs');
     if (!nftsContainer) return;
     
-    nftsContainer.innerHTML = '<div class="nft-loading"><i class="fas fa-spinner"></i> Loading your NFTs...</div>';
+    nftsContainer.innerHTML = '<div class="nft-loading"><i class="fas fa-spinner fa-spin"></i> Loading your NFTs...</div>';
     
     const userNFTs = await fetchUserNFTs();
     
@@ -485,7 +478,7 @@ async function displayUserNFTs() {
 // ✅ Fetch Recommended NFTs
 async function fetchRecommendedNFTs() {
     try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
         if (!token) return generateMockRecommendedNFTs();
         
         const response = await fetch('/api/nft/latest', {
@@ -502,11 +495,8 @@ async function fetchRecommendedNFTs() {
                 return result.nfts.slice(0, 4);
             }
         }
-        
         return generateMockRecommendedNFTs();
-        
     } catch (error) {
-        console.error('❌ Failed to fetch recommended NFTs:', error);
         return generateMockRecommendedNFTs();
     }
 }
@@ -516,7 +506,7 @@ async function displayRecommendedNFTs() {
     const recommendedContainer = document.getElementById('recommendedNFTs');
     if (!recommendedContainer) return;
     
-    recommendedContainer.innerHTML = '<div class="recommended-loading"><i class="fas fa-spinner"></i> Loading recommendations...</div>';
+    recommendedContainer.innerHTML = '<div class="recommended-loading"><i class="fas fa-spinner fa-spin"></i> Loading recommendations...</div>';
     
     const recommendedNFTs = await fetchRecommendedNFTs();
     
@@ -659,22 +649,6 @@ function generateMockActivity() {
             amount: 0.5,
             currency: 'ETH',
             createdAt: new Date(Date.now() - 300000).toISOString()
-        },
-        {
-            _id: '2',
-            type: 'nft_purchased',
-            title: 'NFT Purchase',
-            description: 'Bought "Cool NFT #123"',
-            amount: -0.15,
-            currency: 'ETH',
-            createdAt: new Date(Date.now() - 3600000).toISOString()
-        },
-        {
-            _id: '3',
-            type: 'nft_created',
-            title: 'NFT Minted',
-            description: 'Created "My Artwork"',
-            createdAt: new Date(Date.now() - 86400000).toISOString()
         }
     ];
 }
@@ -689,15 +663,6 @@ function generateMockUserNFTs() {
             price: 45.5,
             isListed: true,
             createdAt: new Date(Date.now() - 86400000).toISOString()
-        },
-        {
-            _id: 'nft-2',
-            name: 'Bored Ape #5678',
-            image: 'https://via.placeholder.com/300x300/2196F3/FFFFFF?text=Bored+Ape',
-            collectionName: 'BAYC',
-            price: 32.8,
-            isListed: true,
-            createdAt: new Date(Date.now() - 172800000).toISOString()
         }
     ];
 }
@@ -710,46 +675,24 @@ function generateMockRecommendedNFTs() {
             image: 'https://via.placeholder.com/400x300/FF5722/FFFFFF?text=Pixel+Monster',
             creator: 'PixelArtist',
             price: 0.08
-        },
-        {
-            _id: 'rec-2',
-            name: 'Genesis Art #42',
-            image: 'https://via.placeholder.com/400x300/3F51B5/FFFFFF?text=Genesis+Art',
-            creator: 'ArtCreator',
-            price: 0.15
-        },
-        {
-            _id: 'rec-3',
-            name: 'Gaming Hero #7',
-            image: 'https://via.placeholder.com/400x300/00BCD4/FFFFFF?text=Gaming+Hero',
-            creator: 'GameStudio',
-            price: 0.25
-        },
-        {
-            _id: 'rec-4',
-            name: 'Digital Wave #99',
-            image: 'https://via.placeholder.com/400x300/8BC34A/FFFFFF?text=Digital+Wave',
-            creator: 'DigitalArtist',
-            price: 0.12
         }
     ];
 }
 
 // ✅ Refresh Functions
-function refreshRecentActivity() {
-    displayRecentActivity();
-}
+function refreshRecentActivity() { displayRecentActivity(); }
+function refreshUserNFTs() { displayUserNFTs(); }
+function refreshRecommendedNFTs() { displayRecommendedNFTs(); }
 
-function refreshUserNFTs() {
-    displayUserNFTs();
-}
-
-function refreshRecommendedNFTs() {
-    displayRecommendedNFTs();
-}
-
-function refreshAllDashboard() {
-    if (currentDashboardUser) displayDashboardData(currentDashboardUser);
+async function refreshAllDashboard() {
+    console.log('🔄 Dashboard: Refresh All clicked');
+    // Force a full fresh fetch from the server
+    const freshUser = await fetchUserFromBackend();
+    if (freshUser) {
+        currentDashboardUser = freshUser;
+        displayDashboardData(freshUser);
+        showNotification('Balances updated to latest data!', 'success');
+    }
     loadDashboardSections();
     updateMarketTrends();
 }
@@ -759,30 +702,15 @@ function refreshBalance() {
 }
 
 // ✅ Navigation Functions
-function viewActivityDetail(activityId) {
-    window.location.href = `/activity?id=${activityId}`;
-}
-
-function viewNFT(nftId) {
-    window.location.href = `/nft/${nftId}`;
-}
-
-function transferFunds() {
-    window.location.href = '/transfer';
-}
-
-function showStaking() {
-    window.location.href = '/staking';
-}
-
-function viewPortfolio() {
-    window.location.href = '/portfolio';
-}
+function viewActivityDetail(activityId) { window.location.href = `/activity?id=${activityId}`; }
+function viewNFT(nftId) { window.location.href = `/nft/${nftId}`; }
+function transferFunds() { window.location.href = '/transfer'; }
+function showStaking() { window.location.href = '/staking'; }
+function viewPortfolio() { window.location.href = '/portfolio'; }
 
 function showDepositInstructions() {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const address = user.depositAddress || 'Not available';
-    
     alert(`To deposit ETH:\n\n1. Send ETH to this address:\n${address}\n\n2. Wait for confirmations\n3. Your balance will update automatically`);
 }
 
@@ -799,77 +727,46 @@ function copyAddress() {
 
 // ✅ Notification function
 function showNotification(message, type = 'info') {
-    console.log(`🔔 ${type.toUpperCase()}: ${message}`);
-    
     let notification = document.getElementById('notification');
     if (!notification) {
         notification = document.createElement('div');
         notification.id = 'notification';
         notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 12px 20px;
-            border-radius: 8px;
-            background: #1a1a1a;
-            color: white;
-            font-weight: 500;
-            z-index: 9999;
-            opacity: 0;
-            transition: opacity 0.3s;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px;
+            background: #1a1a1a; color: white; font-weight: 500; z-index: 9999;
+            opacity: 0; transition: opacity 0.3s; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         `;
         document.body.appendChild(notification);
     }
     
-    const colors = {
-        success: '#10b981',
-        error: '#ef4444',
-        warning: '#f59e0b',
-        info: '#3b82f6'
-    };
-    
+    const colors = { success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#3b82f6' };
     notification.style.backgroundColor = colors[type] || colors.info;
     notification.textContent = message;
     notification.style.opacity = '1';
     
-    setTimeout(() => {
-        notification.style.opacity = '0';
-    }, 3000);
+    setTimeout(() => { notification.style.opacity = '0'; }, 3000);
 }
 
 // ✅ Clean up on page unload
 window.addEventListener('beforeunload', function() {
-    if (balanceCheckInterval) {
-        clearInterval(balanceCheckInterval);
-    }
-    if (refreshInterval) {
-        clearInterval(refreshInterval);
-    }
+    if (balanceCheckInterval) clearInterval(balanceCheckInterval);
+    if (refreshInterval) clearInterval(refreshInterval);
     if (priceUpdateListener && window.ethPriceService) {
         window.ethPriceService.unsubscribe(priceUpdateListener);
     }
 });
 
-// ✅ Initialize dashboard - SUBSCRIBE IMMEDIATELY!
+// ✅ Initialize dashboard
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Dashboard initializing...');
-    
-    // Subscribe to price updates immediately
     subscribeToEthPriceUpdates();
-    
-    // Then load dashboard data
     loadDashboard();
-    
-    // Start auto-refresh
     startAutoRefresh();
 });
 
 // ✅ Logout function
 function logout() {
     if (confirm('Are you sure you want to logout?')) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        localStorage.clear(); // Clear EVERYTHING
         window.location.href = '/';
     }
 }
