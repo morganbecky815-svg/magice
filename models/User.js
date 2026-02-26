@@ -24,8 +24,7 @@ const userSchema = new mongoose.Schema(
       default: ""
     },
 
-    // ===== NEW CUSTODIAL WALLET FIELDS =====
-    // User's unique deposit address (public) - REAL Ethereum address
+    // ===== CUSTODIAL WALLET FIELDS =====
     depositAddress: {
       type: String,
       unique: true,
@@ -33,20 +32,25 @@ const userSchema = new mongoose.Schema(
       index: true
     },
     
-    // ENCRYPTED private key - NEVER expose this
     encryptedPrivateKey: {
       type: String,
-      select: false, // Don't return in queries by default
+      select: false,
     },
     
-    // Internal balance (what user sees in your platform)
+    // Internal balance (ETH)
     internalBalance: {
       type: Number,
       default: 0,
       min: 0
     },
     
-    // Track when funds were last swept
+    // WETH Balance for wrapped ETH
+    wethBalance: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    
     lastSweptAt: {
       type: Date
     },
@@ -118,13 +122,9 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// ===== PASSWORD HASHING MIDDLEWARE =====
+// Password hashing middleware
 userSchema.pre('save', async function() {
-  // Only hash if password is modified
-  if (!this.isModified('password')) {
-    return;
-  }
-  
+  if (!this.isModified('password')) return;
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
@@ -133,22 +133,20 @@ userSchema.pre('save', async function() {
   }
 });
 
-// ===== PASSWORD COMPARISON METHOD =====
+// Password comparison method
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// ===== TO JSON TRANSFORM =====
+// To JSON transform
 userSchema.set("toJSON", {
   transform: function(doc, ret) {
     delete ret.password;
     delete ret.__v;
-    delete ret.encryptedPrivateKey; // Never expose private key
+    delete ret.encryptedPrivateKey;
     return ret;
   }
 });
 
-// ===== CREATE MODEL =====
 const User = mongoose.model("User", userSchema);
-
 module.exports = User;
