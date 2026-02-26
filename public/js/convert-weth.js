@@ -1,112 +1,268 @@
-// convert-weth.js - FIXED VERSION for your backend
+// convert-weth.js - FIXED VERSION (copied working pattern from add-eth.js)
 console.log('💱 convert-weth.js loaded');
 
 // Global variables
 let currentConversionType = 'ethToWeth';
 let userEthBalance = 0;
 let userWethBalance = 0;
+let priceUpdateListener = null;
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔄 WETH conversion page initializing...');
     
-    // Load REAL user data from backend
-    loadRealUserData();
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/login?redirect=convert-weth';
+        return;
+    }
+    
+    // Show loading state immediately
+    showLoadingState();
+    
+    // First try to load from localStorage (immediate display)
+    loadBalancesFromLocalStorage();
+    
+    // Then fetch fresh from backend to ensure we have the latest
+    fetchUserDataFromBackend();
     
     // Setup event listeners
     setupEventListeners();
     
-    console.log('✅ WETH conversion page ready');
+    // Update ETH price and USD value
+    updateEthPriceAndValue();
+    
+    // Subscribe to live ETH price updates
+    subscribeToEthPriceUpdates();
+    
+    console.log('✅ WETH conversion page initialized');
 });
 
-// Load REAL user data from backend
-async function loadRealUserData() {
+// Show loading state immediately
+function showLoadingState() {
+    const balanceElements = ['ethBalanceDisplay', 'wethBalanceDisplay', 'ethValueDisplay', 'wethValueDisplay'];
+    
+    balanceElements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            el.style.color = '#888';
+            el.style.fontStyle = 'italic';
+        }
+    });
+    
+    // Also clear any conversion displays
+    const fromBalance = document.getElementById('fromBalance');
+    if (fromBalance) {
+        fromBalance.textContent = '0.0000';
+    }
+    
+    const toBalance = document.getElementById('toBalance');
+    if (toBalance) {
+        toBalance.textContent = '0.0000';
+    }
+    
+    const receiveAmount = document.getElementById('receiveAmount');
+    if (receiveAmount) {
+        receiveAmount.textContent = '0.0000 WETH';
+    }
+}
+
+// Subscribe to ETH price updates
+function subscribeToEthPriceUpdates() {
+    if (priceUpdateListener && window.ethPriceService) {
+        window.ethPriceService.unsubscribe(priceUpdateListener);
+    }
+    
+    if (!window.ethPriceService) {
+        console.log('⏳ Waiting for ETH price service...');
+        setTimeout(subscribeToEthPriceUpdates, 1000);
+        return;
+    }
+    
+    console.log("✅ WETH page subscribing to price updates");
+    
+    priceUpdateListener = (newPrice) => {
+        console.log("🔄 WETH page received price update: $", newPrice);
+        updateEthPriceAndValue();
+    };
+    
+    window.ethPriceService.subscribe(priceUpdateListener);
+    
+    setTimeout(() => {
+        if (window.ethPriceService) {
+            window.ethPriceService.updateAllDisplays();
+        }
+    }, 500);
+}
+
+// Update ETH price and USD value
+function updateEthPriceAndValue() {
+    const ethPrice = getCurrentEthPrice();
+    
+    // Update ETH value
+    const ethValueEl = document.getElementById('ethValueDisplay');
+    if (ethValueEl) {
+        ethValueEl.textContent = `$${(userEthBalance * ethPrice).toFixed(2)} USD`;
+    }
+    
+    // Update WETH value
+    const wethValueEl = document.getElementById('wethValueDisplay');
+    if (wethValueEl) {
+        wethValueEl.textContent = `$${(userWethBalance * ethPrice).toFixed(2)} USD`;
+    }
+}
+
+// Get current ETH price
+function getCurrentEthPrice() {
+    if (window.ethPriceService && window.ethPriceService.currentPrice) {
+        return window.ethPriceService.currentPrice;
+    } else if (window.ETH_PRICE) {
+        return window.ETH_PRICE;
+    } else {
+        const cached = localStorage.getItem('ethPriceCache');
+        if (cached) {
+            try {
+                const cacheData = JSON.parse(cached);
+                return cacheData.price || 2500;
+            } catch (e) {
+                return 2500;
+            }
+        }
+        return 2500;
+    }
+}
+
+// Load balances from localStorage immediately
+function loadBalancesFromLocalStorage() {
+    console.log('🔍 Checking localStorage for user data...');
+    
+    const userStr = localStorage.getItem('user');
+    if (!userStr) {
+        console.log('❌ No user data in localStorage');
+        return;
+    }
+    
     try {
-        console.log('🔄 Loading REAL user data from backend...');
+        const user = JSON.parse(userStr);
+        console.log('👤 User from localStorage:', user);
         
-        // Get user from localStorage
-        const userStr = localStorage.getItem('user');
+        // Try different balance field names
+        userEthBalance = user.ethBalance || user.balance || user.internalBalance || 0;
+        userWethBalance = user.wethBalance || 0;
+        
+        console.log(`💰 Balances from localStorage - ETH: ${userEthBalance}, WETH: ${userWethBalance}`);
+        
+        // Update display
+        updateBalanceDisplay();
+        
+    } catch (error) {
+        console.error('❌ Error parsing user from localStorage:', error);
+    }
+}
+
+// Fetch user data from backend (like add-eth.js does)
+async function fetchUserDataFromBackend() {
+    console.log('📡 Fetching user data from backend...');
+    
+    try {
         const token = localStorage.getItem('token');
-        
-        if (!userStr || !token) {
-            console.log('❌ No user or token found');
-            showError('Please login to use conversion', '/login');
-            return;
+        if (!token) {
+            throw new Error('No token');
         }
         
-        const user = JSON.parse(userStr);
+        console.log('🔑 Making API request to /api/user/me/profile');
         
-        // Use the CORRECT endpoint from your routes/user.js
-        const response = await fetch(`/api/user/${user._id}`, {
+        const response = await fetch('/api/user/me/profile', {
+            method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             }
         });
         
+        console.log('📥 API Response status:', response.status);
+        
         if (!response.ok) {
+            if (response.status === 401) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login?redirect=convert-weth';
+                return;
+            }
             throw new Error(`HTTP ${response.status}`);
         }
         
         const data = await response.json();
+        console.log('📦 API Response data:', data);
         
         if (data.success && data.user) {
-            console.log('✅ REAL user data loaded:', data.user);
+            const user = data.user;
+            console.log('👤 User from backend:', user);
             
-            // Your backend uses internalBalance, ethBalance, wethBalance
-            userEthBalance = data.user.ethBalance || 0;
-            userWethBalance = data.user.wethBalance || 0;
+            // Get balances - check different possible field names
+            userEthBalance = user.ethBalance || user.balance || user.internalBalance || 0;
+            userWethBalance = user.wethBalance || 0;
             
-            // Update localStorage with fresh data
-            localStorage.setItem('user', JSON.stringify(data.user));
+            console.log(`💰 Balances from backend - ETH: ${userEthBalance}, WETH: ${userWethBalance}`);
             
-            console.log(`💰 REAL Balances - ETH: ${userEthBalance}, WETH: ${userWethBalance}`);
+            // Update localStorage
+            const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+            const updatedUser = { ...currentUser, ...user };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
             
             // Update display
             updateBalanceDisplay();
-            selectConversionType('ethToWeth');
+            updateEthPriceAndValue();
             
-            return data.user;
+            console.log('✅ User data loaded successfully');
         }
         
     } catch (error) {
-        console.error('❌ Error loading real user data:', error);
-        showError('Could not load user data. Please refresh.');
+        console.error('❌ Error fetching from backend:', error);
+        // Keep showing loading state - don't show error
     }
-}
-
-// Show error message
-function showError(message, redirectUrl = null) {
-    const container = document.querySelector('.container') || document.body;
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'error-message';
-    errorDiv.style.cssText = 'background: #f8d7da; color: #721c24; padding: 1rem; border-radius: 8px; margin: 1rem; text-align: center;';
-    errorDiv.innerHTML = `
-        <strong>⚠️ ${message}</strong>
-        ${redirectUrl ? '<br><button onclick="window.location.href=\'' + redirectUrl + '\'" style="margin-top: 1rem; padding: 0.5rem 1rem;">Go to Login</button>' : ''}
-    `;
-    container.prepend(errorDiv);
 }
 
 // Update balance display
 function updateBalanceDisplay() {
-    const ethPrice = window.ETH_PRICE || 2500;
+    console.log('📊 Updating balance display - ETH:', userEthBalance, 'WETH:', userWethBalance);
     
-    // Update ETH balance
     const ethBalanceEl = document.getElementById('ethBalanceDisplay');
-    if (ethBalanceEl) ethBalanceEl.textContent = `${userEthBalance.toFixed(4)} ETH`;
+    if (ethBalanceEl) {
+        ethBalanceEl.textContent = `${userEthBalance.toFixed(4)} ETH`;
+        ethBalanceEl.style.cssText = 'color: #333; font-weight: 600; font-style: normal;';
+    }
     
-    const ethValueEl = document.getElementById('ethValueDisplay');
-    if (ethValueEl) ethValueEl.textContent = `$${(userEthBalance * ethPrice).toFixed(2)}`;
-    
-    // Update WETH balance
     const wethBalanceEl = document.getElementById('wethBalanceDisplay');
-    if (wethBalanceEl) wethBalanceEl.textContent = `${userWethBalance.toFixed(4)} WETH`;
+    if (wethBalanceEl) {
+        wethBalanceEl.textContent = `${userWethBalance.toFixed(4)} WETH`;
+        wethBalanceEl.style.cssText = 'color: #333; font-weight: 600; font-style: normal;';
+    }
     
-    const wethValueEl = document.getElementById('wethValueDisplay');
-    if (wethValueEl) wethValueEl.textContent = `$${(userWethBalance * ethPrice).toFixed(2)}`;
+    // Update from/to balances based on current type
+    if (currentConversionType === 'ethToWeth') {
+        const fromBalance = document.getElementById('fromBalance');
+        if (fromBalance) fromBalance.textContent = userEthBalance.toFixed(4);
+        
+        const toBalance = document.getElementById('toBalance');
+        if (toBalance) toBalance.textContent = userWethBalance.toFixed(4);
+        
+        const availableBalance = document.getElementById('availableBalance');
+        if (availableBalance) availableBalance.textContent = userEthBalance.toFixed(4);
+    } else {
+        const fromBalance = document.getElementById('fromBalance');
+        if (fromBalance) fromBalance.textContent = userWethBalance.toFixed(4);
+        
+        const toBalance = document.getElementById('toBalance');
+        if (toBalance) toBalance.textContent = userEthBalance.toFixed(4);
+        
+        const availableBalance = document.getElementById('availableBalance');
+        if (availableBalance) availableBalance.textContent = userWethBalance.toFixed(4);
+    }
     
-    console.log('✅ Balance display updated');
+    updateEthPriceAndValue();
 }
 
 // Setup event listeners
@@ -115,6 +271,13 @@ function setupEventListeners() {
     if (amountInput) {
         amountInput.addEventListener('input', updateConversionPreview);
     }
+    
+    window.addEventListener('storage', (event) => {
+        if (event.key === 'user') {
+            console.log('📦 User data updated in another tab');
+            loadBalancesFromLocalStorage();
+        }
+    });
 }
 
 // Select conversion type
@@ -127,11 +290,11 @@ function selectConversionType(type) {
         tab.classList.remove('active');
     });
     
-    const tabs = document.querySelectorAll('.conversion-tab');
     if (type === 'ethToWeth') {
-        if (tabs[0]) tabs[0].classList.add('active');
+        const tab = document.querySelector('.conversion-tab:first-child');
+        if (tab) tab.classList.add('active');
         
-        // Update UI elements
+        // Update UI
         updateElementText('fromSymbol', 'ETH');
         updateElementText('toSymbol', 'WETH');
         updateElementText('fromBalance', userEthBalance.toFixed(4));
@@ -139,15 +302,17 @@ function selectConversionType(type) {
         updateElementText('inputCurrency', 'ETH');
         updateElementText('availableCurrency', 'ETH');
         updateElementText('receiveAmount', '0.0000 WETH');
+        updateElementText('availableBalance', userEthBalance.toFixed(4));
         
-        // Hide ETH balance warning
+        // Hide warning
         const warningEl = document.getElementById('ethBalanceWarning');
         if (warningEl) warningEl.style.display = 'none';
         
     } else {
-        if (tabs[1]) tabs[1].classList.add('active');
+        const tab = document.querySelector('.conversion-tab:last-child');
+        if (tab) tab.classList.add('active');
         
-        // Update UI elements
+        // Update UI
         updateElementText('fromSymbol', 'WETH');
         updateElementText('toSymbol', 'ETH');
         updateElementText('fromBalance', userWethBalance.toFixed(4));
@@ -155,12 +320,11 @@ function selectConversionType(type) {
         updateElementText('inputCurrency', 'WETH');
         updateElementText('availableCurrency', 'WETH');
         updateElementText('receiveAmount', '0.0000 ETH');
+        updateElementText('availableBalance', userWethBalance.toFixed(4));
         
-        // Check 15% ETH balance requirement
+        // Check 15% requirement
         checkEthBalanceRequirement();
     }
-    
-    updateAvailableBalance();
     
     const amountInput = document.getElementById('convertAmount');
     if (amountInput) amountInput.value = '';
@@ -193,13 +357,6 @@ function checkEthBalanceRequirement() {
     } else {
         warningElement.style.display = 'none';
     }
-}
-
-// Update available balance display
-function updateAvailableBalance() {
-    const availableBalance = currentConversionType === 'ethToWeth' ? userEthBalance : userWethBalance;
-    const availEl = document.getElementById('availableBalance');
-    if (availEl) availEl.textContent = availableBalance.toFixed(4);
 }
 
 // Set maximum amount
@@ -270,7 +427,7 @@ function updateConversionPreview() {
     updateElementText('receiveAmount', receiveText);
     
     // Update fee
-    const ethPrice = window.ETH_PRICE || 2500;
+    const ethPrice = getCurrentEthPrice();
     const estimatedFee = amount * 0.001 * ethPrice;
     const feeEl = document.getElementById('estimatedFee');
     if (feeEl) feeEl.textContent = `~$${estimatedFee.toFixed(2)}`;
@@ -288,10 +445,10 @@ async function executeConversion() {
         return;
     }
     
-    const userStr = localStorage.getItem('user');
     const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
     
-    if (!userStr || !token) {
+    if (!token || !userStr) {
         alert('Please login first');
         window.location.href = '/login';
         return;
@@ -327,7 +484,7 @@ async function executeConversion() {
     }
     
     try {
-        // Use the CORRECT endpoint from your routes/user.js
+        // Use the correct endpoint
         const endpoint = currentConversionType === 'ethToWeth' 
             ? `/api/user/${user._id}/convert-to-weth`
             : `/api/user/${user._id}/convert-to-eth`;
@@ -350,18 +507,18 @@ async function executeConversion() {
         }
         
         if (data.success) {
-            // Update local variables from response
+            // Update balances from response
             if (data.user) {
-                userEthBalance = data.user.ethBalance || 0;
-                userWethBalance = data.user.wethBalance || 0;
+                userEthBalance = data.user.ethBalance || userEthBalance;
+                userWethBalance = data.user.wethBalance || userWethBalance;
                 
                 // Update localStorage
-                localStorage.setItem('user', JSON.stringify({ ...user, ...data.user }));
+                const updatedUser = { ...user, ...data.user };
+                localStorage.setItem('user', JSON.stringify(updatedUser));
             }
             
             // Update display
             updateBalanceDisplay();
-            updateAvailableBalance();
             checkEthBalanceRequirement();
             
             // Reset form
@@ -373,7 +530,6 @@ async function executeConversion() {
             const toCurrency = currentConversionType === 'ethToWeth' ? 'WETH' : 'ETH';
             
             alert(`✅ Successfully converted ${amount.toFixed(4)} ${fromCurrency} to ${toCurrency}!`);
-            console.log(`✅ Conversion completed: ${amount} ${fromCurrency} → ${toCurrency}`);
         }
         
     } catch (error) {
@@ -388,6 +544,13 @@ async function executeConversion() {
         }
     }
 }
+
+// Clean up on page unload
+window.addEventListener('beforeunload', function() {
+    if (priceUpdateListener && window.ethPriceService) {
+        window.ethPriceService.unsubscribe(priceUpdateListener);
+    }
+});
 
 // Make functions globally available
 window.selectConversionType = selectConversionType;
