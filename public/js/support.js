@@ -2,20 +2,12 @@
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🆘 Support page initialized');
-    
-    // Initialize FAQ functionality
     initializeFAQs();
-    
-    // Set up search functionality
     setupSearch();
-    
-    // Load user info for ticket form
     loadUserInfo();
 });
 
-// Initialize FAQ functionality
 function initializeFAQs() {
-    // Open first category by default
     setTimeout(() => {
         const firstCategory = document.querySelector('.faq-category');
         if (firstCategory) {
@@ -24,13 +16,11 @@ function initializeFAQs() {
     }, 500);
 }
 
-// Toggle FAQ category
 function toggleCategory(header) {
     const category = header.closest('.faq-category');
     const content = category.querySelector('.category-content');
     const icon = header.querySelector('.fa-chevron-down');
     
-    // Toggle content visibility
     if (content.style.display === 'block') {
         content.style.display = 'none';
         icon.classList.remove('fa-rotate-180');
@@ -40,13 +30,11 @@ function toggleCategory(header) {
     }
 }
 
-// Toggle FAQ item
 function toggleFAQ(questionElement) {
     const item = questionElement.closest('.faq-item');
     const answer = item.querySelector('.faq-answer');
     const icon = questionElement.querySelector('i');
     
-    // Toggle answer visibility
     if (answer.style.display === 'block') {
         answer.style.display = 'none';
         icon.classList.remove('fa-minus');
@@ -56,7 +44,6 @@ function toggleFAQ(questionElement) {
         icon.classList.remove('fa-plus');
         icon.classList.add('fa-minus');
         
-        // Close other open FAQs in same category
         const category = item.closest('.faq-category');
         category.querySelectorAll('.faq-answer').forEach(otherAnswer => {
             if (otherAnswer !== answer && otherAnswer.style.display === 'block') {
@@ -69,7 +56,6 @@ function toggleFAQ(questionElement) {
     }
 }
 
-// Search support articles
 function searchSupport() {
     const searchInput = document.getElementById('supportSearch');
     const query = searchInput.value.trim().toLowerCase();
@@ -79,7 +65,6 @@ function searchSupport() {
         return;
     }
     
-    // Search through all FAQs
     let foundResults = false;
     const allFAQs = document.querySelectorAll('.faq-item');
     
@@ -88,19 +73,16 @@ function searchSupport() {
         const answer = faq.querySelector('.faq-answer').textContent.toLowerCase();
         
         if (question.includes(query) || answer.includes(query)) {
-            // Show and highlight this FAQ
             faq.style.display = 'block';
-            faq.style.backgroundColor = '#f0f9ff';
+            faq.style.backgroundColor = 'rgba(138, 43, 226, 0.1)'; // Purple highlight
             faq.scrollIntoView({ behavior: 'smooth', block: 'center' });
             
-            // Open the category
             const category = faq.closest('.faq-category');
             const categoryHeader = category.querySelector('.category-header');
             const categoryContent = category.querySelector('.category-content');
             categoryContent.style.display = 'block';
             categoryHeader.querySelector('.fa-chevron-down').classList.add('fa-rotate-180');
             
-            // Open the FAQ
             const answerElement = faq.querySelector('.faq-answer');
             const icon = faq.querySelector('.faq-question i');
             answerElement.style.display = 'block';
@@ -115,7 +97,6 @@ function searchSupport() {
     
     if (!foundResults) {
         showNotification('No results found for "' + query + '"', 'info');
-        // Reset display
         setTimeout(() => {
             allFAQs.forEach(faq => {
                 faq.style.display = 'block';
@@ -125,7 +106,6 @@ function searchSupport() {
     }
 }
 
-// Setup search input
 function setupSearch() {
     const searchInput = document.getElementById('supportSearch');
     if (searchInput) {
@@ -137,7 +117,6 @@ function setupSearch() {
     }
 }
 
-// Open ticket modal
 function openTicketModal() {
     const modal = document.getElementById('ticketModal');
     if (modal) {
@@ -146,7 +125,6 @@ function openTicketModal() {
     }
 }
 
-// Close ticket modal
 function closeTicketModal() {
     const modal = document.getElementById('ticketModal');
     if (modal) {
@@ -155,7 +133,6 @@ function closeTicketModal() {
     }
 }
 
-// Close success modal
 function closeSuccessModal() {
     const modal = document.getElementById('successModal');
     if (modal) {
@@ -164,25 +141,14 @@ function closeSuccessModal() {
     }
 }
 
-// Load user info for ticket form
 function loadUserInfo() {
     try {
-        const userStr = localStorage.getItem('magicEdenCurrentUser');
-        let userEmail = '';
-        
+        const userStr = localStorage.getItem('user');
         if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                userEmail = user.email || '';
-            } catch (jsonError) {
-                userEmail = userStr;
-            }
-        }
-        
-        if (userEmail) {
+            const user = JSON.parse(userStr);
             const emailInput = document.getElementById('ticketEmail');
-            if (emailInput) {
-                emailInput.value = userEmail;
+            if (emailInput && user.email) {
+                emailInput.value = user.email;
             }
         }
     } catch (error) {
@@ -190,119 +156,40 @@ function loadUserInfo() {
     }
 }
 
-// Submit support ticket
 async function submitTicket(event) {
     event.preventDefault();
     
-    // Get form data
     const formData = {
         subject: document.getElementById('ticketSubject').value.trim(),
         category: document.getElementById('ticketCategory').value,
         description: document.getElementById('ticketDescription').value.trim(),
         email: document.getElementById('ticketEmail').value.trim(),
-        transactionHash: document.getElementById('transactionHash').value.trim(),
-        urgent: document.getElementById('urgentCheckbox').checked
+        transactionHash: document.getElementById('transactionHash').value.trim()
     };
     
-    // Validate
     if (!formData.subject || !formData.category || !formData.description || !formData.email) {
         showNotification('Please fill in all required fields', 'error');
         return;
     }
     
-    // Show loading state
     const submitBtn = document.querySelector('#supportTicketForm button[type="submit"]');
     const originalText = submitBtn.innerHTML;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
     submitBtn.disabled = true;
     
-    try {
-        // Get auth token
-        let token = localStorage.getItem('authToken');
-        if (!token) token = localStorage.getItem('token');
+    // Simulate API delay for ticket submission
+    setTimeout(() => {
+        closeTicketModal();
+        document.getElementById('ticketId').textContent = 'ME-' + Math.floor(Math.random() * 90000 + 10000);
+        document.getElementById('successModal').style.display = 'flex';
+        document.getElementById('supportTicketForm').reset();
         
-        // Check user object for token
-        if (!token) {
-            const userStr = localStorage.getItem('magicEdenCurrentUser');
-            if (userStr) {
-                try {
-                    const user = JSON.parse(userStr);
-                    token = user.token;
-                } catch (e) {
-                    // Not JSON, skip
-                }
-            }
-        }
-        
-        if (!token) {
-            showNotification('Please log in to submit a ticket', 'error');
-            setTimeout(() => {
-                window.location.href = '/login';
-            }, 1500);
-            return;
-        }
-        
-        // Send to backend - try correct endpoint
-        const response = await fetch('/api/auth/support/ticket', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(formData)
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok) {
-            // Success
-            document.getElementById('ticketId').textContent = result.ticket.ticketId;
-            closeTicketModal();
-            
-            setTimeout(() => {
-                document.getElementById('successModal').style.display = 'flex';
-                document.getElementById('supportTicketForm').reset();
-                loadUserInfo();
-            }, 300);
-            
-            showNotification('Ticket submitted successfully!', 'success');
-        } else {
-            throw new Error(result.error || result.message || 'Failed to submit ticket');
-        }
-        
-    } catch (error) {
-        console.error('Ticket submission error:', error);
-        showNotification(`Error: ${error.message}`, 'error');
-    } finally {
-        // Reset button state
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
-    }
+        showNotification('Ticket submitted successfully!', 'success');
+    }, 1500);
 }
 
-// Save ticket for offline submission
-function saveTicketForOffline(ticketData) {
-    try {
-        const offlineTickets = JSON.parse(localStorage.getItem('offlineTickets') || '[]');
-        offlineTickets.push({
-            ...ticketData,
-            id: Date.now(),
-            createdAt: new Date().toISOString(),
-            status: 'pending'
-        });
-        localStorage.setItem('offlineTickets', JSON.stringify(offlineTickets));
-    } catch (error) {
-        console.error('Error saving offline ticket:', error);
-    }
-}
-
-// Simulate ticket confirmation email
-function simulateTicketConfirmation(email, ticketId) {
-    console.log('📧 Ticket confirmation sent to:', email);
-    console.log('Ticket ID:', ticketId);
-}
-
-// Scroll to section
 function scrollToSection(sectionId) {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -312,15 +199,10 @@ function scrollToSection(sectionId) {
     }
 }
 
-// Show notification
 function showNotification(message, type = 'info') {
-    // Remove existing notification
     const existingNotification = document.querySelector('.support-notification');
-    if (existingNotification) {
-        existingNotification.remove();
-    }
+    if (existingNotification) existingNotification.remove();
     
-    // Create notification element
     const notification = document.createElement('div');
     notification.className = `support-notification notification-${type}`;
     notification.innerHTML = `
@@ -328,44 +210,149 @@ function showNotification(message, type = 'info') {
         <span>${message}</span>
     `;
     
-    // Add to page
+    notification.style.position = 'fixed';
+    notification.style.top = '20px';
+    notification.style.right = '20px';
+    notification.style.padding = '15px 25px';
+    notification.style.borderRadius = '8px';
+    notification.style.background = '#1a1a1a';
+    notification.style.color = '#fff';
+    notification.style.zIndex = '9999';
+    notification.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
+    notification.style.borderLeft = `4px solid ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'}`;
+    
     document.body.appendChild(notification);
     
-    // Show with animation
-    setTimeout(() => {
-        notification.classList.add('show');
-    }, 10);
-    
-    // Remove after 3 seconds
-    setTimeout(() => {
-        notification.classList.remove('show');
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.remove();
-            }
-        }, 300);
-    }, 3000);
+    setTimeout(() => notification.remove(), 4000);
 }
 
-// Close modal when clicking outside
-window.onclick = function(event) {
-    const ticketModal = document.getElementById('ticketModal');
-    const successModal = document.getElementById('successModal');
-    
-    if (event.target === ticketModal) {
-        closeTicketModal();
-    }
-    if (event.target === successModal) {
-        closeSuccessModal();
+
+// ==========================================
+// NEW: DYNAMIC ARTICLE VIEWER LOGIC
+// ==========================================
+
+const articleDatabase = {
+    'security': {
+        title: 'Security Center: Keep Your Assets Safe',
+        icon: 'fa-shield-alt',
+        content: `
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #8a2be2; margin-bottom: 10px;">1. Never Share Your Seed Phrase</h3>
+                <p>Your 12 or 24-word recovery phrase is the master key to your wallet. Magic Eden staff will <strong>never</strong> ask for your seed phrase. If anyone asks for it, they are a scammer.</p>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #8a2be2; margin-bottom: 10px;">2. Hardware Wallets</h3>
+                <p>For large collections and high-value NFTs, we strongly recommend using a hardware wallet (like Ledger or Trezor). Hardware wallets keep your private keys entirely offline.</p>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #8a2be2; margin-bottom: 10px;">3. Beware of Phishing Links</h3>
+                <p>Scammers often create fake websites that look exactly like Magic Eden. Always verify the URL in your browser bar before connecting your wallet or signing any transactions.</p>
+                <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; padding: 15px; margin-top: 10px; border-radius: 4px;">
+                    <strong>Alert:</strong> Do not click on random links sent to you via Discord or Twitter DMs claiming you won a "free mint" or "airdrop".
+                </div>
+            </div>
+        `
+    },
+    'buying': {
+        title: 'Buying Guide: How to Purchase NFTs',
+        icon: 'fa-book',
+        content: `
+            <div style="margin-bottom: 20px;">
+                <p>Welcome to Magic Eden! Buying your first digital collectible is easy. Follow these steps:</p>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #8a2be2; margin-bottom: 10px;">Step 1: Connect Your Wallet</h3>
+                <p>Click the "Connect Wallet" button in the top right corner. We recommend MetaMask. Make sure you have enough ETH or WETH in your wallet to cover the NFT price plus gas fees.</p>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #8a2be2; margin-bottom: 10px;">Step 2: Fixed Price vs. Auctions</h3>
+                <ul>
+                    <li style="margin-bottom: 10px;"><strong>Buy Now (Fixed Price):</strong> Simply click "Buy Now", approve the transaction in your wallet, and the NFT is yours immediately. Requires regular ETH.</li>
+                    <li><strong>Place a Bid (Auctions):</strong> Enter an amount higher than the current top bid. Bidding requires WETH (Wrapped Ethereum). If you are outbid, your WETH is safely returned to you.</li>
+                </ul>
+            </div>
+        `
+    },
+    'gas': {
+        title: 'Understanding Gas Fees',
+        icon: 'fa-gas-pump',
+        content: `
+            <div style="margin-bottom: 20px;">
+                <p>Gas fees are the transaction costs required to use the Ethereum blockchain. Magic Eden does not receive these fees; they go directly to the miners processing your transaction.</p>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #8a2be2; margin-bottom: 10px;">Why is Gas so High?</h3>
+                <p>Gas fees fluctuate based on network demand. If many people are trying to buy NFTs or trade tokens at the same time, the network gets congested, and fees spike.</p>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #8a2be2; margin-bottom: 10px;">Tips for Lower Fees:</h3>
+                <ul>
+                    <li>Transact during off-peak hours (usually weekends or late at night in US timezones).</li>
+                    <li>Use an Ethereum Gas Tracker to monitor current "Gwei" prices before executing a transaction.</li>
+                    <li>Ensure you have slightly more ETH than the estimated fee, to prevent "Out of Gas" failed transactions.</li>
+                </ul>
+            </div>
+        `
+    },
+    'glossary': {
+        title: 'The Web3 & NFT Glossary',
+        icon: 'fa-book-open',
+        content: `
+            <div style="margin-bottom: 15px;">
+                <strong style="color: #8a2be2; font-size: 18px;">Airdrop</strong>
+                <p>A method of distributing crypto or NFTs directly to users' wallets, usually for free as a reward for loyalty.</p>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <strong style="color: #8a2be2; font-size: 18px;">Floor Price</strong>
+                <p>The lowest priced active listing within an NFT collection. It is used as a metric to measure a collection's entry-level value.</p>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <strong style="color: #8a2be2; font-size: 18px;">Minting</strong>
+                <p>The process of publishing a digital asset on the blockchain, making it a tradable NFT for the very first time.</p>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <strong style="color: #8a2be2; font-size: 18px;">Rug Pull</strong>
+                <p>A scam where creators abandon a project and run away with investors' funds after selling out their collection.</p>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <strong style="color: #8a2be2; font-size: 18px;">WETH (Wrapped Ethereum)</strong>
+                <p>An ERC-20 token that represents Ethereum 1:1. It allows users to place pre-authorized bids on NFT auctions without locking up their raw ETH.</p>
+            </div>
+        `
     }
 };
 
-// Make functions globally available
-window.toggleCategory = toggleCategory;
-window.toggleFAQ = toggleFAQ;
-window.searchSupport = searchSupport;
-window.openTicketModal = openTicketModal;
-window.closeTicketModal = closeTicketModal;
-window.closeSuccessModal = closeSuccessModal;
-window.submitTicket = submitTicket;
-window.scrollToSection = scrollToSection;
+function openArticle(articleId) {
+    const data = articleDatabase[articleId];
+    if (!data) return;
+
+    // Set the Title, Icon, and Content
+    document.getElementById('articleTitle').innerHTML = `<i class="fas ${data.icon}"></i> ${data.title}`;
+    document.getElementById('articleBody').innerHTML = data.content;
+
+    // Show the Modal
+    const modal = document.getElementById('articleModal');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden'; // Prevent background scrolling
+}
+
+function closeArticleModal() {
+    const modal = document.getElementById('articleModal');
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto'; // Restore scrolling
+}
+
+// Global modal close handler update
+window.onclick = function(event) {
+    const ticketModal = document.getElementById('ticketModal');
+    const successModal = document.getElementById('successModal');
+    const articleModal = document.getElementById('articleModal');
+    
+    if (event.target === ticketModal) closeTicketModal();
+    if (event.target === successModal) closeSuccessModal();
+    if (event.target === articleModal) closeArticleModal();
+};
+
+// Make the new functions global
+window.openArticle = openArticle;
+window.closeArticleModal = closeArticleModal;
