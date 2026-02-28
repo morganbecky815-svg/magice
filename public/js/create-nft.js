@@ -1,4 +1,5 @@
-// create-nft.js - FIXED with relative URLs
+// create-nft.js - COMPLETE AND UPDATED (V1)
+
 // Fetch live ETH price on load
 (async function() {
     try {
@@ -63,8 +64,11 @@ function initializeNFTForm() {
     console.log("📝 Initializing NFT Form...");
     
     try {
-        // Load real balance from backend
+        // Load real balance from backend/localStorage
         loadRealUserBalance();
+        
+        // Load user's actual collections from database
+        loadUserCollections();
         
         // Setup file upload
         setupFileUpload();
@@ -88,7 +92,60 @@ function initializeNFTForm() {
     }
 }
 
-// File Upload Handling
+// ============================================
+// DYNAMIC COLLECTIONS 
+// ============================================
+
+async function loadUserCollections() {
+    try {
+        console.log("🔄 Loading user collections...");
+        
+        const userStr = localStorage.getItem('magicEdenCurrentUser') || localStorage.getItem('user');
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        
+        if (!userStr || !token) return;
+        
+        const user = JSON.parse(userStr);
+        const userId = user._id || user.id;
+        const select = document.getElementById('collectionSelect');
+        
+        if (!select) return;
+
+        // Clear hardcoded options, keep "Create New Collection"
+        select.innerHTML = '<option value="">Create New Collection</option>';
+
+        // Try to fetch real collections
+        const response = await fetch(`/api/collections/user/${userId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) return; // Silent fail if endpoint doesn't exist yet
+        
+        const data = await response.json();
+        
+        if (data.success && data.collections && data.collections.length > 0) {
+            console.log(`✅ Loaded ${data.collections.length} collections`);
+            
+            data.collections.forEach(collection => {
+                const option = document.createElement('option');
+                option.value = collection.name; 
+                option.textContent = collection.name;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error("❌ Error loading collections:", error);
+    }
+}
+
+
+// ============================================
+// FILE UPLOAD HANDLING
+// ============================================
+
 function setupFileUpload() {
     const uploadArea = document.getElementById('uploadArea');
     const fileInput = document.getElementById('imageUpload');
@@ -291,7 +348,10 @@ function toggleCollectionFields() {
     updateCreateButton();
 }
 
-// Price Calculations
+// ============================================
+// PRICE CALCULATIONS
+// ============================================
+
 function setupPriceCalculations() {
     const priceInput = document.getElementById('nftPrice');
     if (!priceInput) return;
@@ -447,17 +507,141 @@ function updateRoyaltySlider() {
     updateCostSummary();
 }
 
-// Balance Check
+
+// ============================================
+// BULLETPROOF REAL BALANCE FUNCTIONS
+// ============================================
+
+async function loadRealUserBalance() {
+    try {
+        console.log("🔄 Loading user balance...");
+
+        // 1. Check ALL possible local storage keys used in V1
+        const userStr = localStorage.getItem('magicEdenCurrentUser') || localStorage.getItem('user');
+        const tokenStr = localStorage.getItem('authToken') || localStorage.getItem('token');
+        
+        let currentBalance = 0;
+
+        // 2. Read from LocalStorage first for instant UI updates (matches Dashboard)
+        if (userStr) {
+            const userData = JSON.parse(userStr);
+            console.log("👤 User data found in storage:", userData);
+
+            // Aggressively search for whichever field your database uses for ETH
+            currentBalance = parseFloat(userData.ethBalance) || 
+                             parseFloat(userData.balance) || 
+                             parseFloat(userData.internalBalance) || 
+                             parseFloat(userData.walletBalance) || 0;
+
+            console.log("💰 Balance found in storage:", currentBalance);
+
+            // Update UI instantly
+            updateBalanceDisplay(currentBalance);
+            checkBalanceSufficiency(currentBalance);
+        }
+
+        // 3. Try to fetch fresh data from the backend API
+        if (userStr && tokenStr) {
+            const userData = JSON.parse(userStr);
+            const userId = userData._id || userData.id;
+
+            if (userId) {
+                console.log(`🌐 Fetching fresh balance from API for ID: ${userId}`);
+                const response = await fetch(`/api/user/${userId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${tokenStr}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.user) {
+                        // Find the correct balance field from the DB response
+                        const dbBalance = parseFloat(data.user.ethBalance) || 
+                                          parseFloat(data.user.balance) || 
+                                          parseFloat(data.user.internalBalance) || 0;
+
+                        console.log("✅ Fresh balance received from API:", dbBalance);
+
+                        // Keep local storage perfectly in sync
+                        const updatedUser = { ...userData, ...data.user };
+                        if (localStorage.getItem('magicEdenCurrentUser')) {
+                            localStorage.setItem('magicEdenCurrentUser', JSON.stringify(updatedUser));
+                        } else {
+                            localStorage.setItem('user', JSON.stringify(updatedUser));
+                        }
+
+                        // Update UI with fresh DB data
+                        updateBalanceDisplay(dbBalance);
+                        checkBalanceSufficiency(dbBalance);
+                        return dbBalance;
+                    }
+                } else {
+                    console.log("⚠️ API returned non-OK status. Relying on local storage balance.");
+                }
+            }
+        }
+
+        return currentBalance;
+
+    } catch (error) {
+        console.error("❌ Error loading balance:", error);
+        return 0;
+    }
+}
+
 async function checkUserBalance() {
     try {
         await loadRealUserBalance();
     } catch (error) {
-        console.error("❌ Error checking balance:", error);
-        showError("Failed to check ETH balance. Please refresh the page.");
+        console.error("Error in checkUserBalance:", error);
     }
 }
 
-// Form Validation
+function updateBalanceDisplay(balance) {
+    const balanceElements = [
+        document.getElementById('userEthBalance'),
+        document.getElementById('currentBalance'),
+        document.querySelector('.current-balance span:last-child')
+    ];
+    
+    balanceElements.forEach(el => {
+        if (el) el.textContent = `${parseFloat(balance).toFixed(4)} ETH`;
+    });
+}
+
+function checkBalanceSufficiency(balance) {
+    const requiredBalance = 0.1; // 0.1 ETH Minting fee
+    const statusElement = document.getElementById('balanceStatus');
+    const insufficientElement = document.getElementById('insufficientBalance');
+    
+    if (!statusElement || !insufficientElement) return;
+    
+    if (balance >= requiredBalance) {
+        statusElement.className = 'balance-status success';
+        statusElement.innerHTML = '<i class="fas fa-check-circle"></i> Sufficient ETH balance for minting';
+        insufficientElement.style.display = 'none';
+        isBalanceSufficient = true;
+    } else {
+        statusElement.className = 'balance-status error';
+        statusElement.innerHTML = '<i class="fas fa-exclamation-circle"></i> Insufficient ETH balance';
+        insufficientElement.style.display = 'flex';
+        isBalanceSufficient = false;
+    }
+    
+    statusElement.style.display = 'block';
+    
+    // Call the original updateCreateButton logic to enable/disable submit
+    if (typeof updateCreateButton === 'function') {
+        updateCreateButton();
+    }
+}
+
+// ============================================
+// FORM VALIDATION
+// ============================================
+
 function setupFormValidation() {
     const form = document.getElementById('nftCreationForm');
     if (!form) return;
@@ -625,7 +809,10 @@ function updateCreateButton() {
     }
 }
 
-// Preview NFT
+// ============================================
+// PREVIEW NFT
+// ============================================
+
 function previewNFT() {
     if (!currentFile) {
         showError('Please upload an artwork first');
@@ -719,7 +906,10 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// Notification Functions
+// ============================================
+// NOTIFICATIONS & UTILS
+// ============================================
+
 function showError(message) {
     showNotification(message, 'error');
 }
@@ -768,14 +958,12 @@ function showNotification(message, type) {
     }, 5000);
 }
 
-// Utility Functions
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
 
-// Setup Event Listeners
 function setupEventListeners() {
     // Add notification styles
     addNotificationStyles();
@@ -805,7 +993,187 @@ function setupEventListeners() {
     }
 }
 
-// Style Functions
+// ============================================
+// FORM SUBMISSION HANDLER 
+// ============================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('nftCreationForm');
+    if (!form) return;
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        console.log('📝 Form submission started...');
+        
+        // Get button and show loading
+        const createBtn = document.getElementById('createBtn');
+        const originalBtnText = createBtn.innerHTML;
+        createBtn.disabled = true;
+        createBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating NFT...';
+        
+        try {
+            // Get form values
+            const nftName = document.getElementById('nftName').value;
+            const nftDescription = document.getElementById('nftDescription').value;
+            const nftPrice = document.getElementById('nftPrice').value;
+            const royalty = document.getElementById('royaltyPercentage').value;
+            const externalUrl = document.getElementById('nftExternalUrl').value;
+            
+            console.log('Form values:', {
+                name: nftName,
+                price: nftPrice,
+                royalty: royalty,
+                hasDescription: !!nftDescription,
+                hasExternalUrl: !!externalUrl
+            });
+            
+            // Validate required fields
+            if (!nftName || !nftName.trim()) {
+                throw new Error('NFT name is required');
+            }
+            
+            if (!nftPrice || parseFloat(nftPrice) < 0.01) {
+                throw new Error('Price must be at least 0.01 WETH');
+            }
+            
+            if (!currentFile) {
+                throw new Error('Please upload an image');
+            }
+            
+            // Collection
+            const collectionSelect = document.getElementById('collectionSelect');
+            let collectionName = 'Unnamed Collection';
+            
+            if (collectionSelect) {
+                if (collectionSelect.value === '') {
+                    // Creating new collection
+                    const newCollectionName = document.getElementById('collectionName').value;
+                    collectionName = newCollectionName || 'My Collection';
+                } else {
+                    // Using existing collection
+                    collectionName = collectionSelect.options[collectionSelect.selectedIndex].text;
+                }
+            }
+            
+            // Get token from localStorage
+            const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+            if (!token) {
+                throw new Error('Please login to create NFTs');
+            }
+            
+            console.log('📤 Starting NFT creation process...');
+            console.log('Collection name:', collectionName);
+            
+            // 1. FIRST UPLOAD IMAGE
+            console.log('🖼️ Uploading image...');
+            const uploadFormData = new FormData();
+            uploadFormData.append('image', currentFile);
+            
+            const uploadResponse = await fetch('/api/upload/image', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                    // Don't set Content-Type for FormData
+                },
+                body: uploadFormData
+            });
+            
+            console.log('📥 Upload response status:', uploadResponse.status);
+            
+            if (!uploadResponse.ok) {
+                const uploadError = await uploadResponse.text();
+                throw new Error(`Image upload failed: ${uploadError}`);
+            }
+            
+            const uploadData = await uploadResponse.json();
+            
+            if (!uploadData.success) {
+                throw new Error(uploadData.error || 'Image upload failed');
+            }
+            
+            console.log('✅ Image uploaded successfully:', uploadData.imageUrl);
+            
+            // 2. THEN MINT NFT WITH THE IMAGE URL
+            const response = await fetch('/api/nft/mint', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: nftName,
+                    collectionName: collectionName,
+                    price: nftPrice,
+                    category: 'art',
+                    imageUrl: uploadData.imageUrl, 
+                    cloudinaryId: uploadData.cloudinaryId || 'upload_' + Date.now(),
+                    description: nftDescription || '',
+                    royalty: royalty || '5'
+                })
+            });
+            
+            console.log('📥 Mint response status:', response.status);
+            
+            // Try to parse response
+            let data;
+            try {
+                const text = await response.text();
+                console.log('Response text:', text);
+                data = JSON.parse(text);
+            } catch (parseError) {
+                console.error('Failed to parse response:', parseError);
+                throw new Error('Invalid server response');
+            }
+            
+            if (!response.ok) {
+                throw new Error(data.error || `Server error: ${response.status}`);
+            }
+            
+            if (data.success) {
+                // Success!
+                console.log('✅ NFT minted successfully!', data.nft);
+                console.log('ETH deducted! New balance:', data.newETHBalance);
+                
+                // Show success message
+                showNotification(`🎉 NFT minted successfully!`, 'success');
+                
+                // Update user in localStorage with new ETH balance
+                if (data.user) {
+                    const storageKey = localStorage.getItem('magicEdenCurrentUser') ? 'magicEdenCurrentUser' : 'user';
+                    const currentUser = JSON.parse(localStorage.getItem(storageKey) || '{}');
+                    const updatedUser = { ...currentUser, ...data.user };
+                    localStorage.setItem(storageKey, JSON.stringify(updatedUser));
+                }
+                
+                // Reset form
+                form.reset();
+                removePreview();
+                
+                // Redirect to marketplace after 3 seconds
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 3000);
+                
+            } else {
+                throw new Error(data.error || 'Failed to mint NFT');
+            }
+            
+        } catch (error) {
+            console.error('❌ NFT minting failed:', error);
+            showNotification(error.message || 'Failed to mint NFT', 'error');
+            
+            // Re-enable button
+            createBtn.disabled = false;
+            createBtn.innerHTML = originalBtnText;
+        }
+    });
+});
+
+// ============================================
+// STYLE INJECTIONS
+// ============================================
+
 function addNotificationStyles() {
     if (document.getElementById('notification-styles')) return;
     
@@ -987,7 +1355,6 @@ function addPreviewStyles() {
     document.head.appendChild(style);
 }
 
-// Add spinner styles for loading states
 function addSpinnerStyles() {
     if (document.getElementById('spinner-styles')) return;
     
@@ -1015,9 +1382,7 @@ function addSpinnerStyles() {
         }
         
         @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
+            to { transform: rotate(360deg); }
         }
         
         .fa-spin {
@@ -1025,12 +1390,8 @@ function addSpinnerStyles() {
         }
         
         @keyframes fa-spin {
-            0% {
-                transform: rotate(0deg);
-            }
-            100% {
-                transform: rotate(360deg);
-            }
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     `;
     document.head.appendChild(style);
@@ -1038,291 +1399,4 @@ function addSpinnerStyles() {
 
 // Initialize spinner styles
 addSpinnerStyles();
-
-// ============================================
-// REAL BALANCE FUNCTIONS
-// ============================================
-
-// Load real user balance from backend
-async function loadRealUserBalance() {
-    try {
-        console.log("🔄 Loading real user balance from backend...");
-        
-        // Get user from localStorage
-        const userStr = localStorage.getItem('user');
-        const token = localStorage.getItem('token');
-        
-        if (!userStr || !token) {
-            console.log("❌ No user or token found");
-            return 0;
-        }
-        
-        const user = JSON.parse(userStr);
-        
-        // ✅ FIXED: Use relative URL instead of hardcoded domain
-        const response = await fetch(`/api/user/${user._id}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success && data.user) {
-            console.log("✅ Real user balance loaded:", data.user.ethBalance);
-            
-            // Update localStorage with fresh data
-            localStorage.setItem('user', JSON.stringify(data.user));
-            
-            // Update balance displays
-            updateBalanceDisplay(data.user.ethBalance || 0);
-            
-            // Check if balance is sufficient
-            checkBalanceSufficiency(data.user.ethBalance || 0);
-            
-            return data.user.ethBalance;
-        }
-    } catch (error) {
-        console.error("❌ Error loading real balance:", error);
-        
-        // Fallback to localStorage balance
-        try {
-            const userStr = localStorage.getItem('user');
-            if (userStr) {
-                const user = JSON.parse(userStr);
-                updateBalanceDisplay(user.ethBalance || user.balance || 0);
-                checkBalanceSufficiency(user.ethBalance || user.balance || 0);
-            }
-        } catch (fallbackError) {
-            console.error("Fallback also failed:", fallbackError);
-        }
-    }
-    return 0;
-}
-
-// Update balance display
-function updateBalanceDisplay(balance) {
-    const balanceElements = [
-        document.getElementById('userEthBalance'),
-        document.getElementById('currentBalance'),
-        document.querySelector('.current-balance span:last-child')
-    ];
-    
-    balanceElements.forEach(el => {
-        if (el) {
-            el.textContent = `${balance.toFixed(4)} ETH`;
-        }
-    });
-    
-    console.log("💰 Balance display updated:", balance);
-}
-
-// Check balance sufficiency
-function checkBalanceSufficiency(balance) {
-    const requiredBalance = 0.1;
-    const statusElement = document.getElementById('balanceStatus');
-    const insufficientElement = document.getElementById('insufficientBalance');
-    
-    if (!statusElement || !insufficientElement) return;
-    
-    if (balance >= requiredBalance) {
-        statusElement.className = 'balance-status success';
-        statusElement.innerHTML = '<i class="fas fa-check-circle"></i> Sufficient ETH balance for minting';
-        insufficientElement.style.display = 'none';
-        isBalanceSufficient = true;
-    } else {
-        statusElement.className = 'balance-status error';
-        statusElement.innerHTML = '<i class="fas fa-exclamation-circle"></i> Insufficient ETH balance';
-        insufficientElement.style.display = 'flex';
-        isBalanceSufficient = false;
-    }
-    
-    statusElement.style.display = 'block';
-    updateCreateButton();
-}
-
-// ============================================
-// FORM SUBMISSION HANDLER - FIXED WITH RELATIVE URLS
-// ============================================
-
-// Handle form submission
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('nftCreationForm');
-    if (!form) return;
-    
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        console.log('📝 Form submission started...');
-        
-        // Get button and show loading
-        const createBtn = document.getElementById('createBtn');
-        const originalBtnText = createBtn.innerHTML;
-        createBtn.disabled = true;
-        createBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating NFT...';
-        
-        try {
-            // Get form values
-            const nftName = document.getElementById('nftName').value;
-            const nftDescription = document.getElementById('nftDescription').value;
-            const nftPrice = document.getElementById('nftPrice').value;
-            const royalty = document.getElementById('royaltyPercentage').value;
-            const externalUrl = document.getElementById('nftExternalUrl').value;
-            
-            console.log('Form values:', {
-                name: nftName,
-                price: nftPrice,
-                royalty: royalty,
-                hasDescription: !!nftDescription,
-                hasExternalUrl: !!externalUrl
-            });
-            
-            // Validate required fields
-            if (!nftName || !nftName.trim()) {
-                throw new Error('NFT name is required');
-            }
-            
-            if (!nftPrice || parseFloat(nftPrice) < 0.01) {
-                throw new Error('Price must be at least 0.01 WETH');
-            }
-            
-            if (!currentFile) {
-                throw new Error('Please upload an image');
-            }
-            
-            // Collection
-            const collectionSelect = document.getElementById('collectionSelect');
-            let collectionName = 'Unnamed Collection';
-            
-            if (collectionSelect) {
-                if (collectionSelect.value === '') {
-                    // Creating new collection
-                    const newCollectionName = document.getElementById('collectionName').value;
-                    collectionName = newCollectionName || 'My Collection';
-                } else {
-                    // Using existing collection
-                    collectionName = collectionSelect.options[collectionSelect.selectedIndex].text;
-                }
-            }
-            
-            // Get token from localStorage
-            const token = localStorage.getItem('token');
-            if (!token) {
-                throw new Error('Please login to create NFTs');
-            }
-            
-            console.log('📤 Starting NFT creation process...');
-            console.log('Collection name:', collectionName);
-            
-            // 1. FIRST UPLOAD IMAGE (NOT base64)
-            console.log('🖼️ Uploading image...');
-            const uploadFormData = new FormData();
-            uploadFormData.append('image', currentFile);
-            
-            // ✅ FIXED: Use relative URL
-            const uploadResponse = await fetch('/api/upload/image', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                    // Don't set Content-Type for FormData
-                },
-                body: uploadFormData
-            });
-            
-            console.log('📥 Upload response status:', uploadResponse.status);
-            
-            if (!uploadResponse.ok) {
-                const uploadError = await uploadResponse.text();
-                throw new Error(`Image upload failed: ${uploadError}`);
-            }
-            
-            const uploadData = await uploadResponse.json();
-            
-            if (!uploadData.success) {
-                throw new Error(uploadData.error || 'Image upload failed');
-            }
-            
-            console.log('✅ Image uploaded successfully:', uploadData.imageUrl);
-            
-            // 2. THEN MINT NFT WITH THE IMAGE URL
-            // ✅ FIXED: Use relative URL and correct endpoint
-            const response = await fetch('/api/nft/mint', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    name: nftName,
-                    collectionName: collectionName,
-                    price: nftPrice,
-                    category: 'art',
-                    imageUrl: uploadData.imageUrl, // Use URL from upload
-                    cloudinaryId: uploadData.cloudinaryId || 'upload_' + Date.now(),
-                    description: nftDescription || '',
-                    royalty: royalty || '5'
-                })
-            });
-            
-            console.log('📥 Mint response status:', response.status);
-            
-            // Try to parse response
-            let data;
-            try {
-                const text = await response.text();
-                console.log('Response text:', text);
-                data = JSON.parse(text);
-            } catch (parseError) {
-                console.error('Failed to parse response:', parseError);
-                throw new Error('Invalid server response');
-            }
-            
-            if (!response.ok) {
-                throw new Error(data.error || `Server error: ${response.status}`);
-            }
-            
-            if (data.success) {
-                // Success!
-                console.log('✅ NFT minted successfully!', data.nft);
-                console.log('ETH deducted! New balance:', data.newETHBalance);
-                
-                // Show success message with ETH deduction info
-                showNotification(`🎉 NFT minted successfully!`, 'success');
-                
-                // Update user in localStorage with new ETH balance
-                if (data.user) {
-                    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-                    const updatedUser = { ...currentUser, ...data.user };
-                    localStorage.setItem('user', JSON.stringify(updatedUser));
-                }
-                
-                // Reset form
-                form.reset();
-                removePreview();
-                
-                // Redirect to marketplace after 3 seconds
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 3000);
-                
-            } else {
-                throw new Error(data.error || 'Failed to mint NFT');
-            }
-            
-        } catch (error) {
-            console.error('❌ NFT minting failed:', error);
-            showNotification(error.message || 'Failed to mint NFT', 'error');
-            
-            // Re-enable button
-            createBtn.disabled = false;
-            createBtn.innerHTML = originalBtnText;
-        }
-    });
-});
-
 console.log("✅ NFT Creation script loaded successfully");
