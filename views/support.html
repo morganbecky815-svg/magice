@@ -23,7 +23,6 @@
     </script>
 </head>
 <body>
-    <!-- Header -->
     <header class="support-header">
         <div class="container">
             <div class="header-content">
@@ -38,10 +37,8 @@
         </div>
     </header>
 
-    <!-- Support Page Content -->
     <main class="support-page">
         <div class="container">
-            <!-- Hero Section -->
             <div class="support-hero">
                 <div class="hero-content">
                     <h1>How can we help you today?</h1>
@@ -58,7 +55,6 @@
                 </div>
             </div>
 
-            <!-- Quick Actions -->
             <div class="quick-actions">
                 <div class="action-card" onclick="window.location.href='/add-eth'">
                     <div class="action-icon">
@@ -67,7 +63,7 @@
                     <h3>Add Funds</h3>
                     <p>Learn how to add ETH to your wallet</p>
                 </div>
-                <div class="action-card" onclick="scrollToSection('buying-guide')">
+                <div class="action-card" onclick="openArticle('buying')">
                     <div class="action-icon">
                         <i class="fas fa-shopping-cart"></i>
                     </div>
@@ -81,7 +77,7 @@
                     <h3>Submit Ticket</h3>
                     <p>Contact our support team directly</p>
                 </div>
-                <div class="action-card" onclick="window.location.href='/security'">
+                <div class="action-card" onclick="openArticle('security')">
                     <div class="action-icon">
                         <i class="fas fa-shield-alt"></i>
                     </div>
@@ -90,11 +86,9 @@
                 </div>
             </div>
 
-            <!-- FAQ Categories -->
             <div class="faq-categories">
                 <h2 class="section-title">Frequently Asked Questions</h2>
                 
-                <!-- Account & Wallet -->
                 <div class="faq-category">
                     <div class="category-header" onclick="toggleCategory(this)">
                         <h3><i class="fas fa-user-circle"></i> Account & Wallet</h3>
@@ -113,7 +107,6 @@
                                     <li>Enter your email address and create a password</li>
                                     <li>Verify your email address via the confirmation link sent to your inbox</li>
                                     <li>Complete your profile setup</li>
-                                    
                                 </ol>
                             </div>
                         </div>
@@ -155,7 +148,6 @@
                     </div>
                 </div>
 
-                <!-- Buying & Selling NFTs -->
                 <div class="faq-category">
                     <div class="category-header" onclick="toggleCategory(this)">
                         <h3><i class="fas fa-shopping-bag"></i> Buying & Selling NFTs</h3>
@@ -220,7 +212,6 @@
                     </div>
                 </div>
 
-                <!-- Technical Support -->
                 <div class="faq-category">
                     <div class="category-header" onclick="toggleCategory(this)">
                         <h3><i class="fas fa-cogs"></i> Technical Support</h3>
@@ -269,77 +260,10 @@
                                 </ol>
                             </div>
                         </div>
-                        
-                        <div class="faq-item">
-                            <div class="faq-question" onclick="toggleFAQ(this)">
-                                NFT not showing in my collection
-                                <i class="fas fa-plus"></i>
-                            </div>
-                            <div class="faq-answer">
-                                <p>If your NFT isn't showing up:</p>
-                                <ol>
-                                    <li><strong>Refresh:</strong> Wait 5-10 minutes and refresh the page</li>
-                                    <li><strong>Check blockchain:</strong> Verify the transaction on Etherscan</li>
-                                    <li><strong>Clear cache:</strong> Clear browser cache and refresh</li>
-                                    <li><strong>Reconnect wallet:</strong> Disconnect and reconnect your wallet</li>
-                                    <li><strong>Check address:</strong> Ensure you're looking at the correct wallet</li>
-                                    <li><strong>Contact support:</strong> If still not showing, contact us with transaction hash</li>
-                                </ol>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Security & Safety -->
-                <div class="faq-category">
-                    <div class="category-header" onclick="toggleCategory(this)">
-                        <h3><i class="fas fa-shield-alt"></i> Security & Safety</h3>
-                        <i class="fas fa-chevron-down"></i>
-                    </div>
-                    <div class="faq-content">
-                        <div class="faq-item">
-                            <div class="faq-question" onclick="toggleFAQ(this)">
-                                How do I keep my account secure?
-                                <i class="fas fa-plus"></i>
-                            </div>
-                            <div class="faq-answer">
-                                <p><strong>Essential Security Practices:</strong></p>
-                                <ul>
-                                    <li><strong>Use strong passwords:</strong> Minimum 12 characters with mix of letters, numbers, symbols</li>
-                                    <li><strong>Enable 2FA:</strong> Use Google Authenticator or Authy</li>
-                                    <li><strong>Secure your seed phrase:</strong> Never share or store digitally</li>
-                                    <li><strong>Use hardware wallet:</strong> Ledger or Trezor for large amounts</li>
-                                    <li><strong>Verify URLs:</strong> Always check you're on magicedenmarketplace.com</li>
-                                    <li><strong>Never share private keys:</strong> We will NEVER ask for your private keys</li>
-                                </ul>
-                            </div>
-                        </div>
-                        
-                        <div class="faq-item">
-                            <div class="faq-question" onclick="toggleFAQ(this)">
-                                I think my account was compromised
-                                <i class="fas fa-plus"></i>
-                            </div>
-                            <div class="faq-answer">
-                                <div class="urgent-box">
-                                    <i class="fas fa-exclamation-circle"></i>
-                                    <p><strong>🚨 URGENT ACTION REQUIRED</strong></p>
-                                </div>
-                                <p>If you suspect your account is compromised:</p>
-                                <ol>
-                                    <li><strong>Immediately:</strong> Transfer funds to a secure wallet</li>
-                                    <li><strong>Change password:</strong> Update your Magic Eden password</li>
-                                    <li><strong>Revoke access:</strong> Go to connected apps and revoke all</li>
-                                    <li><strong>Contact support:</strong> smagiceden@gmail.com immediately</li>
-                                    <li><strong>Report:</strong> File a report with local authorities if significant loss</li>
-                                </ol>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Contact Support Section -->
             <div class="contact-section" id="contact-section">
                 <h2 class="section-title">Still Need Help?</h2>
                 <div class="contact-options">
@@ -360,43 +284,40 @@
                         <p>smagiceden@gmail.com</p>
                         <p class="response-time">Response time: 24-48 hours</p>
                     </div>
-                 
                 </div>
             </div>
 
-            <!-- Helpful Resources -->
             <div class="resources-section">
                 <h2 class="section-title">Helpful Resources</h2>
                 <div class="resources-grid">
-                    <a href="/security" class="resource-card">
+                    <div class="resource-card" onclick="openArticle('security')" style="cursor: pointer;">
                         <i class="fas fa-shield-alt"></i>
                         <h4>Security Center</h4>
                         <p>Complete guide to keeping your assets safe</p>
-                    </a>
+                    </div>
                     
-                    <a href="/buying-guide" class="resource-card">
+                    <div class="resource-card" onclick="openArticle('buying')" style="cursor: pointer;">
                         <i class="fas fa-book"></i>
                         <h4>Buying Guide</h4>
                         <p>Step-by-step guide for first-time buyers</p>
-                    </a>
+                    </div>
                     
-                    <a href="/gas-guide" class="resource-card">
+                    <div class="resource-card" onclick="openArticle('gas')" style="cursor: pointer;">
                         <i class="fas fa-gas-pump"></i>
                         <h4>Gas Fees Guide</h4>
                         <p>Understanding and optimizing gas fees</p>
-                    </a>
+                    </div>
                     
-                    <a href="/glossary" class="resource-card">
+                    <div class="resource-card" onclick="openArticle('glossary')" style="cursor: pointer;">
                         <i class="fas fa-book-open"></i>
                         <h4>NFT Glossary</h4>
                         <p>Learn all the NFT terms and jargon</p>
-                    </a>
+                    </div>
                 </div>
             </div>
         </div>
     </main>
 
-    <!-- Support Ticket Modal -->
     <div class="modal" id="ticketModal">
         <div class="modal-content support-modal">
             <div class="modal-header">
@@ -409,7 +330,6 @@
                         <label for="ticketSubject">Subject *</label>
                         <input type="text" id="ticketSubject" placeholder="Brief description of your issue" required>
                     </div>
-                    
                     <div class="form-group">
                         <label for="ticketCategory">Category *</label>
                         <select id="ticketCategory" required>
@@ -423,35 +343,19 @@
                             <option value="other">Other</option>
                         </select>
                     </div>
-                    
                     <div class="form-group">
                         <label for="ticketDescription">Description *</label>
                         <textarea id="ticketDescription" placeholder="Please describe your issue in detail. Include any error messages, transaction IDs, or relevant information." rows="6" required></textarea>
                     </div>
-                    
                     <div class="form-group">
                         <label for="ticketEmail">Email Address *</label>
                         <input type="email" id="ticketEmail" placeholder="Your email address" required>
                     </div>
-                    
                     <div class="form-group">
                         <label for="transactionHash">Transaction Hash (if applicable)</label>
                         <input type="text" id="transactionHash" placeholder="0x...">
-                        
                     </div>
-                    
-                    <div class="form-group">
-                        <label for="attachments">Attachments</label>
-                        <input type="file" id="attachments" multiple accept="image/*,.pdf,.txt">
-                        <small>Max 3 files, 5MB each. Screenshots help us resolve issues faster.</small>
-                    </div>
-                    
-                    <div class="form-group checkbox">
-                        <input type="checkbox" id="urgentCheckbox">
-                        <label for="urgentCheckbox">Mark as urgent (for compromised accounts or large fund losses only)</label>
-                    </div>
-                    
-                    <div class="form-actions">
+                    <div class="form-actions" style="margin-top: 20px;">
                         <button type="button" class="btn btn-secondary" onclick="closeTicketModal()">Cancel</button>
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-paper-plane"></i> Submit Ticket
@@ -462,31 +366,31 @@
         </div>
     </div>
 
-    <!-- Success Modal -->
     <div class="modal" id="successModal">
         <div class="modal-content success-modal">
-            <div class="modal-body">
-                <div class="success-icon">
+            <div class="modal-body" style="text-align: center;">
+                <div class="success-icon" style="font-size: 48px; color: #10b981; margin-bottom: 20px;">
                     <i class="fas fa-check-circle"></i>
                 </div>
                 <h3>Ticket Submitted Successfully!</h3>
                 <p>We've received your support ticket. Our team will get back to you within 24-48 hours.</p>
                 <p><strong>Ticket ID:</strong> <span id="ticketId">ME-</span></p>
-                <div class="next-steps">
-                    <h4>What happens next:</h4>
-                    <ul>
-                        <li>You'll receive a confirmation email</li>
-                        <li>Our support team will review your ticket</li>
-                        <li>We'll contact you via email with updates</li>
-                        <li>Check your spam folder if you don't see our emails</li>
-                    </ul>
-                </div>
-                <button class="btn btn-primary" onclick="closeSuccessModal()">Close</button>
+                <button class="btn btn-primary" onclick="closeSuccessModal()" style="margin-top: 20px;">Close</button>
             </div>
         </div>
     </div>
 
-    <!-- Load Scripts -->
+    <div class="modal" id="articleModal">
+        <div class="modal-content support-modal" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2 id="articleTitle"><i class="fas fa-book"></i> Guide</h2>
+                <button class="close-modal" onclick="closeArticleModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="articleBody" style="max-height: 70vh; overflow-y: auto; padding-right: 15px; line-height: 1.8;">
+                </div>
+        </div>
+    </div>
+
     <script src="../js/app.js"></script>
     <script src="../js/support.js"></script>
 </body>
