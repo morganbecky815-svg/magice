@@ -1,17 +1,18 @@
-// transfer.js - Complete Transfer & Withdrawal with Universal Bank Method
+// transfer.js - Complete Transfer & Withdrawal with Live Database Integration
 // Magic Eden - Transfer Page
 
 console.log('🚀 Transfer.js loaded successfully');
 
-// Global data store - Removed fake static balances!
+// Global data store - No hardcoded data!
 let transferData = {
     balances: {
-        eth: 0, 
-        weth: 0, 
+        eth: 0,
+        weth: 0,
         usd: 0
     },
     transactions: [],
     savedBanks: [],
+    recentContacts: [], // Array for dynamic contacts
     ethPrice: 2500
 };
 
@@ -28,25 +29,24 @@ async function initializeTransferPage() {
         return;
     }
     
-    // Set up tabs FIRST - This is critical
+    // Set up tabs FIRST
     setupTabs();
     
     // Set up event listeners
     setupEventListeners();
     
-    // 🔥 NEW: Fetch real data from the database first!
+    // Fetch real data from the database
     await fetchUserFromBackend();
     
-    // Load saved banks
+    // Load saved data from local storage
     loadSavedBanks();
-    
-    // Load transaction history
     loadTransactionHistory();
+    loadRecentContacts(); 
     
     console.log('✅ Transfer page initialized successfully');
 }
 
-// ✅ NEW: Fetch fresh user data from backend (BULLETPROOF VERSION)
+// ✅ Fetch fresh user data from backend (BULLETPROOF VERSION)
 async function fetchUserFromBackend() {
     try {
         const token = localStorage.getItem('token') || localStorage.getItem('authToken');
@@ -86,7 +86,7 @@ async function fetchUserFromBackend() {
         transferData.balances.eth = parseFloat(result.user.internalBalance || 0);
         transferData.balances.weth = parseFloat(result.user.wethBalance || 0);
         
-        // Force-update localStorage
+        // Force-update localStorage to keep app synced
         localStorage.setItem('user', JSON.stringify(result.user));
         
         // Update the UI
@@ -96,30 +96,8 @@ async function fetchUserFromBackend() {
         return result.user;
         
     } catch (error) {
-        console.error('❌ Failed to fetch user data, falling back to localStorage:', error);
-        loadUserData(); // Fallback to localStorage if API fails
+        console.error('❌ Failed to fetch user data:', error);
         return null;
-    }
-}
-
-// Load user data (Fallback if API fails)
-function loadUserData() {
-    console.log('🔄 Loading user data from local storage...');
-    try {
-        const userData = JSON.parse(localStorage.getItem('user'));
-        if (userData) {
-            if (userData.internalBalance !== undefined) {
-                transferData.balances.eth = parseFloat(userData.internalBalance);
-            }
-            if (userData.wethBalance !== undefined) {
-                transferData.balances.weth = parseFloat(userData.wethBalance);
-            }
-            const ethPrice = window.ethPriceService ? window.ethPriceService.currentPrice : transferData.ethPrice;
-            updateBalanceDisplay(ethPrice);
-        }
-    } catch (error) {
-        console.error('❌ Error loading user data:', error);
-        updateBalanceDisplay(transferData.ethPrice);
     }
 }
 
@@ -145,7 +123,7 @@ function updateBalanceDisplay(ethPrice) {
         wethValueEl.textContent = '$' + (transferData.balances.weth * ethPrice).toFixed(2);
     }
     
-    // Update available balance for transfer
+    // Update available balance for transfer input
     updateAvailableBalance();
     
     // Update withdrawal available balance
@@ -155,13 +133,80 @@ function updateBalanceDisplay(ethPrice) {
         withdrawBalanceEl.textContent = '$' + totalUsd.toFixed(2);
     }
     
-    // Update withdrawal conversion
     updateWithdrawalSummary();
 }
 
-// Set up tab switching
+// ============================================
+// DYNAMIC RECENT CONTACTS
+// ============================================
+
+function loadRecentContacts() {
+    try {
+        const storedContacts = localStorage.getItem('recentContacts');
+        if (storedContacts) {
+            transferData.recentContacts = JSON.parse(storedContacts);
+        } else {
+            // Start completely empty if they have never made a transfer
+            transferData.recentContacts = []; 
+        }
+        renderRecentContacts();
+    } catch (error) {
+        console.error('Error loading recent contacts:', error);
+        transferData.recentContacts = [];
+        renderRecentContacts();
+    }
+}
+
+function renderRecentContacts() {
+    const contactsContainer = document.getElementById('recentContacts');
+    if (!contactsContainer) return;
+
+    if (transferData.recentContacts.length === 0) {
+        contactsContainer.innerHTML = '<p style="color: #888; font-size: 0.9rem; padding: 10px;">No recent contacts yet. Your saved addresses will appear here.</p>';
+        return;
+    }
+
+    contactsContainer.innerHTML = transferData.recentContacts.map(contact => {
+        const shortAddress = contact.address.substring(0, 6) + '...' + contact.address.substring(contact.address.length - 4);
+        return `
+            <div class="contact-item" onclick="fillContact('${contact.address}')">
+                <div class="contact-avatar">
+                    <i class="fas ${contact.icon || 'fa-user'}"></i>
+                </div>
+                <div class="contact-info">
+                    <span class="contact-name">${contact.name}</span>
+                    <span class="contact-address">${shortAddress}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function saveToRecentContacts(address) {
+    const exists = transferData.recentContacts.find(c => c.address.toLowerCase() === address.toLowerCase());
+    
+    if (!exists) {
+        transferData.recentContacts.unshift({
+            name: 'External Wallet',
+            address: address,
+            icon: 'fa-wallet'
+        });
+        
+        // Keep only the 5 most recent
+        if (transferData.recentContacts.length > 5) {
+            transferData.recentContacts.pop();
+        }
+        
+        localStorage.setItem('recentContacts', JSON.stringify(transferData.recentContacts));
+        renderRecentContacts();
+    }
+}
+
+// ============================================
+// UI & EVENT SETUP
+// ============================================
+
 function setupTabs() {
-    console.log('🔄 Setting up tabs...');
     const tabButtons = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
     
@@ -192,11 +237,7 @@ function setupTabs() {
     });
 }
 
-// Set up all event listeners
 function setupEventListeners() {
-    console.log('🔄 Setting up event listeners...');
-    
-    // Transfer form events
     const transferCurrency = document.getElementById('transferCurrency');
     if (transferCurrency) {
         transferCurrency.addEventListener('change', function() {
@@ -211,7 +252,6 @@ function setupEventListeners() {
     const recipientAddress = document.getElementById('recipientAddress');
     if (recipientAddress) recipientAddress.addEventListener('input', validateAddress);
     
-    // Withdrawal form events
     const withdrawAmount = document.getElementById('withdrawAmount');
     if (withdrawAmount) withdrawAmount.addEventListener('input', updateWithdrawalSummary);
     
@@ -249,7 +289,10 @@ function setupEventListeners() {
     });
 }
 
-// Load saved banks
+// ============================================
+// BANK & WITHDRAWAL LOGIC
+// ============================================
+
 function loadSavedBanks() {
     try {
         const savedBanks = localStorage.getItem('savedBanks');
@@ -287,16 +330,16 @@ function showNewBankForm() {
     if (bankDetailsSection) bankDetailsSection.style.display = 'none';
     if (newBankSection) newBankSection.style.display = 'block';
     
-    const bankName = document.getElementById('bankName');
-    const accountHolderName = document.getElementById('accountHolderName');
-    const accountNumber = document.getElementById('accountNumber');
-    const accountType = document.getElementById('accountType');
-    const saveBankDetails = document.getElementById('saveBankDetails');
+    const fields = ['bankName', 'accountHolderName', 'accountNumber'];
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
     
-    if (bankName) bankName.value = '';
-    if (accountHolderName) accountHolderName.value = '';
-    if (accountNumber) accountNumber.value = '';
+    const accountType = document.getElementById('accountType');
     if (accountType) accountType.value = 'checking';
+    
+    const saveBankDetails = document.getElementById('saveBankDetails');
     if (saveBankDetails) saveBankDetails.checked = true;
     
     toggleAccountFields();
@@ -350,6 +393,217 @@ function toggleSaveBank() {
         bankNicknameGroup.style.display = saveBankCheckbox.checked ? 'block' : 'none';
     }
 }
+
+function validateBankForm() {
+    const accountType = document.getElementById('accountType');
+    const bankName = document.getElementById('bankName');
+    const accountHolder = document.getElementById('accountHolderName');
+    const accountNumber = document.getElementById('accountNumber');
+    const routingNumber = document.getElementById('routingNumber');
+    const swiftCode = document.getElementById('swiftCode');
+    
+    if (!accountType || !bankName || !accountHolder || !accountNumber) return false;
+    
+    if (!bankName.value.trim() || bankName.value.trim().length < 2) { alert('Please enter a valid bank name'); return false; }
+    if (!accountHolder.value.trim() || accountHolder.value.trim().length < 2) { alert('Please enter account holder name'); return false; }
+    if (!accountNumber.value.trim() || accountNumber.value.trim().length < 8) { alert('Please enter a valid account number'); return false; }
+    
+    if (accountType.value === 'international') {
+        if (!swiftCode || !swiftCode.value.trim() || swiftCode.value.trim().length < 8) {
+            alert('Please enter a valid SWIFT/BIC code'); return false;
+        }
+    } else {
+        if (!routingNumber || !routingNumber.value.trim() || routingNumber.value.trim().length !== 9) {
+            alert('Please enter a valid 9-digit routing number'); return false;
+        }
+    }
+    return true;
+}
+
+function saveBankDetails() {
+    if (!validateBankForm()) return null;
+    
+    const bankName = document.getElementById('bankName');
+    const accountHolder = document.getElementById('accountHolderName');
+    const accountNumber = document.getElementById('accountNumber');
+    const accountType = document.getElementById('accountType');
+    const routingNumber = document.getElementById('routingNumber');
+    const swiftCode = document.getElementById('swiftCode');
+    const saveBankDetailsCheckbox = document.getElementById('saveBankDetails');
+    const bankNickname = document.getElementById('bankNickname');
+    
+    const newBank = {
+        id: Date.now(),
+        bankName: bankName.value.trim(),
+        nickname: bankNickname && bankNickname.value.trim() ? bankNickname.value.trim() : bankName.value.trim(),
+        accountHolderName: accountHolder.value.trim(),
+        accountNumber: accountNumber.value.trim(),
+        accountType: accountType.value,
+        routingNumber: routingNumber ? routingNumber.value.trim() : '',
+        swiftCode: swiftCode ? swiftCode.value.trim() : '',
+        isDefault: transferData.savedBanks.length === 0,
+        createdAt: new Date().toISOString()
+    };
+    
+    if (saveBankDetailsCheckbox && saveBankDetailsCheckbox.checked) {
+        transferData.savedBanks.unshift(newBank);
+        localStorage.setItem('savedBanks', JSON.stringify(transferData.savedBanks));
+        updateSavedBanksDropdown();
+        
+        const savedBankSelect = document.getElementById('savedBankSelect');
+        if (savedBankSelect) {
+            savedBankSelect.value = '0';
+            fillSavedBankDetails();
+            showSavedBankDetails();
+        }
+        alert('✅ Bank account saved successfully!');
+    }
+    return newBank;
+}
+
+function updateWithdrawalSummary() {
+    const withdrawAmount = document.getElementById('withdrawAmount');
+    if (!withdrawAmount) return;
+    
+    const amount = parseFloat(withdrawAmount.value) || 0;
+    let method = 'standard';
+    document.querySelectorAll('input[name="withdrawMethod"]').forEach(r => { if (r.checked) method = r.value; });
+    
+    const ethPrice = window.ethPriceService ? window.ethPriceService.currentPrice : transferData.ethPrice;
+    const cryptoAmount = amount / ethPrice;
+    let fee = method === 'instant' ? amount * 0.015 : 0;
+    const receiveAmount = amount - fee;
+    
+    const els = {
+        cryptoAmount: document.getElementById('withdrawCryptoAmount'),
+        amount: document.getElementById('withdrawalAmount'),
+        fee: document.getElementById('withdrawalFee'),
+        receive: document.getElementById('withdrawalReceive')
+    };
+    
+    if (els.cryptoAmount) els.cryptoAmount.textContent = cryptoAmount.toFixed(4) + ' ETH';
+    if (els.amount) els.amount.textContent = '$' + amount.toFixed(2);
+    if (els.fee) els.fee.textContent = '$' + fee.toFixed(2);
+    if (els.receive) els.receive.textContent = '$' + receiveAmount.toFixed(2);
+}
+
+function reviewWithdrawal() {
+    const withdrawAmount = document.getElementById('withdrawAmount');
+    if (!withdrawAmount) return;
+    const amount = parseFloat(withdrawAmount.value) || 0;
+    
+    if (amount < 10) { alert('Minimum withdrawal amount is $10'); return; }
+    
+    let method = 'standard';
+    document.querySelectorAll('input[name="withdrawMethod"]').forEach(r => { if (r.checked) method = r.value; });
+    
+    const savedBankSelect = document.getElementById('savedBankSelect');
+    let bankDetails = null;
+    
+    if (savedBankSelect && savedBankSelect.value && savedBankSelect.value !== 'new') {
+        bankDetails = transferData.savedBanks[savedBankSelect.value];
+    } else {
+        if (!validateBankForm()) { alert('Please enter valid bank details'); return; }
+        bankDetails = saveBankDetails();
+        if (!bankDetails) return;
+    }
+    
+    const ethPrice = window.ethPriceService ? window.ethPriceService.currentPrice : transferData.ethPrice;
+    const cryptoAmount = amount / ethPrice;
+    const fee = method === 'instant' ? amount * 0.015 : 0;
+    const receiveAmount = amount - fee;
+    
+    const modal = document.getElementById('withdrawalModal');
+    const modalBody = document.getElementById('withdrawalModalBody');
+    const confirmBtn = document.getElementById('confirmWithdrawalBtn');
+    
+    if (!modal || !modalBody || !confirmBtn) return;
+    
+    modalBody.innerHTML = `
+        <div class="withdrawal-review">
+            <div class="review-icon"><i class="fas fa-university"></i></div>
+            <h4>Withdrawal Details</h4>
+            <div class="review-details">
+                <div class="detail-row"><span>Amount</span><strong>$${amount.toFixed(2)}</strong></div>
+                <div class="detail-row"><span>Equivalent</span><strong>${cryptoAmount.toFixed(4)} ETH</strong></div>
+                <div class="detail-row"><span>Method</span><strong>${method === 'instant' ? 'Instant (1.5% fee)' : 'Standard'}</strong></div>
+                <div class="detail-row"><span>Fee</span><strong>$${fee.toFixed(2)}</strong></div>
+                <div class="detail-row total"><span>You Receive</span><strong>$${receiveAmount.toFixed(2)}</strong></div>
+                <div class="detail-row"><span>Bank</span><strong>${bankDetails.bankName}</strong></div>
+                <div class="detail-row"><span>Account</span><strong>****${bankDetails.accountNumber.slice(-4)}</strong></div>
+            </div>
+        </div>
+    `;
+    
+    confirmBtn.onclick = function() { executeWithdrawal(amount, method, cryptoAmount, bankDetails); };
+    modal.style.display = 'flex';
+}
+
+function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
+    const confirmBtn = document.getElementById('confirmWithdrawalBtn');
+    if (confirmBtn) {
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        confirmBtn.disabled = true;
+    }
+    
+    if (cryptoAmount > transferData.balances.eth) {
+        alert('Insufficient ETH balance for withdrawal');
+        closeWithdrawalModal();
+        return;
+    }
+    
+    // Process live via backend
+    setTimeout(async function() {
+        try {
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            const user = JSON.parse(localStorage.getItem('user'));
+            
+            // Deduct locally first
+            transferData.balances.eth -= cryptoAmount;
+            
+            // Send update to database
+            await fetch(`/api/admin/users/${user._id}/balance`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    internalBalance: transferData.balances.eth,
+                    wethBalance: transferData.balances.weth
+                })
+            });
+
+            // Refresh globally
+            await fetchUserFromBackend();
+            
+            // Add to transaction history
+            const newTransaction = {
+                id: Date.now(),
+                type: 'withdrawal',
+                amount: amount,
+                currency: 'USD',
+                status: method === 'instant' ? 'completed' : 'pending',
+                note: (method === 'instant' ? 'Instant' : 'Standard') + ' bank withdrawal to ' + bankDetails.bankName,
+                createdAt: new Date().toISOString()
+            };
+            transferData.transactions.unshift(newTransaction);
+            updateTransactionHistoryDisplay();
+            
+            closeWithdrawalModal();
+            alert('✅ Withdrawal request submitted! ' + (method === 'instant' ? 'Funds will arrive shortly.' : 'Funds will arrive in 3-5 business days.'));
+            document.getElementById('withdrawAmount').value = '';
+            
+        } catch(e) {
+            alert('Error processing withdrawal. Please try again.');
+            closeWithdrawalModal();
+        }
+    }, 1500);
+}
+
+// ============================================
+// TRANSFER LOGIC
+// ============================================
 
 function updateAvailableBalance() {
     const currency = document.getElementById('transferCurrency');
@@ -430,89 +684,6 @@ function validateAddress() {
     }
 }
 
-function validateBankForm() {
-    const accountType = document.getElementById('accountType');
-    const bankName = document.getElementById('bankName');
-    const accountHolder = document.getElementById('accountHolderName');
-    const accountNumber = document.getElementById('accountNumber');
-    const routingNumber = document.getElementById('routingNumber');
-    const swiftCode = document.getElementById('swiftCode');
-    
-    if (!accountType || !bankName || !accountHolder || !accountNumber) return false;
-    
-    if (!bankName.value.trim() || bankName.value.trim().length < 2) { alert('Please enter a valid bank name'); return false; }
-    if (!accountHolder.value.trim() || accountHolder.value.trim().length < 2) { alert('Please enter account holder name'); return false; }
-    if (!accountNumber.value.trim() || accountNumber.value.trim().length < 8) { alert('Please enter a valid account number'); return false; }
-    
-    if (accountType.value === 'international') {
-        if (!swiftCode || !swiftCode.value.trim() || swiftCode.value.trim().length < 8) {
-            alert('Please enter a valid SWIFT/BIC code'); return false;
-        }
-    } else {
-        if (!routingNumber || !routingNumber.value.trim() || routingNumber.value.trim().length !== 9) {
-            alert('Please enter a valid 9-digit routing number'); return false;
-        }
-    }
-    return true;
-}
-
-function saveBankDetails() {
-    if (!validateBankForm()) return null;
-    
-    const bankName = document.getElementById('bankName');
-    const accountHolder = document.getElementById('accountHolderName');
-    const accountNumber = document.getElementById('accountNumber');
-    const accountType = document.getElementById('accountType');
-    const routingNumber = document.getElementById('routingNumber');
-    const swiftCode = document.getElementById('swiftCode');
-    const saveBankDetailsCheckbox = document.getElementById('saveBankDetails');
-    const bankNickname = document.getElementById('bankNickname');
-    
-    const newBank = {
-        id: Date.now(),
-        bankName: bankName.value.trim(),
-        nickname: bankNickname && bankNickname.value.trim() ? bankNickname.value.trim() : bankName.value.trim(),
-        accountHolderName: accountHolder.value.trim(),
-        accountNumber: accountNumber.value.trim(),
-        accountType: accountType.value,
-        routingNumber: routingNumber ? routingNumber.value.trim() : '',
-        swiftCode: swiftCode ? swiftCode.value.trim() : '',
-        isDefault: transferData.savedBanks.length === 0,
-        createdAt: new Date().toISOString()
-    };
-    
-    if (saveBankDetailsCheckbox && saveBankDetailsCheckbox.checked) {
-        transferData.savedBanks.unshift(newBank);
-        localStorage.setItem('savedBanks', JSON.stringify(transferData.savedBanks));
-        updateSavedBanksDropdown();
-        
-        const savedBankSelect = document.getElementById('savedBankSelect');
-        if (savedBankSelect) {
-            savedBankSelect.value = '0';
-            fillSavedBankDetails();
-            showSavedBankDetails();
-        }
-        alert('✅ Bank account saved successfully!');
-    }
-    return newBank;
-}
-
-function pasteAddress() {
-    if (navigator.clipboard && navigator.clipboard.readText) {
-        navigator.clipboard.readText().then(function(text) {
-            const addressInput = document.getElementById('recipientAddress');
-            if (addressInput) {
-                addressInput.value = text;
-                validateAddress();
-            }
-        }).catch(function(err) {
-            alert('Unable to read clipboard. Please paste manually.');
-        });
-    } else {
-        alert('Clipboard access not supported. Please paste manually.');
-    }
-}
-
 function setMaxTransfer() {
     const currency = document.getElementById('transferCurrency');
     const transferAmount = document.getElementById('transferAmount');
@@ -529,6 +700,22 @@ function setMaxTransfer() {
     updateTransferSummary();
 }
 
+function pasteAddress() {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+        navigator.clipboard.readText().then(function(text) {
+            const addressInput = document.getElementById('recipientAddress');
+            if (addressInput) {
+                addressInput.value = text;
+                validateAddress();
+            }
+        }).catch(function() {
+            alert('Unable to read clipboard. Please paste manually.');
+        });
+    } else {
+        alert('Clipboard access not supported. Please paste manually.');
+    }
+}
+
 function fillContact(address) {
     const addressInput = document.getElementById('recipientAddress');
     if (addressInput) {
@@ -537,136 +724,25 @@ function fillContact(address) {
     }
 }
 
-function updateWithdrawalSummary() {
-    const withdrawAmount = document.getElementById('withdrawAmount');
-    const methodRadios = document.querySelectorAll('input[name="withdrawMethod"]');
-    if (!withdrawAmount) return;
+function validateTransferForm() {
+    const amount = parseFloat(document.getElementById('transferAmount')?.value) || 0;
+    const currency = document.getElementById('transferCurrency')?.value || 'eth';
     
-    const amount = parseFloat(withdrawAmount.value) || 0;
-    let method = 'standard';
-    methodRadios.forEach(radio => { if (radio.checked) method = radio.value; });
+    if (!amount || amount <= 0) { alert('Please enter a valid amount'); return false; }
+    if (!validateAddress()) { alert('Please enter a valid recipient address'); return false; }
     
-    const ethPrice = window.ethPriceService ? window.ethPriceService.currentPrice : transferData.ethPrice;
-    const cryptoAmount = amount / ethPrice;
-    let fee = method === 'instant' ? amount * 0.015 : 0;
-    const receiveAmount = amount - fee;
-    
-    const cryptoAmountEl = document.getElementById('withdrawCryptoAmount');
-    const withdrawalAmountEl = document.getElementById('withdrawalAmount');
-    const withdrawalFeeEl = document.getElementById('withdrawalFee');
-    const withdrawalReceiveEl = document.getElementById('withdrawalReceive');
-    
-    if (cryptoAmountEl) cryptoAmountEl.textContent = cryptoAmount.toFixed(4) + ' ETH';
-    if (withdrawalAmountEl) withdrawalAmountEl.textContent = '$' + amount.toFixed(2);
-    if (withdrawalFeeEl) withdrawalFeeEl.textContent = '$' + fee.toFixed(2);
-    if (withdrawalReceiveEl) withdrawalReceiveEl.textContent = '$' + receiveAmount.toFixed(2);
-}
-
-function reviewWithdrawal() {
-    const withdrawAmount = document.getElementById('withdrawAmount');
-    if (!withdrawAmount) return;
-    const amount = parseFloat(withdrawAmount.value) || 0;
-    
-    if (amount < 10) { alert('Minimum withdrawal amount is $10'); return; }
-    
-    let method = 'standard';
-    document.querySelectorAll('input[name="withdrawMethod"]').forEach(r => { if (r.checked) method = r.value; });
-    
-    const savedBankSelect = document.getElementById('savedBankSelect');
-    let bankDetails = null;
-    
-    if (savedBankSelect && savedBankSelect.value && savedBankSelect.value !== 'new') {
-        bankDetails = transferData.savedBanks[savedBankSelect.value];
-    } else {
-        if (!validateBankForm()) { alert('Please enter valid bank details'); return; }
-        bankDetails = saveBankDetails();
-        if (!bankDetails) return;
+    let availableBalance = currency === 'eth' ? transferData.balances.eth : transferData.balances.weth;
+    if (amount > availableBalance) {
+        alert('Insufficient ' + currency.toUpperCase() + ' balance. Available: ' + availableBalance.toFixed(4));
+        return false;
     }
-    
-    const ethPrice = window.ethPriceService ? window.ethPriceService.currentPrice : transferData.ethPrice;
-    const cryptoAmount = amount / ethPrice;
-    const fee = method === 'instant' ? amount * 0.015 : 0;
-    const receiveAmount = amount - fee;
-    
-    const modal = document.getElementById('withdrawalModal');
-    const modalBody = document.getElementById('withdrawalModalBody');
-    const confirmBtn = document.getElementById('confirmWithdrawalBtn');
-    
-    if (!modal || !modalBody || !confirmBtn) return;
-    
-    modalBody.innerHTML = `
-        <div class="withdrawal-review">
-            <div class="review-icon"><i class="fas fa-university"></i></div>
-            <h4>Withdrawal Details</h4>
-            <div class="review-details">
-                <div class="detail-row"><span>Amount</span><strong>$${amount.toFixed(2)}</strong></div>
-                <div class="detail-row"><span>Equivalent</span><strong>${cryptoAmount.toFixed(4)} ETH</strong></div>
-                <div class="detail-row"><span>Method</span><strong>${method === 'instant' ? 'Instant (1.5% fee)' : 'Standard'}</strong></div>
-                <div class="detail-row"><span>Fee</span><strong>$${fee.toFixed(2)}</strong></div>
-                <div class="detail-row total"><span>You Receive</span><strong>$${receiveAmount.toFixed(2)}</strong></div>
-                <div class="detail-row"><span>Bank</span><strong>${bankDetails.bankName}</strong></div>
-                <div class="detail-row"><span>Account</span><strong>****${bankDetails.accountNumber.slice(-4)}</strong></div>
-            </div>
-        </div>
-    `;
-    
-    confirmBtn.onclick = function() { executeWithdrawal(amount, method, cryptoAmount, bankDetails); };
-    modal.style.display = 'flex';
-}
-
-function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
-    const confirmBtn = document.getElementById('confirmWithdrawalBtn');
-    if (confirmBtn) {
-        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-        confirmBtn.disabled = true;
-    }
-    
-    if (cryptoAmount > transferData.balances.eth) {
-        alert('Insufficient ETH balance for withdrawal');
-        closeWithdrawalModal();
-        return;
-    }
-    
-    // 🔥 NEW: Actual API call for withdrawal
-    setTimeout(async function() {
-        try {
-            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-            const user = JSON.parse(localStorage.getItem('user'));
-            
-            // Deduct locally for immediate UI update
-            transferData.balances.eth -= cryptoAmount;
-            
-            // We'll update the backend balance via the same route the admin uses
-            await fetch(`/api/admin/users/${user._id}/balance`, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ 
-                    internalBalance: transferData.balances.eth,
-                    wethBalance: transferData.balances.weth
-                })
-            });
-
-            // Refresh the global data
-            await fetchUserFromBackend();
-            
-            closeWithdrawalModal();
-            alert('✅ Withdrawal request submitted! ' + (method === 'instant' ? 'Funds will arrive shortly.' : 'Funds will arrive in 3-5 business days.'));
-            document.getElementById('withdrawAmount').value = '';
-            
-        } catch(e) {
-            alert('Error processing withdrawal. Please try again.');
-            closeWithdrawalModal();
-        }
-    }, 1500);
+    return true;
 }
 
 function reviewTransfer() {
     if (!validateTransferForm()) return;
     
-    const currency = document.getElementById('transferCurrency').value;
+    const currency = document.getElementById('transferCurrency')?.value || 'eth';
     const amount = parseFloat(document.getElementById('transferAmount').value) || 0;
     const recipient = document.getElementById('recipientAddress').value;
     const network = document.getElementById('transferNetwork').value;
@@ -697,25 +773,8 @@ function reviewTransfer() {
         </div>
     `;
     
-    confirmBtn.onclick = function() {
-        executeTransfer({ currency, amount, recipient, network, note });
-    };
+    confirmBtn.onclick = function() { executeTransfer({ currency, amount, recipient, network, note }); };
     modal.style.display = 'flex';
-}
-
-function validateTransferForm() {
-    const amount = parseFloat(document.getElementById('transferAmount')?.value) || 0;
-    const currency = document.getElementById('transferCurrency')?.value;
-    
-    if (!amount || amount <= 0) { alert('Please enter a valid amount'); return false; }
-    if (!validateAddress()) { alert('Please enter a valid recipient address'); return false; }
-    
-    let availableBalance = currency === 'eth' ? transferData.balances.eth : transferData.balances.weth;
-    if (amount > availableBalance) {
-        alert('Insufficient ' + currency.toUpperCase() + ' balance. Available: ' + availableBalance.toFixed(4));
-        return false;
-    }
-    return true;
 }
 
 function executeTransfer(details) {
@@ -725,7 +784,7 @@ function executeTransfer(details) {
         confirmBtn.disabled = true;
     }
     
-    // 🔥 NEW: Actual API call for transfer
+    // Live backend connection
     setTimeout(async function() {
         try {
             const token = localStorage.getItem('token') || localStorage.getItem('authToken');
@@ -740,7 +799,7 @@ function executeTransfer(details) {
                 transferData.balances.eth -= 0.0012; // gas
             }
             
-            // Update backend
+            // Update the live database
             await fetch(`/api/admin/users/${user._id}/balance`, {
                 method: 'PUT',
                 headers: {
@@ -753,11 +812,29 @@ function executeTransfer(details) {
                 })
             });
 
-            await fetchUserFromBackend(); // Refresh all data
+            // Resync the app
+            await fetchUserFromBackend(); 
+            
+            // Log history
+            transferData.transactions.unshift({
+                id: Date.now(),
+                type: 'transfer',
+                amount: details.amount,
+                currency: details.currency.toUpperCase(),
+                recipient: details.recipient,
+                status: 'completed',
+                note: details.note,
+                createdAt: new Date().toISOString()
+            });
+            updateTransactionHistoryDisplay();
             
             closeTransferModal();
             alert('✅ Successfully transferred ' + details.amount.toFixed(4) + ' ' + details.currency.toUpperCase() + '!');
             
+            // 🔥 NEW: Save the address to Recent Contacts automatically!
+            saveToRecentContacts(details.recipient);
+            
+            // Clear inputs
             document.getElementById('transferAmount').value = '';
             document.getElementById('recipientAddress').value = '';
             
@@ -768,28 +845,21 @@ function executeTransfer(details) {
     }, 1500);
 }
 
+// ============================================
+// TRANSACTION HISTORY
+// ============================================
+
 function loadTransactionHistory() {
     const historyContainer = document.getElementById('transactionHistory');
     if (!historyContainer) return;
     historyContainer.innerHTML = `<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading transactions...</div>`;
     
     setTimeout(function() {
-        if (transferData.transactions.length > 0) {
-            updateTransactionHistoryDisplay();
-        } else {
-            historyContainer.innerHTML = `
-                <div class="empty-history">
-                    <i class="fas fa-history"></i>
-                    <p>No transactions yet</p>
-                    <small>Your transaction history will appear here</small>
-                </div>
-            `;
-        }
-    }, 1000);
+        updateTransactionHistoryDisplay();
+    }, 800);
 }
 
 function updateTransactionHistoryDisplay() {
-    // Basic history display (unchanged)
     const historyContainer = document.getElementById('transactionHistory');
     if (!historyContainer) return;
     
@@ -798,16 +868,40 @@ function updateTransactionHistoryDisplay() {
         return;
     }
     
-    // Simple table rendering logic...
-    let tableHTML = `<table><thead><tr><th>Type</th><th>Amount</th><th>Currency</th><th>Date</th></tr></thead><tbody>`;
-    transferData.transactions.forEach(function(tx) {
+    const typeFilter = document.getElementById('historyTypeFilter')?.value || 'all';
+    const currencyFilter = document.getElementById('historyCurrencyFilter')?.value || 'all';
+    
+    let filteredTransactions = transferData.transactions;
+    if (typeFilter !== 'all') filteredTransactions = filteredTransactions.filter(t => t.type === typeFilter);
+    if (currencyFilter !== 'all') filteredTransactions = filteredTransactions.filter(t => t.currency.toLowerCase() === currencyFilter.toLowerCase());
+    
+    if (filteredTransactions.length === 0) {
+        historyContainer.innerHTML = `<div class="empty-history"><i class="fas fa-filter"></i><p>No transactions match your filters</p></div>`;
+        return;
+    }
+    
+    let tableHTML = `<table><thead><tr><th>Type</th><th>Amount</th><th>Currency</th><th>Details</th><th>Date</th><th>Status</th></tr></thead><tbody>`;
+    
+    filteredTransactions.forEach(tx => {
+        const date = new Date(tx.createdAt);
+        let details = tx.note || 'Transaction';
+        if (tx.bankDetails) details = tx.bankDetails.bankName + ' (****' + tx.bankDetails.lastFour + ')';
+        else if (tx.recipient) details = 'To: ' + tx.recipient.substring(0, 8) + '...';
+        
+        let icon = 'exchange-alt';
+        if (tx.type === 'transfer') icon = 'paper-plane';
+        if (tx.type === 'withdrawal') icon = 'university';
+        
         tableHTML += `<tr>
-            <td>${tx.type}</td>
-            <td>${tx.amount}</td>
+            <td><span class="transaction-type ${tx.type}"><i class="fas fa-${icon}"></i> ${tx.type}</span></td>
+            <td>${tx.amount.toFixed(tx.currency === 'USD' ? 2 : 4)}</td>
             <td>${tx.currency}</td>
-            <td>${new Date(tx.createdAt).toLocaleDateString()}</td>
+            <td title="${details}">${details.length > 25 ? details.substring(0, 25) + '...' : details}</td>
+            <td><div>${date.toLocaleDateString()}</div><small>${date.toLocaleTimeString()}</small></td>
+            <td><span class="status-badge ${tx.status}">${tx.status}</span></td>
         </tr>`;
     });
+    
     tableHTML += `</tbody></table>`;
     historyContainer.innerHTML = '<div class="history-table-container">' + tableHTML + '</div>';
 }
@@ -838,7 +932,6 @@ function closeWithdrawalModal() {
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📄 DOM fully loaded and parsed');
-    // Ensure we trigger the async setup
     initializeTransferPage(); 
 });
 
