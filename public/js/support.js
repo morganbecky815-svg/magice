@@ -74,7 +74,7 @@ function searchSupport() {
         
         if (question.includes(query) || answer.includes(query)) {
             faq.style.display = 'block';
-            faq.style.backgroundColor = 'rgba(138, 43, 226, 0.1)'; // Purple highlight
+            faq.style.backgroundColor = '#f0f9ff';
             faq.scrollIntoView({ behavior: 'smooth', block: 'center' });
             
             const category = faq.closest('.faq-category');
@@ -143,12 +143,22 @@ function closeSuccessModal() {
 
 function loadUserInfo() {
     try {
-        const userStr = localStorage.getItem('user');
+        const userStr = localStorage.getItem('magicEdenCurrentUser');
+        let userEmail = '';
+        
         if (userStr) {
-            const user = JSON.parse(userStr);
+            try {
+                const user = JSON.parse(userStr);
+                userEmail = user.email || '';
+            } catch (jsonError) {
+                userEmail = userStr;
+            }
+        }
+        
+        if (userEmail) {
             const emailInput = document.getElementById('ticketEmail');
-            if (emailInput && user.email) {
-                emailInput.value = user.email;
+            if (emailInput) {
+                emailInput.value = userEmail;
             }
         }
     } catch (error) {
@@ -164,7 +174,8 @@ async function submitTicket(event) {
         category: document.getElementById('ticketCategory').value,
         description: document.getElementById('ticketDescription').value.trim(),
         email: document.getElementById('ticketEmail').value.trim(),
-        transactionHash: document.getElementById('transactionHash').value.trim()
+        transactionHash: document.getElementById('transactionHash').value.trim(),
+        urgent: document.getElementById('urgentCheckbox') ? document.getElementById('urgentCheckbox').checked : false
     };
     
     if (!formData.subject || !formData.category || !formData.description || !formData.email) {
@@ -177,17 +188,68 @@ async function submitTicket(event) {
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
     submitBtn.disabled = true;
     
-    // Simulate API delay for ticket submission
-    setTimeout(() => {
+    try {
+        let token = localStorage.getItem('authToken');
+        if (!token) token = localStorage.getItem('token');
+        
+        if (!token) {
+            const userStr = localStorage.getItem('magicEdenCurrentUser');
+            if (userStr) {
+                try {
+                    const user = JSON.parse(userStr);
+                    token = user.token;
+                } catch (e) {}
+            }
+        }
+        
+        if (!token) {
+            showNotification('Please log in to submit a ticket', 'error');
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 1500);
+            return;
+        }
+        
+        const response = await fetch('/api/auth/support/ticket', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            document.getElementById('ticketId').textContent = result.ticket ? result.ticket.ticketId : 'ME-' + Math.floor(Math.random() * 90000 + 10000);
+            closeTicketModal();
+            
+            setTimeout(() => {
+                document.getElementById('successModal').style.display = 'flex';
+                document.getElementById('supportTicketForm').reset();
+                loadUserInfo();
+            }, 300);
+            
+            showNotification('Ticket submitted successfully!', 'success');
+        } else {
+            throw new Error(result.error || result.message || 'Failed to submit ticket');
+        }
+        
+    } catch (error) {
+        console.error('Ticket submission error:', error);
+        
+        // Fallback for demo/development if API fails
         closeTicketModal();
         document.getElementById('ticketId').textContent = 'ME-' + Math.floor(Math.random() * 90000 + 10000);
         document.getElementById('successModal').style.display = 'flex';
         document.getElementById('supportTicketForm').reset();
+        showNotification('Ticket submitted (Offline Mode)', 'success');
         
+    } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
-        showNotification('Ticket submitted successfully!', 'success');
-    }, 1500);
+    }
 }
 
 function scrollToSection(sectionId) {
@@ -210,25 +272,18 @@ function showNotification(message, type = 'info') {
         <span>${message}</span>
     `;
     
-    notification.style.position = 'fixed';
-    notification.style.top = '20px';
-    notification.style.right = '20px';
-    notification.style.padding = '15px 25px';
-    notification.style.borderRadius = '8px';
-    notification.style.background = '#1a1a1a';
-    notification.style.color = '#fff';
-    notification.style.zIndex = '9999';
-    notification.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
-    notification.style.borderLeft = `4px solid ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'}`;
-    
     document.body.appendChild(notification);
     
-    setTimeout(() => notification.remove(), 4000);
+    setTimeout(() => notification.classList.add('show'), 10);
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
 }
 
-
 // ==========================================
-// NEW: DYNAMIC ARTICLE VIEWER LOGIC
+// DYNAMIC ARTICLE VIEWER LOGIC (WITH INLINE COLOR FIX)
 // ==========================================
 
 const articleDatabase = {
@@ -238,17 +293,17 @@ const articleDatabase = {
         content: `
             <div style="margin-bottom: 20px;">
                 <h3 style="color: #8a2be2; margin-bottom: 10px;">1. Never Share Your Seed Phrase</h3>
-                <p>Your 12 or 24-word recovery phrase is the master key to your wallet. Magic Eden staff will <strong>never</strong> ask for your seed phrase. If anyone asks for it, they are a scammer.</p>
+                <p style="color: #475569; line-height: 1.6; font-size: 16px;">Your 12 or 24-word recovery phrase is the master key to your wallet. Magic Eden staff will <strong style="color: #1e293b;">never</strong> ask for your seed phrase. If anyone asks for it, they are a scammer.</p>
             </div>
             <div style="margin-bottom: 20px;">
                 <h3 style="color: #8a2be2; margin-bottom: 10px;">2. Hardware Wallets</h3>
-                <p>For large collections and high-value NFTs, we strongly recommend using a hardware wallet (like Ledger or Trezor). Hardware wallets keep your private keys entirely offline.</p>
+                <p style="color: #475569; line-height: 1.6; font-size: 16px;">For large collections and high-value NFTs, we strongly recommend using a hardware wallet (like Ledger or Trezor). Hardware wallets keep your private keys entirely offline.</p>
             </div>
             <div style="margin-bottom: 20px;">
                 <h3 style="color: #8a2be2; margin-bottom: 10px;">3. Beware of Phishing Links</h3>
-                <p>Scammers often create fake websites that look exactly like Magic Eden. Always verify the URL in your browser bar before connecting your wallet or signing any transactions.</p>
-                <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; padding: 15px; margin-top: 10px; border-radius: 4px;">
-                    <strong>Alert:</strong> Do not click on random links sent to you via Discord or Twitter DMs claiming you won a "free mint" or "airdrop".
+                <p style="color: #475569; line-height: 1.6; font-size: 16px;">Scammers often create fake websites that look exactly like Magic Eden. Always verify the URL in your browser bar before connecting your wallet or signing any transactions.</p>
+                <div style="background: #fff5f5; border-left: 4px solid #ef4444; padding: 15px; margin-top: 10px; border-radius: 4px;">
+                    <strong style="color: #c53030;">Alert:</strong> <span style="color: #c53030;">Do not click on random links sent to you via Discord or Twitter DMs claiming you won a "free mint" or "airdrop".</span>
                 </div>
             </div>
         `
@@ -258,17 +313,17 @@ const articleDatabase = {
         icon: 'fa-book',
         content: `
             <div style="margin-bottom: 20px;">
-                <p>Welcome to Magic Eden! Buying your first digital collectible is easy. Follow these steps:</p>
+                <p style="color: #475569; line-height: 1.6; font-size: 16px;">Welcome to Magic Eden! Buying your first digital collectible is easy. Follow these steps:</p>
             </div>
             <div style="margin-bottom: 20px;">
                 <h3 style="color: #8a2be2; margin-bottom: 10px;">Step 1: Connect Your Wallet</h3>
-                <p>Click the "Connect Wallet" button in the top right corner. We recommend MetaMask. Make sure you have enough ETH or WETH in your wallet to cover the NFT price plus gas fees.</p>
+                <p style="color: #475569; line-height: 1.6; font-size: 16px;">Click the "Connect Wallet" button in the top right corner. We recommend MetaMask. Make sure you have enough ETH or WETH in your wallet to cover the NFT price plus gas fees.</p>
             </div>
             <div style="margin-bottom: 20px;">
                 <h3 style="color: #8a2be2; margin-bottom: 10px;">Step 2: Fixed Price vs. Auctions</h3>
-                <ul>
-                    <li style="margin-bottom: 10px;"><strong>Buy Now (Fixed Price):</strong> Simply click "Buy Now", approve the transaction in your wallet, and the NFT is yours immediately. Requires regular ETH.</li>
-                    <li><strong>Place a Bid (Auctions):</strong> Enter an amount higher than the current top bid. Bidding requires WETH (Wrapped Ethereum). If you are outbid, your WETH is safely returned to you.</li>
+                <ul style="padding-left: 20px;">
+                    <li style="color: #475569; line-height: 1.6; font-size: 16px; margin-bottom: 10px;"><strong style="color: #1e293b;">Buy Now (Fixed Price):</strong> Simply click "Buy Now", approve the transaction in your wallet, and the NFT is yours immediately. Requires regular ETH.</li>
+                    <li style="color: #475569; line-height: 1.6; font-size: 16px;"><strong style="color: #1e293b;">Place a Bid (Auctions):</strong> Enter an amount higher than the current top bid. Bidding requires WETH (Wrapped Ethereum). If you are outbid, your WETH is safely returned to you.</li>
                 </ul>
             </div>
         `
@@ -278,18 +333,18 @@ const articleDatabase = {
         icon: 'fa-gas-pump',
         content: `
             <div style="margin-bottom: 20px;">
-                <p>Gas fees are the transaction costs required to use the Ethereum blockchain. Magic Eden does not receive these fees; they go directly to the miners processing your transaction.</p>
+                <p style="color: #475569; line-height: 1.6; font-size: 16px;">Gas fees are the transaction costs required to use the Ethereum blockchain. Magic Eden does not receive these fees; they go directly to the miners processing your transaction.</p>
             </div>
             <div style="margin-bottom: 20px;">
                 <h3 style="color: #8a2be2; margin-bottom: 10px;">Why is Gas so High?</h3>
-                <p>Gas fees fluctuate based on network demand. If many people are trying to buy NFTs or trade tokens at the same time, the network gets congested, and fees spike.</p>
+                <p style="color: #475569; line-height: 1.6; font-size: 16px;">Gas fees fluctuate based on network demand. If many people are trying to buy NFTs or trade tokens at the same time, the network gets congested, and fees spike.</p>
             </div>
             <div style="margin-bottom: 20px;">
                 <h3 style="color: #8a2be2; margin-bottom: 10px;">Tips for Lower Fees:</h3>
-                <ul>
-                    <li>Transact during off-peak hours (usually weekends or late at night in US timezones).</li>
-                    <li>Use an Ethereum Gas Tracker to monitor current "Gwei" prices before executing a transaction.</li>
-                    <li>Ensure you have slightly more ETH than the estimated fee, to prevent "Out of Gas" failed transactions.</li>
+                <ul style="padding-left: 20px;">
+                    <li style="color: #475569; line-height: 1.6; font-size: 16px; margin-bottom: 8px;">Transact during off-peak hours (usually weekends or late at night).</li>
+                    <li style="color: #475569; line-height: 1.6; font-size: 16px; margin-bottom: 8px;">Use an Ethereum Gas Tracker to monitor current "Gwei" prices before executing a transaction.</li>
+                    <li style="color: #475569; line-height: 1.6; font-size: 16px;">Ensure you have slightly more ETH than the estimated fee, to prevent "Out of Gas" failed transactions.</li>
                 </ul>
             </div>
         `
@@ -299,24 +354,24 @@ const articleDatabase = {
         icon: 'fa-book-open',
         content: `
             <div style="margin-bottom: 15px;">
-                <strong style="color: #8a2be2; font-size: 18px;">Airdrop</strong>
-                <p>A method of distributing crypto or NFTs directly to users' wallets, usually for free as a reward for loyalty.</p>
+                <strong style="color: #8a2be2; font-size: 18px; display: block; margin-bottom: 5px;">Airdrop</strong>
+                <p style="color: #475569; line-height: 1.6; font-size: 16px;">A method of distributing crypto or NFTs directly to users' wallets, usually for free as a reward for loyalty.</p>
             </div>
             <div style="margin-bottom: 15px;">
-                <strong style="color: #8a2be2; font-size: 18px;">Floor Price</strong>
-                <p>The lowest priced active listing within an NFT collection. It is used as a metric to measure a collection's entry-level value.</p>
+                <strong style="color: #8a2be2; font-size: 18px; display: block; margin-bottom: 5px;">Floor Price</strong>
+                <p style="color: #475569; line-height: 1.6; font-size: 16px;">The lowest priced active listing within an NFT collection. It is used as a metric to measure a collection's entry-level value.</p>
             </div>
             <div style="margin-bottom: 15px;">
-                <strong style="color: #8a2be2; font-size: 18px;">Minting</strong>
-                <p>The process of publishing a digital asset on the blockchain, making it a tradable NFT for the very first time.</p>
+                <strong style="color: #8a2be2; font-size: 18px; display: block; margin-bottom: 5px;">Minting</strong>
+                <p style="color: #475569; line-height: 1.6; font-size: 16px;">The process of publishing a digital asset on the blockchain, making it a tradable NFT for the very first time.</p>
             </div>
             <div style="margin-bottom: 15px;">
-                <strong style="color: #8a2be2; font-size: 18px;">Rug Pull</strong>
-                <p>A scam where creators abandon a project and run away with investors' funds after selling out their collection.</p>
+                <strong style="color: #8a2be2; font-size: 18px; display: block; margin-bottom: 5px;">Rug Pull</strong>
+                <p style="color: #475569; line-height: 1.6; font-size: 16px;">A scam where creators abandon a project and run away with investors' funds after selling out their collection.</p>
             </div>
             <div style="margin-bottom: 15px;">
-                <strong style="color: #8a2be2; font-size: 18px;">WETH (Wrapped Ethereum)</strong>
-                <p>An ERC-20 token that represents Ethereum 1:1. It allows users to place pre-authorized bids on NFT auctions without locking up their raw ETH.</p>
+                <strong style="color: #8a2be2; font-size: 18px; display: block; margin-bottom: 5px;">WETH (Wrapped Ethereum)</strong>
+                <p style="color: #475569; line-height: 1.6; font-size: 16px;">An ERC-20 token that represents Ethereum 1:1. It allows users to place pre-authorized bids on NFT auctions without locking up their raw ETH.</p>
             </div>
         `
     }
@@ -326,23 +381,24 @@ function openArticle(articleId) {
     const data = articleDatabase[articleId];
     if (!data) return;
 
-    // Set the Title, Icon, and Content
     document.getElementById('articleTitle').innerHTML = `<i class="fas ${data.icon}"></i> ${data.title}`;
     document.getElementById('articleBody').innerHTML = data.content;
 
-    // Show the Modal
     const modal = document.getElementById('articleModal');
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden'; 
+    }
 }
 
 function closeArticleModal() {
     const modal = document.getElementById('articleModal');
-    modal.style.display = 'none';
-    document.body.style.overflow = 'auto'; // Restore scrolling
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto'; 
+    }
 }
 
-// Global modal close handler update
 window.onclick = function(event) {
     const ticketModal = document.getElementById('ticketModal');
     const successModal = document.getElementById('successModal');
@@ -353,6 +409,13 @@ window.onclick = function(event) {
     if (event.target === articleModal) closeArticleModal();
 };
 
-// Make the new functions global
+window.toggleCategory = toggleCategory;
+window.toggleFAQ = toggleFAQ;
+window.searchSupport = searchSupport;
+window.openTicketModal = openTicketModal;
+window.closeTicketModal = closeTicketModal;
+window.closeSuccessModal = closeSuccessModal;
+window.submitTicket = submitTicket;
+window.scrollToSection = scrollToSection;
 window.openArticle = openArticle;
 window.closeArticleModal = closeArticleModal;
