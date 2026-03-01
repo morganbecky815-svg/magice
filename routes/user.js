@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Activity = require('../models/Activity'); // ✅ IMPORTED ACTIVITY MODEL
 
 // Authentication middleware
 const auth = async (req, res, next) => {
@@ -119,7 +120,6 @@ router.get('/me/dashboard', auth, async (req, res) => {
         
         let recentActivity = [];
         try {
-            const Activity = require('../models/Activity');
             recentActivity = await Activity.find({ userId: user._id })
                 .sort({ createdAt: -1 })
                 .limit(10);
@@ -216,9 +216,23 @@ router.post('/me/convert-to-weth', auth, async (req, res) => {
             { new: true }
         );
         
+        // ✅ CREATE ACTIVITY LOG
+        try {
+            const convertActivity = new Activity({
+                userId: req.user._id,
+                type: 'transfer',
+                title: 'Converted to WETH',
+                description: `Wrapped ${convertAmount} ETH for trading`,
+                amount: convertAmount,
+                currency: 'WETH',
+                createdAt: new Date()
+            });
+            await convertActivity.save();
+        } catch (err) {
+            console.error('⚠️ Activity log failed:', err.message);
+        }
+        
         console.log('✅ Conversion successful');
-        console.log('New ETH balance:', newInternalBalance);
-        console.log('New WETH balance:', newWethBalance);
         
         res.json({
             success: true,
@@ -300,6 +314,22 @@ router.post('/me/add-eth', auth, async (req, res) => {
             { internalBalance: newInternalBalance },
             { new: true }
         );
+        
+        // ✅ CREATE ACTIVITY LOG
+        try {
+            const depositActivity = new Activity({
+                userId: req.user._id,
+                type: 'funds_added',
+                title: 'Deposit Successful',
+                description: `Deposited ETH into wallet`,
+                amount: ethAmount,
+                currency: 'ETH',
+                createdAt: new Date()
+            });
+            await depositActivity.save();
+        } catch (err) {
+            console.error('⚠️ Activity log failed:', err.message);
+        }
         
         res.json({
             success: true,
@@ -390,6 +420,22 @@ router.post('/:userId/add-eth', auth, async (req, res) => {
             { new: true }
         );
         
+        // ✅ CREATE ACTIVITY LOG
+        try {
+            const depositActivity = new Activity({
+                userId: user._id,
+                type: 'funds_added',
+                title: 'Deposit Successful',
+                description: `Deposited ETH into wallet`,
+                amount: ethAmount,
+                currency: 'ETH',
+                createdAt: new Date()
+            });
+            await depositActivity.save();
+        } catch (err) {
+            console.error('⚠️ Activity log failed:', err.message);
+        }
+        
         res.json({
             success: true,
             message: `Added ${ethAmount} ETH to your balance`,
@@ -447,6 +493,22 @@ router.post('/:userId/convert-to-weth', auth, async (req, res) => {
             },
             { new: true }
         );
+        
+        // ✅ CREATE ACTIVITY LOG
+        try {
+            const convertActivity = new Activity({
+                userId: user._id,
+                type: 'transfer',
+                title: 'Converted to WETH',
+                description: `Wrapped ${convertAmount} ETH`,
+                amount: convertAmount,
+                currency: 'WETH',
+                createdAt: new Date()
+            });
+            await convertActivity.save();
+        } catch (err) {
+            console.error('⚠️ Activity log failed:', err.message);
+        }
         
         res.json({
             success: true,
@@ -515,6 +577,22 @@ router.post('/:userId/convert-to-eth', auth, async (req, res) => {
             { new: true }
         );
         
+        // ✅ CREATE ACTIVITY LOG
+        try {
+            const withdrawActivity = new Activity({
+                userId: user._id,
+                type: 'transfer',
+                title: 'Converted to ETH',
+                description: `Unwrapped ${convertAmount} WETH to ETH (Fee: ${requiredEth.toFixed(4)} ETH)`,
+                amount: convertAmount,
+                currency: 'ETH',
+                createdAt: new Date()
+            });
+            await withdrawActivity.save();
+        } catch (err) {
+            console.error('⚠️ Activity log failed:', err.message);
+        }
+        
         res.json({
             success: true,
             message: `Converted ${convertAmount} WETH to ETH`,
@@ -552,7 +630,6 @@ router.get('/:userId/dashboard', auth, async (req, res) => {
             .sort({ createdAt: -1 })
             .limit(5);
         
-        const Activity = require('../models/Activity');
         const recentActivity = await Activity.find({ userId: userId })
             .sort({ createdAt: -1 })
             .limit(10);
