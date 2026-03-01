@@ -10,8 +10,7 @@
 </head>
 <body>
    
- <!-- Header -->
-<header class="header">
+ <header class="header">
     <div class="container">
         <div class="navbar">
             <div class="logo">
@@ -19,16 +18,13 @@
                 <span>Magic Eden</span>
             </div>
             
-            <!-- Hamburger Icon for Mobile (hidden on desktop) -->
             <div class="hamburger" id="hamburger">
                 <span></span>
                 <span></span>
                 <span></span>
             </div>
             
-            <!-- Navigation Menu - This will be centered on desktop -->
             <div class="nav-menu" id="navMenu">
-                <!-- Main Navigation Links - Centered -->
                 <div class="nav-center">
                     <a href="/" class="nav-link">Marketplace</a>
                     <a href="/profile" class="nav-link active">My Profile</a>
@@ -36,21 +32,17 @@
                     <a href="/activity" class="nav-link">Activity</a>
                 </div>
                 
-                <!-- User Info - Right aligned -->
                 <div class="nav-right">
                     <div class="user-info" id="profileHeader">
-                        <!-- Filled by JavaScript -->
-                    </div>
+                        </div>
                 </div>
             </div>
         </div>
     </div>
 </header>
 
-    <!-- Main Profile Content -->
     <main class="profile-main">
         <div class="container">
-            <!-- Profile Header -->
             <div class="profile-header">
                 <div class="profile-avatar">
                     <div class="avatar-icon">
@@ -67,7 +59,7 @@
                     </div>
                 </div>
                 
-                <div class="profile-actions">
+                <div class="profile-actions" id="privateActions">
                     <button class="btn btn-primary" onclick="window.location.href='/create-nft'">
                         <i class="fas fa-plus"></i> Create NFT
                     </button>
@@ -77,10 +69,12 @@
                     <button class="btn" onclick="editProfile()">
                         <i class="fas fa-edit"></i> Edit Profile
                     </button>
+                    <button class="btn" onclick="copyProfileLink()" style="background: #2a2a2a; border: 1px solid #444; color: white;">
+                        <i class="fas fa-share-alt"></i> Share
+                    </button>
                 </div>
             </div>
 
-            <!-- Tabs -->
             <div class="profile-tabs">
                 <button class="profile-tab active" onclick="showProfileTab('nfts')">
                     <i class="fas fa-gem"></i> My NFTs
@@ -99,7 +93,6 @@
                 </button>
             </div>
 
-            <!-- My NFTs Tab -->
             <div id="nftsTab" class="profile-content active">
                 <h2>My NFTs</h2>
                 <div class="nfts-grid" id="userNFTsGrid">
@@ -107,17 +100,12 @@
                 </div>
             </div>
 
-            <!-- Imported NFTs Tab -->
             <div id="importedTab" class="profile-content">
                 <div class="imported-header">
                     <h2><i class="fas fa-download"></i> Imported NFT Collection</h2>
                     <p class="imported-subtitle">Import NFTs from your wallet or other marketplaces for trading</p>
                 </div>
                 
-                <!-- Imported Wallet Balance -->
-                
-                
-                <!-- Import Section -->
                 <div class="import-section">
                     <h3><i class="fas fa-download"></i> Import NFTs</h3>
                     <div class="import-options">
@@ -141,7 +129,6 @@
                     </div>
                 </div>
                 
-                <!-- Imported NFTs Grid -->
                 <div class="imported-nfts-section">
                     <div class="imported-nfts-header">
                         <h3><i class="fas fa-images"></i> Your Imported NFTs</h3>
@@ -160,7 +147,6 @@
                     </div>
                 </div>
                 
-                <!-- Imported Marketplace Stats -->
                 <div class="imported-stats">
                     <div class="stat-card">
                         <i class="fas fa-chart-line"></i>
@@ -186,7 +172,6 @@
                 </div>
             </div>
 
-            <!-- Activity Tab -->
             <div id="activityTab" class="profile-content">
                 <h2>Recent Activity</h2>
                 <div class="activity-list" id="activityList">
@@ -194,7 +179,6 @@
                 </div>
             </div>
 
-            <!-- Collections Tab -->
             <div id="collectionsTab" class="profile-content">
                 <h2>My Collections</h2>
                 <div class="collections-grid" id="collectionsGrid">
@@ -206,7 +190,6 @@
                 </div>
             </div>
 
-            <!-- Settings Tab -->
             <div id="settingsTab" class="profile-content">
                 <h2>Account Settings</h2>
                 <div class="settings-form">
@@ -234,7 +217,6 @@
         </div>
     </main>
 
-    <!-- Footer -->
     <footer class="footer">
         <div class="container">
             <div class="footer-content">
@@ -253,7 +235,6 @@
         </div>
     </footer>
 
-    <!-- Wallet Import Modal -->
     <div id="walletImportModal" class="modal">
         <div class="modal-content import-modal">
             <div class="modal-header">
@@ -300,7 +281,6 @@
         </div>
     </div>
 
-    <!-- Marketplace Import Modal -->
     <div id="marketplaceImportModal" class="modal">
         <div class="modal-content import-modal">
             <div class="modal-header">
@@ -351,7 +331,6 @@
         </div>
     </div>
 
-    <!-- Manual Import Modal -->
     <div id="manualImportModal" class="modal">
         <div class="modal-content import-modal">
             <div class="modal-header">
@@ -388,7 +367,6 @@
         </div>
     </div>
 
-    <!-- Imported NFT Details Modal -->
     <div id="importedNFTModal" class="modal">
         <div class="modal-content nft-detail-modal">
             <div class="modal-header">
@@ -420,7 +398,6 @@
         </div>
     </div>
 
-    <!-- Sell Imported NFT Modal -->
     <div id="sellImportedNFTModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -455,7 +432,6 @@
         </div>
     </div>
 
-    <!-- Add Funds Modal -->
     <div id="addFundsModal" class="modal">
         <div class="modal-content">
             <h3><i class="fas fa-coins"></i> Add Funds to Wallet</h3>
@@ -471,7 +447,6 @@
         </div>
     </div>
 
-    <!-- JavaScript Files -->
     <script src="/js/db.js"></script> 
     <script src="/js/app.js"></script>
     <script src="/js/profile.js"></script>
