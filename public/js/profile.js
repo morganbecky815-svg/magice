@@ -1089,10 +1089,7 @@ function showNotification(message, type = 'info') {
     document.body.appendChild(toast);
     setTimeout(() => { toast.classList.add('fade-out'); setTimeout(() => toast.remove(), 300); }, 3000);
 }
-
-// ========== SHARE COLLECTION FUNCTION ==========
-
-// ✅ THIS CREATES THE LINK TO THE NEW COLLECTION.HTML PAGE
+// ========== SHARE GALLERY FUNCTION ==========
 function copyProfileLink() {
     const userStr = localStorage.getItem('user');
     if (!userStr) return;
@@ -1100,13 +1097,13 @@ function copyProfileLink() {
     const user = JSON.parse(userStr);
     const userId = user._id || user.id;
     
-    // Generates link pointing to the dedicated public page
-    const link = `${window.location.origin}/collection.html?id=${userId}`;
+    // ✅ Generates link pointing to the new Gallery page
+    const link = `${window.location.origin}/gallery.html?id=${userId}`;
     
     navigator.clipboard.writeText(link).then(() => {
-        showNotification('✅ Collection link copied to clipboard!', 'success');
+        showNotification('✅ Gallery link copied to clipboard!', 'success');
     }).catch(() => {
-        prompt('Copy your public collection link:', link);
+        prompt('Copy your public gallery link:', link);
     });
 }
 
