@@ -526,4 +526,495 @@ function checkBalanceSufficiency(balance) {
     if (balance >= requiredBalance) {
         statusElement.className = 'balance-status success';
         statusElement.innerHTML = '<i class="fas fa-check-circle"></i> Sufficient ETH balance for minting';
-        insufficientElement.style.display = '
+        insufficientElement.style.display = 'none';
+        isBalanceSufficient = true;
+    } else {
+        statusElement.className = 'balance-status error';
+        statusElement.innerHTML = '<i class="fas fa-exclamation-circle"></i> Insufficient ETH balance';
+        insufficientElement.style.display = 'flex';
+        isBalanceSufficient = false;
+    }
+    
+    statusElement.style.display = 'block';
+    
+    if (typeof updateCreateButton === 'function') {
+        updateCreateButton();
+    }
+}
+
+// ============================================
+// FORM VALIDATION
+// ============================================
+
+function setupFormValidation() {
+    const form = document.getElementById('nftCreationForm');
+    if (!form) return;
+    
+    const termsCheckbox = document.getElementById('agreeTerms');
+    if (termsCheckbox) {
+        termsCheckbox.addEventListener('change', updateCreateButton);
+        updateTermsLabel();
+    }
+    
+    const requiredInputs = form.querySelectorAll('input[required], textarea[required], select[required]');
+    requiredInputs.forEach(input => {
+        input.addEventListener('input', validateField);
+        input.addEventListener('blur', validateField);
+    });
+    
+    const numberInputs = form.querySelectorAll('input[type="number"]');
+    numberInputs.forEach(input => {
+        input.addEventListener('input', validateNumberField);
+        input.addEventListener('blur', validateNumberField);
+    });
+}
+
+function updateTermsLabel() {
+    const termsLabel = document.querySelector('label[for="agreeTerms"]');
+    if (termsLabel) {
+        termsLabel.innerHTML = `
+            I agree to the <a href="#" onclick="return false;">Terms of Service</a> and understand that:
+            <ul>
+                <li>Minting fee of 0.1 ETH is non-refundable</li>
+                <li>Royalties will be applied to secondary sales</li>
+                <li>NFT will be listed for sale immediately upon minting</li>
+                <li>NFT will be permanently recorded on Ethereum blockchain</li>
+            </ul>
+        `;
+    }
+}
+
+function validateField(e) {
+    const field = e.target;
+    const formGroup = field.closest('.form-group');
+    
+    if (!formGroup) return false;
+    
+    formGroup.classList.remove('error');
+    const existingError = formGroup.querySelector('.validation-error');
+    if (existingError) existingError.remove();
+    
+    if (field.hasAttribute('required') && !field.value.trim()) {
+        formGroup.classList.add('error');
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'validation-error';
+        errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> This field is required';
+        formGroup.appendChild(errorMsg);
+        return false;
+    }
+    
+    updateCreateButton();
+    return true;
+}
+
+function validateNumberField(e) {
+    const field = e.target;
+    const formGroup = field.closest('.form-group');
+    
+    if (!formGroup) return;
+    
+    formGroup.classList.remove('error');
+    const existingError = formGroup.querySelector('.validation-error');
+    if (existingError) existingError.remove();
+    
+    if (field.hasAttribute('min')) {
+        const min = parseFloat(field.getAttribute('min'));
+        const value = parseFloat(field.value);
+        if (!isNaN(value) && value < min) {
+            formGroup.classList.add('error');
+            const errorMsg = document.createElement('div');
+            errorMsg.className = 'validation-error';
+            errorMsg.innerHTML = `<i class="fas fa-exclamation-circle"></i> Value must be at least ${min}`;
+            formGroup.appendChild(errorMsg);
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+function updateCreateButton() {
+    const createBtn = document.getElementById('createBtn');
+    if (!createBtn) return;
+    
+    const hasFile = !!currentFile;
+    const termsAgreed = document.getElementById('agreeTerms')?.checked || false;
+    
+    const requiredFields = document.querySelectorAll('input[required], textarea[required], select[required]');
+    let requiredFilled = true;
+    
+    requiredFields.forEach(field => {
+        if (!field.value.trim()) requiredFilled = false;
+    });
+    
+    const collectionSelect = document.getElementById('collectionSelect');
+    if (collectionSelect?.value === '') {
+        const collectionName = document.getElementById('collectionName');
+        if (collectionName && !collectionName.value.trim()) requiredFilled = false;
+    }
+    
+    const isDisabled = !(hasFile && requiredFilled && termsAgreed && isBalanceSufficient);
+    createBtn.disabled = isDisabled;
+    
+    if (isMintingInProgress) {
+        createBtn.classList.add('loading');
+        createBtn.disabled = true;
+    } else {
+        createBtn.classList.remove('loading');
+    }
+}
+
+// ============================================
+// PREVIEW NFT
+// ============================================
+
+function previewNFT() {
+    if (!currentFile) {
+        showError('Please upload an artwork first');
+        return;
+    }
+    
+    const modal = document.getElementById('previewModal');
+    const previewContent = document.getElementById('previewContent');
+    
+    if (!modal || !previewContent) {
+        showError('Preview modal not found');
+        return;
+    }
+    
+    const nftName = document.getElementById('nftName').value || 'Untitled NFT';
+    const nftDescription = document.getElementById('nftDescription').value || 'No description provided';
+    const royalty = document.getElementById('royaltyPercentage').value || '5';
+    const price = document.getElementById('nftPrice').value || '0.5';
+    
+    let previewHTML = '<div class="preview-content">';
+    previewHTML += '<div class="preview-image">';
+    
+    if (currentFile.type.startsWith('image/')) {
+        const imageUrl = URL.createObjectURL(currentFile);
+        previewHTML += `<img src="${imageUrl}" alt="${nftName}" onload="URL.revokeObjectURL(this.src)">`;
+    } else {
+        const videoUrl = URL.createObjectURL(currentFile);
+        previewHTML += `<video src="${videoUrl}" controls onload="URL.revokeObjectURL(this.src)"></video>`;
+    }
+    
+    previewHTML += '</div>';
+    previewHTML += '<div class="preview-details">';
+    previewHTML += `<h4>${escapeHtml(nftName)}</h4>`;
+    previewHTML += `<p class="preview-description">${escapeHtml(nftDescription)}</p>`;
+    
+    const collectionSelect = document.getElementById('collectionSelect');
+    if (collectionSelect) {
+        const collectionName = collectionSelect.value === '' 
+            ? document.getElementById('collectionName')?.value || 'New Collection'
+            : collectionSelect.options[collectionSelect.selectedIndex].text;
+        previewHTML += `<div class="preview-collection"><strong>Collection:</strong> ${escapeHtml(collectionName)}</div>`;
+    }
+    
+    const nftValueUsd = (price * ethToUsdRate).toFixed(2);
+    
+    previewHTML += '<div class="preview-summary">';
+    previewHTML += '<h5><i class="fas fa-calculator"></i> Summary</h5>';
+    previewHTML += `<div class="preview-summary-item"><span>List Price</span><span>${price} WETH ($${nftValueUsd})</span></div>`;
+    previewHTML += `<div class="preview-summary-item"><span>Royalty</span><span>${royalty}%</span></div>`;
+    previewHTML += `<div class="preview-summary-item"><span>Minting Fee</span><span>0.1 ETH</span></div>`;
+    previewHTML += '</div>';
+    
+    previewHTML += '<div class="preview-note">';
+    previewHTML += '<i class="fas fa-info-circle"></i>';
+    previewHTML += '<p><strong>Note:</strong> This is a preview. Your NFT will be listed for sale immediately at the specified price.</p>';
+    previewHTML += '</div></div></div>';
+    
+    addPreviewStyles();
+    previewContent.innerHTML = previewHTML;
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+}
+
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('previewModal');
+    if (e.target === modal) closeModal('previewModal');
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeModal('previewModal');
+});
+
+// ============================================
+// NOTIFICATIONS & UTILS
+// ============================================
+
+function showError(message) { showNotification(message, 'error'); }
+function showSuccess(message) { showNotification(message, 'success'); }
+
+function showNotification(message, type) {
+    const existing = document.querySelector('.notification');
+    if (existing) existing.remove();
+    
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    
+    const icon = type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle';
+    notification.innerHTML = `
+        <div class="notification-content">
+            <i class="fas ${icon}"></i>
+            <span>${escapeHtml(message)}</span>
+            <button class="notification-close">&times;</button>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    const closeBtn = notification.querySelector('.notification-close');
+    closeBtn.addEventListener('click', () => notification.remove());
+    
+    setTimeout(() => { notification.classList.add('show'); }, 10);
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.classList.remove('show');
+            setTimeout(() => notification.remove(), 300);
+        }
+    }, 5000);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function setupEventListeners() {
+    addNotificationStyles();
+    updateRoyaltyDisplay();
+    
+    const collectionSelect = document.getElementById('collectionSelect');
+    if (collectionSelect) {
+        collectionSelect.addEventListener('change', toggleCollectionFields);
+    }
+    
+    const nftPriceInput = document.getElementById('nftPrice');
+    if (nftPriceInput) {
+        nftPriceInput.addEventListener('input', updatePriceDisplay);
+    }
+    
+    const previewBtn = document.getElementById('previewBtn');
+    if (previewBtn) {
+        previewBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            previewNFT();
+        });
+    }
+}
+
+// ============================================
+// LIVE PRODUCTION FORM SUBMISSION HANDLER 
+// ============================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('nftCreationForm');
+    if (!form) return;
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        console.log('📝 Production form submission started...');
+        const createBtn = document.getElementById('createBtn');
+        const originalBtnText = createBtn.innerHTML;
+        createBtn.disabled = true;
+        createBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        
+        try {
+            // Validate basic inputs
+            const nftName = document.getElementById('nftName').value;
+            const nftDescription = document.getElementById('nftDescription').value || '';
+            const nftPrice = document.getElementById('nftPrice').value;
+            const royalty = document.getElementById('royaltyPercentage').value || '5';
+            
+            if (!nftName.trim()) throw new Error('NFT name is required');
+            if (!nftPrice || parseFloat(nftPrice) < 0.01) throw new Error('Price must be at least 0.01 WETH');
+            if (!currentFile) throw new Error('Please upload an image');
+            
+            // Collection logic
+            const collectionSelect = document.getElementById('collectionSelect');
+            let collectionName = 'Unnamed Collection';
+            if (collectionSelect) {
+                if (collectionSelect.value === '') {
+                    collectionName = document.getElementById('collectionName').value || 'My Collection';
+                } else {
+                    collectionName = collectionSelect.options[collectionSelect.selectedIndex].text;
+                }
+            }
+            
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            if (!token) throw new Error('Session expired. Please log in again.');
+
+            // ==========================================
+            // 1. IMAGE UPLOAD PHASE
+            // ==========================================
+            console.log('🖼️ Uploading image to live server...');
+            const uploadFormData = new FormData();
+            uploadFormData.append('image', currentFile);
+            
+            const uploadResponse = await fetch('/api/upload/image', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }, // FormData automatically sets multipart boundaries
+                body: uploadFormData
+            });
+            
+            const uploadText = await uploadResponse.text();
+            let uploadData;
+            try {
+                uploadData = JSON.parse(uploadText);
+            } catch (parseError) {
+                console.error('🔥 SERVER CRASHED ON UPLOAD. Server returned HTML:', uploadText.substring(0, 500));
+                throw new Error('Image upload endpoint crashed. Server returned an invalid response.');
+            }
+            
+            if (!uploadResponse.ok || !uploadData.success) {
+                throw new Error(uploadData.error || 'Image upload rejected by server');
+            }
+            console.log('✅ Image uploaded successfully:', uploadData.imageUrl);
+
+            // ==========================================
+            // 2. MINTING PHASE
+            // ==========================================
+            console.log('💎 Sending Mint request to live server...');
+            createBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Minting on Blockchain...';
+
+            const mintResponse = await fetch('/api/nft/mint', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: nftName,
+                    collectionName: collectionName,
+                    price: nftPrice,
+                    category: 'art',
+                    imageUrl: uploadData.imageUrl, 
+                    cloudinaryId: uploadData.cloudinaryId || 'upload_' + Date.now(),
+                    description: nftDescription,
+                    royalty: royalty
+                })
+            });
+            
+            const mintText = await mintResponse.text();
+            let mintData;
+            try {
+                mintData = JSON.parse(mintText);
+            } catch (parseError) {
+                console.error('🔥 SERVER CRASHED ON MINT. Server returned HTML:', mintText.substring(0, 500));
+                throw new Error('Minting endpoint crashed. Check server logs.');
+            }
+            
+            if (!mintResponse.ok || !mintData.success) {
+                throw new Error(mintData.error || mintData.message || 'Minting failed on server');
+            }
+            
+            // ==========================================
+            // 3. SUCCESS PIPELINE
+            // ==========================================
+            console.log('✅ NFT minted successfully!', mintData);
+            showNotification(`🎉 NFT minted successfully!`, 'success');
+            
+            // Update global user storage so Dashboard sees the new balance instantly
+            if (mintData.user || mintData.newETHBalance !== undefined) {
+                const storageKey = localStorage.getItem('magicEdenCurrentUser') ? 'magicEdenCurrentUser' : 'user';
+                const currentUser = JSON.parse(localStorage.getItem(storageKey) || '{}');
+                
+                // Update internal balance dynamically
+                if (mintData.newETHBalance !== undefined) currentUser.internalBalance = mintData.newETHBalance;
+                if (mintData.user) Object.assign(currentUser, mintData.user);
+                
+                localStorage.setItem(storageKey, JSON.stringify(currentUser));
+                localStorage.setItem('user', JSON.stringify(currentUser)); // Double-sync to be safe
+            }
+            
+            form.reset();
+            removePreview();
+            
+            setTimeout(() => { window.location.href = '/dashboard'; }, 2500);
+            
+        } catch (error) {
+            console.error('❌ NFT Creation failed:', error);
+            showNotification(error.message, 'error');
+            createBtn.disabled = false;
+            createBtn.innerHTML = originalBtnText;
+        }
+    });
+});
+
+// ============================================
+// STYLE INJECTIONS
+// ============================================
+
+function addNotificationStyles() {
+    if (document.getElementById('notification-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'notification-styles';
+    style.textContent = `
+        .notification { position: fixed; top: 20px; right: 20px; z-index: 10000; transform: translateX(120%); transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        .notification.show { transform: translateX(0); }
+        .notification-content { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-radius: 12px; color: white; min-width: 320px; max-width: 400px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
+        .notification.error .notification-content { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); }
+        .notification.success .notification-content { background: linear-gradient(135deg, #059669 0%, #047857 100%); }
+        .notification-content i { font-size: 1.25rem; }
+        .notification-content span { flex: 1; font-weight: 500; }
+        .notification-close { background: rgba(255, 255, 255, 0.2); border: none; color: white; font-size: 1.5rem; cursor: pointer; padding: 0; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; }
+        .notification-close:hover { background: rgba(255, 255, 255, 0.3); transform: rotate(90deg); }
+    `;
+    document.head.appendChild(style);
+}
+
+function addPreviewStyles() {
+    if (document.getElementById('preview-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'preview-styles';
+    style.textContent = `
+        .preview-content { display: flex; flex-direction: column; gap: 1.5rem; }
+        .preview-image { border-radius: 12px; overflow: hidden; background: #000; }
+        .preview-image img, .preview-image video { width: 100%; max-height: 400px; object-fit: contain; display: block; }
+        .preview-details h4 { color: #333; font-size: 1.5rem; margin-bottom: 0.5rem; }
+        .preview-description { color: #666; line-height: 1.6; margin-bottom: 1rem; }
+        .preview-collection { color: #667eea; font-weight: 500; margin-bottom: 1rem; }
+        .preview-summary { background: #f8fafc; border-radius: 12px; padding: 1.5rem; margin-top: 1rem; }
+        .preview-summary h5 { color: #333; margin-bottom: 1rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .preview-summary-item { display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0; color: #333; }
+        .preview-summary-item:last-child { border-bottom: none; }
+        .preview-summary-item span:first-child { color: #666; }
+        .preview-summary-item span:last-child { color: #333; font-weight: 500; }
+        .preview-note { display: flex; align-items: flex-start; gap: 1rem; padding: 1rem; background: #f0f9ff; border-radius: 10px; border-left: 4px solid #0ea5e9; margin-top: 1rem; }
+        .preview-note i { color: #0ea5e9; font-size: 1.2rem; margin-top: 0.2rem; }
+        .preview-note p { color: #0369a1; margin: 0; font-size: 0.9rem; line-height: 1.5; }
+    `;
+    document.head.appendChild(style);
+}
+
+function addSpinnerStyles() {
+    if (document.getElementById('spinner-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'spinner-styles';
+    style.textContent = `
+        .loading { position: relative; opacity: 0.8; pointer-events: none; }
+        .loading::after { content: ''; position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; margin: -10px 0 0 -10px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .fa-spin { animation: fa-spin 2s linear infinite; }
+        @keyframes fa-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    `;
+    document.head.appendChild(style);
+}
+
+addSpinnerStyles();
+console.log("✅ NFT Creation script loaded successfully");
