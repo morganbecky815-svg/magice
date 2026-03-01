@@ -1,28 +1,29 @@
-// Admin Panel JavaScript
+// ============================================
+// ADMIN PANEL JAVASCRIPT (PRODUCTION VERSION)
+// ============================================
 
 // Check if user is admin
 function checkAdminAccess() {
-    const userEmail = localStorage.getItem('magicEdenCurrentUser');
-    if (!userEmail) {
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+    
+    if (!token || !userStr) {
         window.location.href = '/login';
         return false;
     }
     
-    const users = JSON.parse(localStorage.getItem('magicEdenUsers')) || [];
-    const user = users.find(u => u.email === userEmail);
-    
-    if (!user) {
+    try {
+        const user = JSON.parse(userStr);
+        if (!user.isAdmin) {
+            alert('Admin access required');
+            window.location.href = '/dashboard';
+            return false;
+        }
+        return true;
+    } catch (error) {
         window.location.href = '/login';
         return false;
     }
-    
-    if (!user.isAdmin) {
-        alert('Admin access required');
-        window.location.href = '/';
-        return false;
-    }
-    
-    return true;
 }
 
 // Tab switching
@@ -44,7 +45,7 @@ function showAdminTab(tab, event) {
         event.target.classList.add('active');
     }
     
-    // Load tab data
+    // Load tab data from backend
     if (tab === 'dashboard') {
         loadDashboard();
     } else if (tab === 'nfts') {
@@ -56,304 +57,371 @@ function showAdminTab(tab, event) {
     }
 }
 
-// Load dashboard
-function loadDashboard() {
-    const nfts = JSON.parse(localStorage.getItem('magicEdenNFTs')) || [];
-    const users = JSON.parse(localStorage.getItem('magicEdenUsers')) || [];
-    const tickets = JSON.parse(localStorage.getItem('magicEdenSupportTickets')) || [];
-    
-    // Update stats
-    const totalNFTs = document.getElementById('adminTotalNFTs');
-    const totalUsers = document.getElementById('adminTotalUsers');
-    const totalVolume = document.getElementById('adminTotalVolume');
-    const openTickets = document.getElementById('adminOpenTickets');
-    
-    if (totalNFTs) totalNFTs.textContent = nfts.length;
-    if (totalUsers) totalUsers.textContent = users.length;
-    
-    // Calculate total volume
-    let volume = 0;
-    nfts.forEach(nft => {
-        volume += nft.price;
-    });
-    if (totalVolume) totalVolume.textContent = volume.toFixed(2) + ' WETH';
-    
-    // Count open tickets
-    const openCount = tickets.filter(t => t.status === 'open').length;
-    if (openTickets) openTickets.textContent = openCount;
-    
-    // Load recent activity
-    const activity = document.getElementById('recentActivity');
-    if (activity) {
-        activity.innerHTML = '';
-        
-        // Show recent NFTs
-        const recentNFTs = nfts.slice(-5).reverse();
-        recentNFTs.forEach(nft => {
-            const item = document.createElement('div');
-            item.className = 'stat-box';
-            item.innerHTML = '<strong>' + nft.name + '</strong>' +
-                '<div>' + nft.collection + ' • ' + nft.price + ' WETH</div>' +
-                '<small>Created: ' + new Date(nft.createdAt).toLocaleDateString() + '</small>';
-            activity.appendChild(item);
+// ========================
+// DASHBOARD & STATS
+// ========================
+async function loadDashboard() {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/admin/dashboard', {
+            headers: { 'Authorization': `Bearer ${token}` }
         });
+        
+        if (!response.ok) throw new Error('Failed to fetch dashboard stats');
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update stats
+            document.getElementById('adminTotalNFTs').textContent = data.stats.totalNFTs || 0;
+            document.getElementById('adminTotalUsers').textContent = data.stats.totalUsers || 0;
+            document.getElementById('adminTotalVolume').textContent = (data.stats.totalVolume || 0) + ' WETH';
+            document.getElementById('adminOpenTickets').textContent = data.stats.openTickets || 0;
+            document.getElementById('adminFeaturedNFTs').textContent = data.stats.featuredNFTs || 0;
+            document.getElementById('adminBoostedNFTs').textContent = data.stats.boostedNFTs || 0;
+            
+            // Load recent activity
+            const activity = document.getElementById('recentActivity');
+            if (activity) {
+                if (!data.recentActivity || data.recentActivity.length === 0) {
+                    activity.innerHTML = '<div class="no-results">No recent activity</div>';
+                } else {
+                    activity.innerHTML = data.recentActivity.map(nft => `
+                        <div class="stat-box" style="margin-bottom: 10px;">
+                            <strong>${nft.name}</strong>
+                            <div>${nft.collectionName || 'No Collection'} • ${nft.price} WETH</div>
+                            <small>Created: ${new Date(nft.createdAt).toLocaleDateString()}</small>
+                        </div>
+                    `).join('');
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error loading dashboard:', error);
     }
 }
 
-// Load NFTs table
-function loadNFTsTable() {
-    const nfts = JSON.parse(localStorage.getItem('magicEdenNFTs')) || [];
+// ========================
+// NFT MANAGEMENT
+// ========================
+async function loadNFTsTable() {
     const tbody = document.getElementById('nftsTableBody');
-    
     if (!tbody) return;
     
-    tbody.innerHTML = '';
+    tbody.innerHTML = '<tr><td colspan="7" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading NFTs...</td></tr>';
     
-    nfts.forEach(nft => {
-        const row = document.createElement('tr');
-        row.innerHTML = '<td>' + nft.id + '</td>' +
-            '<td>' + nft.name + '</td>' +
-            '<td>' + nft.collection + '</td>' +
-            '<td>' + nft.price + ' WETH</td>' +
-            '<td>' + nft.owner + '</td>' +
-            '<td>' +
-            '<button class="action-btn btn-edit" onclick="editNFT(' + nft.id + ')">' +
-            '<i class="fas fa-edit"></i> Edit</button> ' +
-            '<button class="action-btn btn-delete" onclick="deleteNFT(' + nft.id + ')">' +
-            '<i class="fas fa-trash"></i> Delete</button>' +
-            '</td>';
-        tbody.appendChild(row);
-    });
-}
-
-// Load users table
-function loadUsersTable() {
-    const users = JSON.parse(localStorage.getItem('magicEdenUsers')) || [];
-    const tbody = document.getElementById('usersTableBody');
-    
-    if (!tbody) return;
-    
-    tbody.innerHTML = '';
-    
-    users.forEach(user => {
-        const row = document.createElement('tr');
-        row.innerHTML = '<td>' + user.email + '</td>' +
-            '<td>' + user.balance + ' WETH</td>' +
-            '<td>' + new Date(user.createdAt).toLocaleDateString() + '</td>' +
-            '<td>' + (user.isAdmin ? 'Yes' : 'No') + '</td>' +
-            '<td>' +
-            '<button class="action-btn btn-edit" onclick="editUser(\'' + user.email + '\')">' +
-            '<i class="fas fa-edit"></i> Edit</button>' +
-            '</td>';
-        tbody.appendChild(row);
-    });
-}
-
-// Load tickets table
-function loadTicketsTable() {
-    const tickets = JSON.parse(localStorage.getItem('magicEdenSupportTickets')) || [];
-    const tbody = document.getElementById('ticketsTableBody');
-    
-    if (!tbody) return;
-    
-    tbody.innerHTML = '';
-    
-    tickets.forEach(ticket => {
-        const row = document.createElement('tr');
-        row.innerHTML = '<td>' + ticket.id + '</td>' +
-            '<td>' + ticket.userEmail + '</td>' +
-            '<td>' + ticket.message.substring(0, 50) + (ticket.message.length > 50 ? '...' : '') + '</td>' +
-            '<td><span style="color: ' + (ticket.status === 'open' ? '#ef4444' : '#10b981') + '">' + 
-            ticket.status + '</span></td>' +
-            '<td>' + new Date(ticket.createdAt).toLocaleDateString() + '</td>' +
-            '<td>' + 
-            (ticket.status === 'open' ? 
-                '<button class="action-btn btn-resolve" onclick="resolveTicket(' + ticket.id + ')">' +
-                '<i class="fas fa-check"></i> Resolve</button>' : '') +
-            '</td>';
-        tbody.appendChild(row);
-    });
-}
-
-// Admin create NFT
-function adminCreateNFT(event) {
-    event.preventDefault();
-    
-    const name = document.getElementById('adminNftName').value;
-    const collection = document.getElementById('adminNftCollection').value;
-    const price = parseFloat(document.getElementById('adminNftPrice').value);
-    const category = document.getElementById('adminNftCategory').value;
-    const image = document.getElementById('adminNftImage').value;
-    const owner = document.getElementById('adminNftOwner').value;
-    
-    const messageEl = document.getElementById('adminMessage');
-    
-    // Validation
-    if (!name || !collection || !price || !category || !image || !owner) {
-        if (messageEl) {
-            messageEl.textContent = 'Please fill all fields!';
-            messageEl.className = 'admin-message error';
-        }
-        return false;
-    }
-    
-    // Get NFTs from localStorage
-    const nfts = JSON.parse(localStorage.getItem('magicEdenNFTs')) || [];
-    const newNFT = {
-        id: Date.now(),
-        name: name,
-        collection: collection,
-        price: price,
-        category: category,
-        image: image,
-        owner: owner,
-        createdAt: new Date().toISOString(),
-        tokenId: 'ME' + Date.now().toString(36).toUpperCase()
-    };
-    
-    nfts.push(newNFT);
-    localStorage.setItem('magicEdenNFTs', JSON.stringify(nfts));
-    
-    if (messageEl) {
-        messageEl.textContent = 'NFT created successfully!';
-        messageEl.className = 'admin-message success';
-    }
-    
-    // Clear form
-    document.getElementById('adminCreateForm').reset();
-    
-    // Refresh tables
-    loadNFTsTable();
-    loadDashboard();
-    
-    return false;
-}
-
-// Admin functions
-function deleteNFT(id) {
-    if (confirm('Are you sure you want to delete this NFT?')) {
-        let nfts = JSON.parse(localStorage.getItem('magicEdenNFTs')) || [];
-        nfts = nfts.filter(nft => nft.id !== id);
-        localStorage.setItem('magicEdenNFTs', JSON.stringify(nfts));
-        loadNFTsTable();
-        loadDashboard();
-    }
-}
-
-function editNFT(id) {
-    alert('Edit feature coming soon! NFT ID: ' + id);
-}
-
-function editUser(email) {
-    const newBalance = prompt('Enter new balance for ' + email + ':', '10');
-    if (newBalance !== null) {
-        const users = JSON.parse(localStorage.getItem('magicEdenUsers')) || [];
-        const userIndex = users.findIndex(u => u.email === email);
-        
-        if (userIndex !== -1) {
-            users[userIndex].balance = parseFloat(newBalance);
-            localStorage.setItem('magicEdenUsers', JSON.stringify(users));
-            loadUsersTable();
-            alert('Balance updated!');
-        }
-    }
-}
-
-function resolveTicket(id) {
-    let tickets = JSON.parse(localStorage.getItem('magicEdenSupportTickets')) || [];
-    const ticketIndex = tickets.findIndex(t => t.id === id);
-    
-    if (ticketIndex !== -1) {
-        tickets[ticketIndex].status = 'resolved';
-        localStorage.setItem('magicEdenSupportTickets', JSON.stringify(tickets));
-        loadTicketsTable();
-        loadDashboard();
-        alert('Ticket resolved!');
-    }
-}
-
-// Boost NFT views/likes
-router.post('/nfts/:id/boost', adminAuth, async (req, res) => {
     try {
-        const { type, amount } = req.body;
-        const nft = await NFT.findById(req.params.id);
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/admin/nfts', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         
-        if (!nft) {
-            return res.status(404).json({ error: 'NFT not found' });
-        }
+        const data = await response.json();
         
-        if (type === 'views') {
-            nft.boostedViews = (nft.boostedViews || 0) + parseInt(amount);
-            nft.isPromoted = true;
-        } else if (type === 'likes') {
-            nft.boostedLikes = (nft.boostedLikes || 0) + parseInt(amount);
-            nft.isPromoted = true;
+        if (data.success && data.nfts.length > 0) {
+            tbody.innerHTML = data.nfts.map(nft => {
+                const totalViews = (nft.views || 0) + (nft.boostedViews || 0);
+                const totalLikes = (nft.likes || 0) + (nft.boostedLikes || 0);
+                
+                return `
+                    <tr>
+                        <td style="font-family: monospace; font-size: 12px;">${nft.tokenId ? nft.tokenId.substring(0, 8) + '...' : 'N/A'}</td>
+                        <td>
+                            <strong>${nft.name}</strong>
+                            ${nft.isFeatured ? '<br><small style="color: #f59e0b;"><i class="fas fa-star"></i> Featured</small>' : ''}
+                        </td>
+                        <td>${nft.collectionName || 'None'}</td>
+                        <td><strong>${nft.price} WETH</strong></td>
+                        <td>
+                            <div style="font-size: 12px;">
+                                <div><i class="fas fa-eye"></i> ${totalViews} views</div>
+                                <div><i class="fas fa-heart"></i> ${totalLikes} likes</div>
+                            </div>
+                        </td>
+                        <td>
+                            ${nft.isFeatured ? '<span style="color: #f59e0b;"><i class="fas fa-star"></i> Featured</span>' :
+                              nft.isPromoted ? '<span style="color: #8a2be2;"><i class="fas fa-rocket"></i> Promoted</span>' :
+                              '<span style="color: #888;"><i class="fas fa-circle"></i> Normal</span>'}
+                        </td>
+                        <td>
+                            <div class="nft-actions" style="display:flex; gap:5px;">
+                                <button class="action-btn btn-boost" onclick="showBoostModal('${nft._id}', '${nft.name.replace(/'/g, "\\'")}')" title="Boost NFT">
+                                    <i class="fas fa-rocket"></i>
+                                </button>
+                                <button class="action-btn btn-feature" onclick="toggleFeatureNFT('${nft._id}', ${nft.isFeatured || false})" title="Feature NFT">
+                                    <i class="fas fa-star"></i>
+                                </button>
+                                <button class="action-btn btn-delete" onclick="deleteNFT('${nft._id}')" title="Delete NFT">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         } else {
-            return res.status(400).json({ error: 'Invalid boost type' });
+            tbody.innerHTML = '<tr><td colspan="7" class="no-results">No NFTs found</td></tr>';
         }
-        
-        await nft.save();
-        
-        res.json({
-            success: true,
-            message: `Boosted ${type} by ${amount}`,
-            nft
-        });
-        
     } catch (error) {
-        console.error('Boost NFT error:', error);
-        res.status(500).json({ error: 'Failed to boost NFT' });
+        console.error('Error loading NFTs:', error);
+        tbody.innerHTML = '<tr><td colspan="7" class="error-message">Failed to load NFTs</td></tr>';
     }
-});
+}
 
-// Feature/unfeature NFT
-router.post('/nfts/:id/feature', adminAuth, async (req, res) => {
+// 🚀 FIXED: BOOST NFT FUNCTIONALITY
+function showBoostModal(nftId, nftName) {
+    const amount = prompt(`Enter amount to boost for "${nftName}":`, "100");
+    if (!amount || isNaN(amount)) return;
+    
+    const type = prompt("Boost 'views' or 'likes'?", "likes");
+    if (type && (type === 'views' || type === 'likes')) {
+        boostNFT(nftId, type, parseInt(amount));
+    } else {
+        alert('Invalid type. Must type "views" or "likes"');
+    }
+}
+
+async function boostNFT(nftId, type, amount) {
     try {
-        const { featured } = req.body;
-        const nft = await NFT.findById(req.params.id);
-        
-        if (!nft) {
-            return res.status(404).json({ error: 'NFT not found' });
-        }
-        
-        nft.isFeatured = featured;
-        await nft.save();
-        
-        res.json({
-            success: true,
-            message: `NFT ${featured ? 'featured' : 'unfeatured'} successfully`,
-            nft
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/admin/nfts/${nftId}/boost`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ type, amount })
         });
         
+        const data = await response.json();
+        if (data.success) {
+            alert(`✅ Successfully boosted ${amount} ${type}!`);
+            loadNFTsTable(); // Refresh table to show new numbers
+            loadDashboard();
+        } else {
+            alert(`❌ Error: ${data.error}`);
+        }
     } catch (error) {
-        console.error('Feature NFT error:', error);
-        res.status(500).json({ error: 'Failed to feature NFT' });
+        console.error('Boost error:', error);
+        alert('Failed to connect to server.');
     }
-});
+}
+
+async function toggleFeatureNFT(nftId, currentlyFeatured) {
+    if (!confirm(`Are you sure you want to ${currentlyFeatured ? 'unfeature' : 'feature'} this NFT?`)) return;
+    
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/admin/nfts/${nftId}/feature`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ featured: !currentlyFeatured })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            loadNFTsTable();
+            loadDashboard();
+        }
+    } catch (error) {
+        console.error('Feature error:', error);
+    }
+}
+
+async function deleteNFT(nftId) {
+    if (!confirm('Are you sure you want to permanently delete this NFT?')) return;
+    
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/admin/nfts/${nftId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            loadNFTsTable();
+            loadDashboard();
+        }
+    } catch (error) {
+        console.error('Delete error:', error);
+    }
+}
+
+// ========================
+// USER MANAGEMENT
+// ========================
+async function loadUsersTable() {
+    const tbody = document.getElementById('usersTableBody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="7" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading users...</td></tr>';
+    
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/admin/users', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.users.length > 0) {
+            tbody.innerHTML = data.users.map(user => `
+                <tr>
+                    <td><strong>${user.email}</strong></td>
+                    <td>${user.internalBalance || 0} ETH</td>
+                    <td>${user.wethBalance || 0} WETH</td>
+                    <td style="font-family: monospace; font-size: 12px;">${user.depositAddress || 'No wallet'}</td>
+                    <td>${new Date(user.createdAt).toLocaleDateString()}</td>
+                    <td>${user.isAdmin ? '<span style="color: #10b981;">Admin</span>' : '<span style="color: #888;">User</span>'}</td>
+                    <td>
+                        <button class="action-btn btn-edit" onclick="editUserBalance('${user._id}', '${user.email}', ${user.internalBalance || 0}, ${user.wethBalance || 0})">
+                            <i class="fas fa-edit"></i> Edit Balance
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="7" class="no-results">No users found</td></tr>';
+        }
+    } catch (error) {
+        console.error('Error loading users:', error);
+        tbody.innerHTML = '<tr><td colspan="7" class="error-message">Failed to load users</td></tr>';
+    }
+}
+
+function editUserBalance(userId, email, currentEth, currentWeth) {
+    const newEth = prompt(`Enter new ETH Balance for ${email}:`, currentEth);
+    if (newEth === null) return;
+    
+    const newWeth = prompt(`Enter new WETH Balance for ${email}:`, currentWeth);
+    if (newWeth === null) return;
+    
+    saveUserBalance(userId, email, parseFloat(newEth), parseFloat(newWeth));
+}
+
+async function saveUserBalance(userId, email, newEthBalance, newWethBalance) {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/admin/users/${userId}/balance`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                internalBalance: newEthBalance,
+                wethBalance: newWethBalance 
+            })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            alert(`✅ Balances updated for ${email}`);
+            loadUsersTable();
+        } else {
+            alert(`❌ Error: ${result.error}`);
+        }
+    } catch (error) {
+        console.error('Save error:', error);
+    }
+}
+
+// ========================
+// TICKETS
+// ========================
+async function loadTicketsTable() {
+    const tbody = document.getElementById('ticketsTableBody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="6" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading tickets...</td></tr>';
+    
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/admin/tickets', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.tickets.length > 0) {
+            tbody.innerHTML = data.tickets.map(ticket => `
+                <tr>
+                    <td style="font-family: monospace; font-size: 12px;">${ticket._id.substring(0, 8)}...</td>
+                    <td>${ticket.userEmail || (ticket.user ? ticket.user.email : 'Anonymous')}</td>
+                    <td>${ticket.message.substring(0, 50)}...</td>
+                    <td><span style="color: ${ticket.status === 'open' ? '#ef4444' : '#10b981'}">${ticket.status}</span></td>
+                    <td>${new Date(ticket.createdAt).toLocaleDateString()}</td>
+                    <td>
+                        ${ticket.status === 'open' ? `
+                            <button class="action-btn btn-resolve" onclick="resolveTicket('${ticket._id}')">
+                                <i class="fas fa-check"></i> Resolve
+                            </button>
+                        ` : 'Resolved'}
+                    </td>
+                </tr>
+            `).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="6" class="no-results">No tickets found</td></tr>';
+        }
+    } catch (error) {
+        console.error('Error loading tickets:', error);
+        tbody.innerHTML = '<tr><td colspan="6" class="error-message">Failed to load tickets</td></tr>';
+    }
+}
+
+async function resolveTicket(ticketId) {
+    if (!confirm('Mark this ticket as resolved?')) return;
+    
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/admin/tickets/${ticketId}/resolve`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            loadTicketsTable();
+            loadDashboard();
+        }
+    } catch (error) {
+        console.error('Resolve error:', error);
+    }
+}
 
 // Logout function
 function adminLogout() {
-    localStorage.removeItem('magicEdenCurrentUser');
-    window.location.href = '/';
+    if (confirm('Are you sure you want to logout?')) {
+        localStorage.clear();
+        window.location.href = '/';
+    }
 }
 
 // Initialize admin panel
 document.addEventListener('DOMContentLoaded', function() {
     if (checkAdminAccess()) {
         loadDashboard();
-        loadNFTsTable();
-        loadUsersTable();
-        loadTicketsTable();
+        
+        // Setup Tab Listeners
+        const tabButtons = document.querySelectorAll('.admin-tab');
+        tabButtons.forEach(button => {
+            button.addEventListener('click', function(event) {
+                const tab = this.getAttribute('data-tab');
+                if (tab) showAdminTab(tab, event);
+            });
+        });
     }
 });
 
-
-
 // Make functions globally available
 window.showAdminTab = showAdminTab;
-window.adminCreateNFT = adminCreateNFT;
 window.deleteNFT = deleteNFT;
-window.editNFT = editNFT;
-window.editUser = editUser;
+window.showBoostModal = showBoostModal;
+window.boostNFT = boostNFT;
+window.toggleFeatureNFT = toggleFeatureNFT;
+window.editUserBalance = editUserBalance;
 window.resolveTicket = resolveTicket;
 window.adminLogout = adminLogout;
