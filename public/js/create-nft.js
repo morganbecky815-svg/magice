@@ -100,7 +100,8 @@ function initializeNFTForm() {
 
 async function loadUserCollections() {
     try {
-        const userStr = localStorage.getItem('magicEdenCurrentUser') || localStorage.getItem('user');
+        // STRICTLY parse 'user' object to prevent JSON 'Unexpected token' errors
+        const userStr = localStorage.getItem('user');
         const token = localStorage.getItem('authToken') || localStorage.getItem('token');
         
         if (!userStr || !token) return;
@@ -477,7 +478,7 @@ async function loadRealUserBalance() {
                 const liveEthBalance = parseFloat(data.user.internalBalance) || parseFloat(data.user.ethBalance) || 0;
                 console.log("✅ Live Database Balance:", liveEthBalance);
 
-                // Keep localStorage in sync with the database globally
+                // Keep localStorage in sync with the database globally (Secure stringify)
                 localStorage.setItem('user', JSON.stringify(data.user));
 
                 // Update UI
@@ -926,17 +927,16 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('✅ NFT minted successfully!', mintData);
             showNotification(`🎉 NFT minted successfully!`, 'success');
             
-            // Update global user storage so Dashboard sees the new balance instantly
+            // Update global user storage securely so Dashboard sees the new balance instantly
             if (mintData.user || mintData.newETHBalance !== undefined) {
-                const storageKey = localStorage.getItem('magicEdenCurrentUser') ? 'magicEdenCurrentUser' : 'user';
-                const currentUser = JSON.parse(localStorage.getItem(storageKey) || '{}');
+                const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
                 
                 // Update internal balance dynamically
                 if (mintData.newETHBalance !== undefined) currentUser.internalBalance = mintData.newETHBalance;
                 if (mintData.user) Object.assign(currentUser, mintData.user);
                 
-                localStorage.setItem(storageKey, JSON.stringify(currentUser));
-                localStorage.setItem('user', JSON.stringify(currentUser)); // Double-sync to be safe
+                // Save ONLY to proper object keys to prevent JSON parse crashes
+                localStorage.setItem('user', JSON.stringify(currentUser));
             }
             
             form.reset();
