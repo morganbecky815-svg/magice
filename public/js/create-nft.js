@@ -69,8 +69,11 @@ function initializeNFTForm() {
         // Load real balance from backend
         loadRealUserBalance();
         
-        // Load user's actual collections from database
-        loadUserCollections();
+        // Load collections AND trigger the dropdown UI fix
+        loadUserCollections().then(() => {
+            toggleCollectionFields(); // Unlocks the input box!
+            updateCreateButton(); // Re-checks the button status
+        });
         
         // Setup file upload
         setupFileUpload();
@@ -112,10 +115,7 @@ async function loadUserCollections() {
         
         if (!select) return;
 
-        // Clear hardcoded options, keep "Create New Collection"
-        select.innerHTML = '<option value="">Create New Collection</option>';
-
-        // Try to fetch real collections
+        // Try to fetch real collections quietly
         const response = await fetch(`/api/collections/user/${userId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -127,7 +127,9 @@ async function loadUserCollections() {
         
         const data = await response.json();
         
+        // Only clear and rebuild the dropdown if the database actually returns collections
         if (data.success && data.collections && data.collections.length > 0) {
+            select.innerHTML = '<option value="">Create New Collection</option>';
             data.collections.forEach(collection => {
                 const option = document.createElement('option');
                 option.value = collection.name; 
