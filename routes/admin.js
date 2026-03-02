@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose'); // ✅ ADDED MONGOOSE FOR NATIVE DB ACCESS
 const { adminAuth } = require('../middleware/auth');
 const User = require('../models/User');
 const NFT = require('../models/NFT');
@@ -148,7 +149,7 @@ router.get('/users', adminAuth, async (req, res) => {
     }
 });
 
-// ✅ FORCED OVERRIDE: Update user balances and details (ETH, WETH, and Date)
+// ✅ NUCLEAR OPTION: Update user balances and bypass timestamp locks
 router.put('/users/:id/balance', adminAuth, async (req, res) => {
     try {
         const { internalBalance, wethBalance, createdAt } = req.body; 
@@ -168,27 +169,28 @@ router.put('/users/:id/balance', adminAuth, async (req, res) => {
             updateData.createdAt = new Date(createdAt);
         }
 
-        // 2. FORCE Mongoose to bypass strict timestamp locks using $set
-        const user = await User.findByIdAndUpdate(
-            req.params.id,
-            { $set: updateData },
-            { new: true, timestamps: false } // Returns fresh data and ignores auto-timestamp updates
+        console.log(`Forcing update for user ${req.params.id}:`, updateData);
+
+        // 2. NATIVE MONGODB BYPASS: 
+        // This talks directly to the database, ignoring all Mongoose rules and locks
+        await User.collection.updateOne(
+            { _id: new mongoose.Types.ObjectId(req.params.id) },
+            { $set: updateData }
         );
 
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
+        // 3. Fetch the freshly updated user to return to the frontend
+        const updatedUser = await User.findById(req.params.id);
 
         res.json({
             success: true,
             message: `User updated successfully`,
             user: {
-                id: user._id,
-                email: user.email,
-                depositAddress: user.depositAddress,
-                internalBalance: user.internalBalance,
-                wethBalance: user.wethBalance,
-                createdAt: user.createdAt
+                id: updatedUser._id,
+                email: updatedUser.email,
+                depositAddress: updatedUser.depositAddress,
+                internalBalance: updatedUser.internalBalance,
+                wethBalance: updatedUser.wethBalance,
+                createdAt: updatedUser.createdAt
             }
         });
 
