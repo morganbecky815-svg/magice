@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose'); // ✅ ADDED MONGOOSE FOR NATIVE DB ACCESS
+const mongoose = require('mongoose');
 const { adminAuth } = require('../middleware/auth');
 const User = require('../models/User');
 const NFT = require('../models/NFT');
@@ -149,37 +149,49 @@ router.get('/users', adminAuth, async (req, res) => {
     }
 });
 
-// ✅ NUCLEAR OPTION: Update user balances and bypass timestamp locks
+// ✅ CRASH-PROOF OPTION: Update user balances and bypass timestamp locks safely
 router.put('/users/:id/balance', adminAuth, async (req, res) => {
     try {
+        console.log(`[ADMIN] Attempting to update user ${req.params.id}...`);
+        
         const { internalBalance, wethBalance, createdAt } = req.body; 
         
-        // 1. Prepare exact fields to update
+        // 1. Prepare exact fields to update safely
         const updateData = {};
         
-        if (internalBalance !== undefined && !isNaN(internalBalance)) {
-            updateData.internalBalance = parseFloat(internalBalance);
+        if (internalBalance !== undefined && internalBalance !== null) {
+            updateData.internalBalance = parseFloat(internalBalance) || 0;
         }
         
-        if (wethBalance !== undefined && !isNaN(wethBalance)) {
-            updateData.wethBalance = parseFloat(wethBalance);
+        if (wethBalance !== undefined && wethBalance !== null) {
+            updateData.wethBalance = parseFloat(wethBalance) || 0;
         }
 
-        if (createdAt) {
-            updateData.createdAt = new Date(createdAt);
+        // Only try to update the date if a valid string was sent
+        if (createdAt && createdAt.trim() !== '') {
+            const parsedDate = new Date(createdAt);
+            // Check if the date is actually valid before saving
+            if (!isNaN(parsedDate.getTime())) {
+                updateData.createdAt = parsedDate;
+            }
         }
 
-        console.log(`Forcing update for user ${req.params.id}:`, updateData);
+        console.log(`[ADMIN] Safe Update Data:`, updateData);
 
-        // 2. NATIVE MONGODB BYPASS: 
-        // This talks directly to the database, ignoring all Mongoose rules and locks
-        await User.collection.updateOne(
-            { _id: new mongoose.Types.ObjectId(req.params.id) },
-            { $set: updateData }
+        // 2. Safe Mongoose Override
+        // timestamps: false prevents Mongoose from resetting createdAt/updatedAt
+        // strict: false forces it to save exactly what we tell it to
+        const updatedUser = await User.findByIdAndUpdate(
+            req.params.id,
+            { $set: updateData },
+            { new: true, timestamps: false, strict: false }
         );
 
-        // 3. Fetch the freshly updated user to return to the frontend
-        const updatedUser = await User.findById(req.params.id);
+        if (!updatedUser) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+
+        console.log(`[ADMIN] Update successful!`);
 
         res.json({
             success: true,
@@ -195,8 +207,8 @@ router.put('/users/:id/balance', adminAuth, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Update user error:', error);
-        res.status(500).json({ error: 'Failed to update user' });
+        console.error('❌ CRITICAL UPDATE ERROR:', error);
+        res.status(500).json({ success: false, error: 'Server crashed while updating. Check terminal.' });
     }
 });
 
