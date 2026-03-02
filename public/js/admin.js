@@ -167,7 +167,6 @@ async function loadNFTsTable() {
     }
 }
 
-// 🚀 FIXED: BOOST NFT FUNCTIONALITY
 function showBoostModal(nftId, nftName) {
     const amount = prompt(`Enter amount to boost for "${nftName}":`, "100");
     if (!amount || isNaN(amount)) return;
@@ -195,7 +194,7 @@ async function boostNFT(nftId, type, amount) {
         const data = await response.json();
         if (data.success) {
             alert(`✅ Successfully boosted ${amount} ${type}!`);
-            loadNFTsTable(); // Refresh table to show new numbers
+            loadNFTsTable();
             loadDashboard();
         } else {
             alert(`❌ Error: ${data.error}`);
@@ -251,7 +250,7 @@ async function deleteNFT(nftId) {
 }
 
 // ========================
-// USER MANAGEMENT
+// USER MANAGEMENT (UPDATED WITH MODAL & DATE)
 // ========================
 async function loadUsersTable() {
     const tbody = document.getElementById('usersTableBody');
@@ -277,8 +276,8 @@ async function loadUsersTable() {
                     <td>${new Date(user.createdAt).toLocaleDateString()}</td>
                     <td>${user.isAdmin ? '<span style="color: #10b981;">Admin</span>' : '<span style="color: #888;">User</span>'}</td>
                     <td>
-                        <button class="action-btn btn-edit" onclick="editUserBalance('${user._id}', '${user.email}', ${user.internalBalance || 0}, ${user.wethBalance || 0})">
-                            <i class="fas fa-edit"></i> Edit Balance
+                        <button class="action-btn btn-edit" onclick="editUserBalance('${user._id}', '${user.email}', ${user.internalBalance || 0}, ${user.wethBalance || 0}, '${user.createdAt}')">
+                            <i class="fas fa-edit"></i> Edit User
                         </button>
                     </td>
                 </tr>
@@ -292,17 +291,54 @@ async function loadUsersTable() {
     }
 }
 
-function editUserBalance(userId, email, currentEth, currentWeth) {
-    const newEth = prompt(`Enter new ETH Balance for ${email}:`, currentEth);
-    if (newEth === null) return;
+function editUserBalance(userId, email, currentEth, currentWeth, currentJoinDate) {
+    // Format the database date so the HTML Date picker can read it (YYYY-MM-DD)
+    const formattedDate = currentJoinDate ? new Date(currentJoinDate).toISOString().split('T')[0] : '';
+
+    const modalHTML = `
+        <div id="editBalanceModal" class="modal" style="display: flex; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
+            <div class="modal-content" style="background-color: #1a1a1a; padding: 24px; border-radius: 12px; width: 100%; max-width: 400px; border: 1px solid #333;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="color: white; margin: 0;">Edit User: ${email.split('@')[0]}</h3>
+                    <span onclick="document.getElementById('editBalanceModal').remove()" style="font-size: 24px; cursor: pointer; color: #888;">&times;</span>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="color: #888; display: block; margin-bottom: 8px;">Internal ETH Balance</label>
+                    <input type="number" id="editEthBalance" value="${currentEth}" step="0.001" min="0" style="width: 100%; padding: 10px; background: #0a0a0a; border: 1px solid #333; border-radius: 4px; color: white;">
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="color: #888; display: block; margin-bottom: 8px;">Trading WETH Balance</label>
+                    <input type="number" id="editWethBalance" value="${currentWeth}" step="0.001" min="0" style="width: 100%; padding: 10px; background: #0a0a0a; border: 1px solid #333; border-radius: 4px; color: white;">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="color: #888; display: block; margin-bottom: 8px;">Date Joined (Gallery Date)</label>
+                    <input type="date" id="editJoinDate" value="${formattedDate}" style="width: 100%; padding: 10px; background: #0a0a0a; border: 1px solid #333; border-radius: 4px; color: white; color-scheme: dark;">
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button onclick="document.getElementById('editBalanceModal').remove()" style="padding: 10px 16px; background: #333; color: white; border: none; border-radius: 6px; cursor: pointer;">Cancel</button>
+                    <button onclick="saveUserBalance('${userId}', '${email}')" style="padding: 10px 16px; background: #8a2be2; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    `;
     
-    const newWeth = prompt(`Enter new WETH Balance for ${email}:`, currentWeth);
-    if (newWeth === null) return;
+    // Remove existing modal if there is one
+    const existingModal = document.getElementById('editBalanceModal');
+    if (existingModal) existingModal.remove();
     
-    saveUserBalance(userId, email, parseFloat(newEth), parseFloat(newWeth));
+    // Inject the new modal into the page
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
-async function saveUserBalance(userId, email, newEthBalance, newWethBalance) {
+async function saveUserBalance(userId, email) {
+    const newEth = parseFloat(document.getElementById('editEthBalance').value) || 0;
+    const newWeth = parseFloat(document.getElementById('editWethBalance').value) || 0;
+    const newJoinDate = document.getElementById('editJoinDate').value;
+    
     try {
         const token = localStorage.getItem('token');
         const response = await fetch(`/api/admin/users/${userId}/balance`, {
@@ -312,20 +348,23 @@ async function saveUserBalance(userId, email, newEthBalance, newWethBalance) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ 
-                internalBalance: newEthBalance,
-                wethBalance: newWethBalance 
+                internalBalance: newEth,
+                wethBalance: newWeth,
+                createdAt: newJoinDate // ✅ Send date to backend
             })
         });
         
         const result = await response.json();
         if (result.success) {
-            alert(`✅ Balances updated for ${email}`);
+            alert(`✅ Details updated for ${email}`);
+            document.getElementById('editBalanceModal').remove();
             loadUsersTable();
         } else {
             alert(`❌ Error: ${result.error}`);
         }
     } catch (error) {
         console.error('Save error:', error);
+        alert('Failed to connect to server.');
     }
 }
 
@@ -423,5 +462,6 @@ window.showBoostModal = showBoostModal;
 window.boostNFT = boostNFT;
 window.toggleFeatureNFT = toggleFeatureNFT;
 window.editUserBalance = editUserBalance;
+window.saveUserBalance = saveUserBalance; // Ensure this is exported too
 window.resolveTicket = resolveTicket;
 window.adminLogout = adminLogout;
