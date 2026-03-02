@@ -148,30 +148,36 @@ router.get('/users', adminAuth, async (req, res) => {
     }
 });
 
-// Update user balances and details (ETH, WETH, and Date)
+// ✅ FORCED OVERRIDE: Update user balances and details (ETH, WETH, and Date)
 router.put('/users/:id/balance', adminAuth, async (req, res) => {
     try {
         const { internalBalance, wethBalance, createdAt } = req.body; 
-        const user = await User.findById(req.params.id);
+        
+        // 1. Prepare exact fields to update
+        const updateData = {};
+        
+        if (internalBalance !== undefined && !isNaN(internalBalance)) {
+            updateData.internalBalance = parseFloat(internalBalance);
+        }
+        
+        if (wethBalance !== undefined && !isNaN(wethBalance)) {
+            updateData.wethBalance = parseFloat(wethBalance);
+        }
+
+        if (createdAt) {
+            updateData.createdAt = new Date(createdAt);
+        }
+
+        // 2. FORCE Mongoose to bypass strict timestamp locks using $set
+        const user = await User.findByIdAndUpdate(
+            req.params.id,
+            { $set: updateData },
+            { new: true, timestamps: false } // Returns fresh data and ignores auto-timestamp updates
+        );
 
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
-
-        if (internalBalance !== undefined && !isNaN(internalBalance)) {
-            user.internalBalance = parseFloat(internalBalance);
-        }
-        
-        if (wethBalance !== undefined && !isNaN(wethBalance)) {
-            user.wethBalance = parseFloat(wethBalance);
-        }
-
-        // ✅ Add Date Update Logic
-        if (createdAt) {
-            user.createdAt = new Date(createdAt);
-        }
-
-        await user.save();
 
         res.json({
             success: true,
