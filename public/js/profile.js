@@ -334,7 +334,6 @@ async function loadImportedNFTs() {
             const data = await response.json();
             
             if (data.success && data.nfts) {
-                // Filter to ONLY show NFTs that were imported
                 const importedNFTs = data.nfts.filter(nft => 
                     nft.importedFrom && ['wallet', 'marketplace', 'manual'].includes(nft.importedFrom)
                 );
@@ -348,7 +347,6 @@ async function loadImportedNFTs() {
                     updateImportedNFTCount(importedNFTs.length);
                 }
                 
-                // Update stats after loading NFTs
                 await updateImportedStats();
             } else {
                 showEmptyImportedNFTs(grid);
@@ -1074,12 +1072,6 @@ async function saveProfile() {
 function editProfile() { showProfileTab('settings'); }
 function createCollection() { alert('Create collection feature coming soon!'); }
 function resetPassword() { alert('Password reset feature coming soon!'); }
-function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
-}
-function viewNFT(nftId) { window.location.href = `/nft/${nftId}`; }
 
 function showNotification(message, type = 'info') {
     const toast = document.createElement('div');
@@ -1089,6 +1081,7 @@ function showNotification(message, type = 'info') {
     document.body.appendChild(toast);
     setTimeout(() => { toast.classList.add('fade-out'); setTimeout(() => toast.remove(), 300); }, 3000);
 }
+
 // ========== SHARE GALLERY FUNCTION ==========
 function copyProfileLink() {
     const userStr = localStorage.getItem('user');
@@ -1097,8 +1090,8 @@ function copyProfileLink() {
     const user = JSON.parse(userStr);
     const userId = user._id || user.id;
     
-    // ✅ Generates link pointing to the new Gallery page
-    const link = `${window.location.origin}/gallery.html?id=${userId}`;
+    // ✅ Generates clean link pointing to the new Gallery page
+    const link = `${window.location.origin}/gallery?id=${userId}`;
     
     navigator.clipboard.writeText(link).then(() => {
         showNotification('✅ Gallery link copied to clipboard!', 'success');
@@ -1107,6 +1100,80 @@ function copyProfileLink() {
     });
 }
 
+// ========== MOBILE NAVIGATION & MODALS ==========
+
+// Close modals when clicking outside
+window.onclick = function(event) { 
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = 'none'; 
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Mobile navigation toggle
+    const hamburger = document.getElementById('hamburger');
+    const navMenu = document.getElementById('navMenu');
+    
+    if (hamburger && navMenu) {
+        hamburger.addEventListener('click', function() {
+            hamburger.classList.toggle('active');
+            navMenu.classList.toggle('active');
+            
+            // Prevent body scrolling when menu is open
+            if (navMenu.classList.contains('active')) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = 'auto';
+            }
+        });
+        
+        // Close menu when clicking on a nav link
+        const navLinks = document.querySelectorAll('.nav-link');
+        navLinks.forEach(link => {
+            link.addEventListener('click', function() {
+                hamburger.classList.remove('active');
+                navMenu.classList.remove('active');
+                document.body.style.overflow = 'auto';
+            });
+        });
+        
+        // Close menu when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!hamburger.contains(event.target) && 
+                !navMenu.contains(event.target) && 
+                navMenu.classList.contains('active')) {
+                hamburger.classList.remove('active');
+                navMenu.classList.remove('active');
+                document.body.style.overflow = 'auto';
+            }
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768) {
+                hamburger.classList.remove('active');
+                navMenu.classList.remove('active');
+                document.body.style.overflow = 'auto';
+            }
+        });
+    }
+});
+
+// Update logout to close mobile menu before redirecting
+window.logout = function() {
+    const hamburger = document.getElementById('hamburger');
+    const navMenu = document.getElementById('navMenu');
+    if (hamburger && navMenu) {
+        hamburger.classList.remove('active');
+        navMenu.classList.remove('active');
+        document.body.style.overflow = 'auto';
+    }
+    
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+};
+
 // ========== GLOBAL EXPORTS ==========
 
 window.showProfileTab = showProfileTab;
@@ -1114,8 +1181,7 @@ window.editProfile = editProfile;
 window.saveProfile = saveProfile;
 window.createCollection = createCollection;
 window.resetPassword = resetPassword;
-window.logout = logout;
-window.viewNFT = viewNFT;
+window.viewNFT = function(nftId) { window.location.href = `/nft/${nftId}`; };
 window.showWalletImportModal = showWalletImportModal;
 window.showMarketplaceImportModal = showMarketplaceImportModal;
 window.showManualImportModal = showManualImportModal;
@@ -1127,7 +1193,7 @@ window.fetchFromMarketplaces = fetchFromMarketplaces;
 window.importMarketplaceNFTs = importMarketplaceNFTs;
 window.importManualNFT = importManualNFT;
 window.confirmImportedListing = confirmImportedListing;
-window.copyProfileLink = copyProfileLink; // Exported to HTML
+window.copyProfileLink = copyProfileLink;
 
 window.showNFTsTab = function(event) {
     if (event) event.preventDefault();
