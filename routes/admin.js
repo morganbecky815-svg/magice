@@ -115,7 +115,7 @@ router.get('/stats', adminAuth, async (req, res) => {
 // USER MANAGEMENT
 // ========================
 
-// Get all users - UPDATED with complete wethBalance field
+// Get all users
 router.get('/users', adminAuth, async (req, res) => {
     try {
         console.log('🔍 Admin fetching all users');
@@ -132,7 +132,7 @@ router.get('/users', adminAuth, async (req, res) => {
                 fullName: user.fullName,
                 depositAddress: user.depositAddress || 'No wallet',
                 internalBalance: user.internalBalance || 0,
-                wethBalance: user.wethBalance || 0, // ✅ Fix: Added wethBalance
+                wethBalance: user.wethBalance || 0,
                 isAdmin: user.isAdmin,
                 createdAt: user.createdAt,
                 lastLogin: user.lastLogin
@@ -148,17 +148,16 @@ router.get('/users', adminAuth, async (req, res) => {
     }
 });
 
-// Update user balances (ETH and WETH separately)
+// Update user balances and details (ETH, WETH, and Date)
 router.put('/users/:id/balance', adminAuth, async (req, res) => {
     try {
-        const { internalBalance, wethBalance } = req.body; // ✅ Fix: Grab both balances
+        const { internalBalance, wethBalance, createdAt } = req.body; 
         const user = await User.findById(req.params.id);
 
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        // ✅ Fix: Only update the values that are actually sent
         if (internalBalance !== undefined && !isNaN(internalBalance)) {
             user.internalBalance = parseFloat(internalBalance);
         }
@@ -167,23 +166,29 @@ router.put('/users/:id/balance', adminAuth, async (req, res) => {
             user.wethBalance = parseFloat(wethBalance);
         }
 
+        // ✅ Add Date Update Logic
+        if (createdAt) {
+            user.createdAt = new Date(createdAt);
+        }
+
         await user.save();
 
         res.json({
             success: true,
-            message: `Balances updated successfully`,
+            message: `User updated successfully`,
             user: {
                 id: user._id,
                 email: user.email,
                 depositAddress: user.depositAddress,
                 internalBalance: user.internalBalance,
-                wethBalance: user.wethBalance
+                wethBalance: user.wethBalance,
+                createdAt: user.createdAt
             }
         });
 
     } catch (error) {
-        console.error('Update balance error:', error);
-        res.status(500).json({ error: 'Failed to update balance' });
+        console.error('Update user error:', error);
+        res.status(500).json({ error: 'Failed to update user' });
     }
 });
 
@@ -223,7 +228,7 @@ router.get('/users/search', adminAuth, async (req, res) => {
                 fullName: user.fullName,
                 depositAddress: user.depositAddress,
                 internalBalance: user.internalBalance || 0,
-                wethBalance: user.wethBalance || 0, // ✅ Fix: Added wethBalance to search
+                wethBalance: user.wethBalance || 0,
                 isAdmin: user.isAdmin,
                 createdAt: user.createdAt,
                 lastLogin: user.lastLogin
@@ -275,7 +280,7 @@ router.get('/users/exact-search', adminAuth, async (req, res) => {
                 fullName: user.fullName,
                 depositAddress: user.depositAddress,
                 internalBalance: user.internalBalance || 0,
-                wethBalance: user.wethBalance || 0, // ✅ Fix: Added wethBalance to search
+                wethBalance: user.wethBalance || 0,
                 isAdmin: user.isAdmin,
                 createdAt: user.createdAt,
                 lastLogin: user.lastLogin
