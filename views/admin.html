@@ -278,7 +278,164 @@
             background: #1a1a1a;
             border-radius: 8px;
         }
+
+        /* Delete Modal Styles */
+        .delete-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .delete-modal-content {
+            background-color: #1a1a1a;
+            padding: 24px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            border: 1px solid #333;
+        }
+
+        .delete-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .delete-modal-title {
+            color: #ef4444;
+            margin: 0;
+            font-size: 20px;
+        }
+
+        .delete-modal-close {
+            font-size: 24px;
+            cursor: pointer;
+            color: #888;
+        }
+
+        .delete-modal-close:hover {
+            color: white;
+        }
+
+        .delete-modal-text {
+            color: white;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .delete-modal-warning {
+            color: #ef4444;
+            font-size: 14px;
+            margin-bottom: 20px;
+            background: rgba(239, 68, 68, 0.1);
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        .delete-modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .delete-modal-cancel {
+            padding: 10px 16px;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .delete-modal-cancel:hover {
+            background: #444;
+        }
+
+        .delete-modal-confirm {
+            padding: 10px 16px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .delete-modal-confirm:hover {
+            background: #dc2626;
+        }
+
+        .delete-modal-confirm:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        /* Notification Styles */
+        #notificationContainer {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10001;
+        }
+
+        .notification {
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            animation: slideIn 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 250px;
+        }
+
+        .notification.success {
+            background: #10b981;
+        }
+
+        .notification.error {
+            background: #ef4444;
+        }
+
+        .notification.info {
+            background: #3b82f6;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
         
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
         @media (max-width: 768px) {
             .search-box {
                 flex-direction: column;
@@ -1294,6 +1451,9 @@
                 const totalViews = (nft.views || 0) + (nft.boostedViews || 0);
                 const totalLikes = (nft.likes || 0) + (nft.boostedLikes || 0);
                 
+                // Escape single quotes in NFT name for JavaScript
+                const escapedName = nft.name ? nft.name.replace(/'/g, "\\'") : 'Unnamed NFT';
+                
                 return `
                     <tr>
                         <td style="font-family: monospace; font-size: 12px;">
@@ -1329,13 +1489,13 @@
                                 <button class="action-btn btn-edit" onclick="editNFT('${nft._id}')" title="Edit NFT">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button class="action-btn btn-boost" onclick="showBoostModal('${nft._id}', '${nft.name}')" title="Boost NFT">
+                                <button class="action-btn btn-boost" onclick="showBoostModal('${nft._id}', '${escapedName}')" title="Boost NFT">
                                     <i class="fas fa-rocket"></i>
                                 </button>
                                 <button class="action-btn btn-feature" onclick="toggleFeatureNFT('${nft._id}', ${nft.isFeatured || false})" title="${nft.isFeatured ? 'Unfeature' : 'Feature'} NFT">
                                     <i class="fas fa-star"></i>
                                 </button>
-                                <button class="action-btn btn-delete" onclick="deleteNFT('${nft._id}')" title="Delete NFT">
+                                <button class="action-btn btn-delete" onclick="showDeleteConfirmation('${nft._id}', '${escapedName}')" title="Delete NFT">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -1659,7 +1819,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert(`✅ Boosted ${type} by ${amount}!`);
+                    showNotification(`✅ Boosted ${type} by ${amount}!`, 'success');
                     loadNFTsTable();
                     loadDashboard();
                 } else {
@@ -1668,7 +1828,7 @@
                 
             } catch (error) {
                 console.error('Boost error:', error);
-                alert('❌ Failed to boost: ' + error.message);
+                showNotification(`❌ Failed to boost: ${error.message}`, 'error');
             }
         }
         
@@ -1692,7 +1852,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert(`✅ NFT ${currentlyFeatured ? 'unfeatured' : 'featured'} successfully!`);
+                    showNotification(`✅ NFT ${currentlyFeatured ? 'unfeatured' : 'featured'} successfully!`, 'success');
                     loadNFTsTable();
                     loadDashboard();
                 } else {
@@ -1701,7 +1861,7 @@
                 
             } catch (error) {
                 console.error('Feature error:', error);
-                alert('❌ Failed to feature NFT: ' + error.message);
+                showNotification(`❌ Failed to feature NFT: ${error.message}`, 'error');
             }
         }
         
@@ -1729,6 +1889,136 @@
             } else {
                 alert('Invalid type. Must be "views" or "likes"');
             }
+        }
+        
+        // ========================
+        // DELETE FUNCTIONS - NEW IMPLEMENTATION
+        // ========================
+        
+        // Main delete function
+        async function deleteNFT(nftId) {
+            // Find and disable the delete button that was clicked
+            const deleteBtn = document.querySelector(`[onclick*="confirmDeleteNFT('${nftId}')"]`)?.closest('.action-btn');
+            const originalText = deleteBtn?.innerHTML;
+            
+            if (deleteBtn) {
+                deleteBtn.disabled = true;
+                deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            }
+            
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) throw new Error('No authentication token');
+                
+                const response = await fetch(`/api/admin/nfts/${nftId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('✅ NFT deleted successfully!', 'success');
+                    await loadNFTsTable(); // Refresh the table
+                    
+                    // Also refresh dashboard if it's active
+                    if (document.getElementById('dashboardTab').classList.contains('active')) {
+                        await loadDashboard();
+                    }
+                } else {
+                    throw new Error(data.error || 'Failed to delete NFT');
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                showNotification(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                // Restore button state if we can find it
+                if (deleteBtn) {
+                    deleteBtn.disabled = false;
+                    deleteBtn.innerHTML = originalText || '<i class="fas fa-trash"></i>';
+                }
+            }
+        }
+
+        // Show delete confirmation modal
+        function showDeleteConfirmation(nftId, nftName) {
+            // Remove any existing delete modal
+            const existingModal = document.getElementById('deleteConfirmModal');
+            if (existingModal) existingModal.remove();
+            
+            const modalHTML = `
+                <div id="deleteConfirmModal" class="delete-modal-overlay">
+                    <div class="delete-modal-content">
+                        <div class="delete-modal-header">
+                            <h3 class="delete-modal-title">
+                                <i class="fas fa-exclamation-triangle"></i> Delete NFT
+                            </h3>
+                            <span onclick="closeDeleteModal()" class="delete-modal-close">&times;</span>
+                        </div>
+                        
+                        <div class="delete-modal-text">
+                            Are you sure you want to delete <strong>"${nftName}"</strong>?
+                        </div>
+                        
+                        <div class="delete-modal-warning">
+                            <i class="fas fa-exclamation-circle"></i> This action cannot be undone!
+                        </div>
+                        
+                        <div class="delete-modal-actions">
+                            <button onclick="closeDeleteModal()" class="delete-modal-cancel">
+                                Cancel
+                            </button>
+                            <button onclick="confirmDeleteNFT('${nftId}')" class="delete-modal-confirm">
+                                <i class="fas fa-trash"></i> Delete Permanently
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+
+        function closeDeleteModal() {
+            const modal = document.getElementById('deleteConfirmModal');
+            if (modal) modal.remove();
+        }
+
+        function confirmDeleteNFT(nftId) {
+            closeDeleteModal();
+            deleteNFT(nftId);
+        }
+
+        // ========================
+        // NOTIFICATION HELPER
+        // ========================
+        function showNotification(message, type = 'info') {
+            // Create or get notification container
+            let container = document.getElementById('notificationContainer');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'notificationContainer';
+                document.body.appendChild(container);
+            }
+            
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
+                <span>${message}</span>
+            `;
+            
+            container.appendChild(notification);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
         }
         
         // ========================
@@ -1982,7 +2272,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert('✅ Ticket resolved!');
+                    showNotification('✅ Ticket resolved!', 'success');
                     loadTicketsTable();
                     loadDashboard();
                 } else {
@@ -1991,21 +2281,15 @@
                 
             } catch (error) {
                 console.error('Error resolving ticket:', error);
-                alert('❌ Failed to resolve ticket: ' + error.message);
+                showNotification(`❌ Failed to resolve ticket: ${error.message}`, 'error');
             }
         }
         
         // ========================
-        // DELETE FUNCTIONS
+        // EDIT FUNCTION (placeholder)
         // ========================
-        function deleteNFT(id) {
-            if (confirm('Are you sure you want to delete this NFT?')) {
-                alert('Delete NFT functionality would be implemented here');
-            }
-        }
-        
         function editNFT(id) {
-            alert('Edit NFT functionality would be implemented here');
+            showNotification('Edit functionality coming soon!', 'info');
         }
         
         // ========================
@@ -2068,6 +2352,9 @@
         window.showBoostModal = showBoostModal;
         window.adminCreateNFT = adminCreateNFT;
         window.deleteNFT = deleteNFT;
+        window.showDeleteConfirmation = showDeleteConfirmation;
+        window.closeDeleteModal = closeDeleteModal;
+        window.confirmDeleteNFT = confirmDeleteNFT;
         window.editNFT = editNFT;
         window.resolveTicket = resolveTicket;
         window.adminLogout = adminLogout;
@@ -2075,6 +2362,7 @@
         window.updateStat = updateStat;
         window.resetToActual = resetToActual;
         window.formatMarketplaceNumber = formatMarketplaceNumber;
+        window.showNotification = showNotification;
         
         // Sweep functions
         window.loadSweeps = loadSweeps;
