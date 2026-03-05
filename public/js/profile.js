@@ -1,4 +1,4 @@
-// ========== PROFILE.JS - COMPLETE WITH FIXED IMPORT FUNCTIONS ==========
+// ========== PROFILE.JS - COMPLETE WITH SELL/BUY FUNCTIONS ==========
 
 console.log('👤 Profile page JavaScript loading...');
 
@@ -490,7 +490,7 @@ function displayImportedNFTs(grid, nfts) {
                     ''
                 }
                 ${isOwner && !nft.isListed ?
-                    `<button class="btn" style="width: 100%; margin-top: 10px; background: #4CAF50;" onclick="event.stopPropagation(); showSellImportedNFT()">
+                    `<button class="btn" style="width: 100%; margin-top: 10px; background: #4CAF50;" onclick="event.stopPropagation(); showSellModal('${nft._id}', '${nft.name}')">
                         <i class="fas fa-tag"></i> List for Sale
                     </button>` :
                     ''
@@ -568,6 +568,222 @@ async function updateImportedStats() {
         }
     } catch (error) {
         console.error('Error updating stats:', error);
+    }
+}
+
+// ========== SELL MODAL FUNCTIONS ==========
+
+function showSellModal(nftId, nftName) {
+    currentSelectedNFT = { id: nftId, name: nftName };
+    
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('sellNFTModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'sellNFTModal';
+        modal.className = 'modal';
+        modal.style.cssText = `
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+        `;
+        
+        modal.innerHTML = `
+            <div style="background: #1a1a1a; padding: 30px; border-radius: 12px; width: 90%; max-width: 400px; border: 1px solid #333;">
+                <h2 style="color: white; margin-bottom: 20px;">List NFT for Sale</h2>
+                <p style="color: #888; margin-bottom: 20px;" id="sellNFTName"></p>
+                <div style="margin-bottom: 20px;">
+                    <label style="color: white; display: block; margin-bottom: 8px;">Price (WETH)</label>
+                    <input type="number" id="sellPrice" step="0.001" min="0.001" style="width: 100%; padding: 12px; background: #0a0a0a; border: 1px solid #333; color: white; border-radius: 6px;">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="confirmListing()" class="btn btn-primary" style="flex: 1; background: #4CAF50;">List NFT</button>
+                    <button onclick="closeSellModal()" class="btn" style="flex: 1; background: #f44336;">Cancel</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+    
+    document.getElementById('sellNFTName').textContent = `Listing: ${nftName}`;
+    document.getElementById('sellPrice').value = '';
+    modal.style.display = 'flex';
+}
+
+function closeSellModal() {
+    const modal = document.getElementById('sellNFTModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    currentSelectedNFT = null;
+}
+
+async function confirmListing() {
+    if (!currentSelectedNFT) {
+        showNotification('No NFT selected', 'error');
+        return;
+    }
+    
+    const price = parseFloat(document.getElementById('sellPrice').value);
+    
+    if (!price || price <= 0) {
+        showNotification('Please enter a valid price', 'error');
+        return;
+    }
+    
+    await listImportedNFT(currentSelectedNFT.id, price);
+    closeSellModal();
+}
+
+// ========== LIST NFT FOR SALE ==========
+async function listImportedNFT(nftId, price) {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            showNotification('Please login first', 'error');
+            return;
+        }
+        
+        console.log('🏷️ Listing NFT for sale:', nftId, price);
+        
+        const response = await fetch(`/api/nft-import/list/${nftId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ price })
+        });
+        
+        if (!response.ok) {
+            if (response.status === 401) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+                return;
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📥 List response:', data);
+        
+        if (data.success) {
+            showNotification(`✅ NFT listed for ${price} WETH!`, 'success');
+            await loadImportedNFTs(); // Refresh the list
+            await updateImportedStats();
+        } else {
+            showNotification('❌ Failed to list NFT: ' + (data.error || 'Unknown error'), 'error');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error listing NFT:', error);
+        showNotification('❌ Error listing NFT: ' + error.message, 'error');
+    }
+}
+
+// ========== UNLIST NFT ==========
+async function unlistImportedNFT(nftId) {
+    if (!confirm('Remove this NFT from listings?')) return;
+    
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/nft-import/unlist/${nftId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showNotification('✅ NFT unlisted successfully', 'success');
+            await loadImportedNFTs();
+            await updateImportedStats();
+        } else {
+            showNotification(`❌ Failed to unlist: ${data.error}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error unlisting NFT:', error);
+        showNotification('❌ Error unlisting NFT', 'error');
+    }
+}
+
+// ========== BUY NFT ==========
+async function buyImportedNFT(nftId, price, ownerId, nftName) {
+    if (!confirm(`Buy ${nftName} for ${price} WETH?`)) return;
+    
+    try {
+        const token = localStorage.getItem('token');
+        const userStr = localStorage.getItem('user');
+        
+        if (!token || !userStr) {
+            showNotification('Please login first', 'error');
+            window.location.href = '/login';
+            return;
+        }
+        
+        const user = JSON.parse(userStr);
+        
+        // Check if user has enough balance
+        if ((user.wethBalance || user.balance || 0) < price) {
+            showNotification(`Insufficient balance. You need ${price} WETH`, 'error');
+            return;
+        }
+        
+        console.log('🛒 Buying NFT:', nftId);
+        
+        const response = await fetch(`/api/nft-import/buy/${nftId}`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            if (response.status === 401) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+                return;
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📥 Buy response:', data);
+        
+        if (data.success) {
+            showNotification(`✅ Successfully purchased ${nftName}!`, 'success');
+            
+            // Update local user balance
+            if (data.newBalance !== undefined) {
+                user.wethBalance = data.newBalance;
+                localStorage.setItem('user', JSON.stringify(user));
+                updateProfileHeader(user);
+                updateProfileData(user);
+            }
+            
+            await loadImportedNFTs();
+            await updateImportedBalanceDisplay();
+            await updateImportedStats();
+        } else {
+            showNotification(`❌ Purchase failed: ${data.error}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error buying NFT:', error);
+        showNotification('❌ Error completing purchase: ' + error.message, 'error');
     }
 }
 
@@ -955,17 +1171,6 @@ function showImportedNFTDetails(nft) {
     window.location.href = `/nft/${nft._id}`;
 }
 
-async function confirmImportedListing() {
-    const price = parseFloat(document.getElementById('sellPrice').value);
-    if (!price || price <= 0) {
-        showNotification('Please enter a valid price', 'error');
-        return;
-    }
-    if (currentSelectedNFT) {
-        await listImportedNFT(currentSelectedNFT._id, price);
-    }
-}
-
 // ========== ACTIVITY FUNCTIONS ==========
 
 async function loadUserActivity(userId) {
@@ -1052,6 +1257,12 @@ function displayActivity(container, activities) {
         } else if (activity.type === 'import') {
             icon = 'fa-download';
             color = '#8a2be2';
+        } else if (activity.type === 'list') {
+            icon = 'fa-tag';
+            color = '#4CAF50';
+        } else if (activity.type === 'unlist') {
+            icon = 'fa-ban';
+            color = '#f44336';
         }
         
         item.innerHTML = `
@@ -1392,67 +1603,6 @@ window.logout = function() {
     window.location.href = '/login';
 };
 
-// ========== BUY/SELL FUNCTIONS ==========
-async function buyImportedNFT(nftId, price, ownerId, nftName) {
-    if (!confirm(`Buy ${nftName} for ${price} WETH?`)) return;
-    
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`/api/nft-import/buy/${nftId}`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showNotification(`✅ Successfully purchased ${nftName}!`, 'success');
-            await loadImportedNFTs();
-            await updateImportedBalanceDisplay();
-        } else {
-            showNotification(`❌ Purchase failed: ${data.error}`, 'error');
-        }
-    } catch (error) {
-        console.error('Error buying NFT:', error);
-        showNotification('❌ Error completing purchase', 'error');
-    }
-}
-
-async function unlistImportedNFT(nftId) {
-    if (!confirm('Remove this NFT from listings?')) return;
-    
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`/api/nft-import/unlist/${nftId}`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showNotification('✅ NFT unlisted successfully', 'success');
-            await loadImportedNFTs();
-        } else {
-            showNotification(`❌ Failed to unlist: ${data.error}`, 'error');
-        }
-    } catch (error) {
-        console.error('Error unlisting NFT:', error);
-        showNotification('❌ Error unlisting NFT', 'error');
-    }
-}
-
-function showSellImportedNFT() {
-    // Implement sell modal
-    alert('Sell feature coming soon!');
-}
-
 // ========== GLOBAL EXPORTS ==========
 
 window.showProfileTab = showProfileTab;
@@ -1471,11 +1621,14 @@ window.importSelectedNFTs = importSelectedNFTs;
 window.fetchFromMarketplaces = fetchFromMarketplaces;
 window.importMarketplaceNFTs = importMarketplaceNFTs;
 window.importManualNFT = importManualNFT;
-window.confirmImportedListing = confirmImportedListing;
+window.saveImportedNFTs = saveImportedNFTs;
 window.copyProfileLink = copyProfileLink;
 window.buyImportedNFT = buyImportedNFT;
 window.unlistImportedNFT = unlistImportedNFT;
-window.showSellImportedNFT = showSellImportedNFT;
+window.showSellModal = showSellModal;
+window.closeSellModal = closeSellModal;
+window.confirmListing = confirmListing;
+window.listImportedNFT = listImportedNFT;
 window.handleImageError = handleImageError;
 
 window.showNFTsTab = function(event) {
