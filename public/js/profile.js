@@ -1,4 +1,4 @@
-// ========== PROFILE.JS - COMPLETE WITH IMAGE ERROR HANDLING ==========
+// ========== PROFILE.JS - COMPLETE WITH FIXED IMPORT FUNCTIONS ==========
 
 console.log('👤 Profile page JavaScript loading...');
 
@@ -102,7 +102,7 @@ function updateProfileHeader(user) {
     const balance = user.wethBalance || user.balance || 0;
     
     profileHeader.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
             <i class="fas fa-user-circle" style="font-size: 24px; color: #8a2be2;"></i>
             <span style="font-weight: 500; color: white;">${userName}</span>
             <span style="background: #4CAF50; color: white; padding: 4px 10px; border-radius: 12px; font-size: 13px; font-weight: 600;">
@@ -124,7 +124,7 @@ function updateProfileData(user) {
     const joinDate = document.getElementById('joinDate');
     
     if (profileName) profileName.textContent = user.fullName || user.name || user.email || 'User';
-    if (profileEmail) profileEmail.textContent = user.email || 'No email';
+    if (profileEmail) profileName ? profileEmail.textContent = user.email || 'No email' : null;
     if (walletBalance) walletBalance.textContent = (user.wethBalance || user.balance || 0) + ' WETH';
     
     if (joinDate) {
@@ -304,6 +304,7 @@ function updateNFTCount(count) {
 
 let currentSelectedNFT = null;
 
+// ========== FIXED: LOAD IMPORTED NFTS ==========
 async function loadImportedNFTs() {
     console.log('📦 Loading imported NFTs from database');
     
@@ -323,7 +324,8 @@ async function loadImportedNFTs() {
         
         grid.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Loading imported NFTs...</div>';
         
-        const response = await fetch('/api/nft-import', {
+        // ✅ FIXED: Added trailing slash to URL
+        const response = await fetch('/api/nft-import/', {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -332,8 +334,10 @@ async function loadImportedNFTs() {
         
         if (response.ok) {
             const data = await response.json();
+            console.log('📥 Load response:', data);
             
             if (data.success && data.nfts) {
+                // Filter to ensure we only show marketplace/wallet imports
                 const importedNFTs = data.nfts.filter(nft => 
                     nft.importedFrom && ['wallet', 'marketplace', 'manual'].includes(nft.importedFrom)
                 );
@@ -351,6 +355,11 @@ async function loadImportedNFTs() {
             } else {
                 showEmptyImportedNFTs(grid);
             }
+        } else if (response.status === 401) {
+            // Token expired
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
         } else {
             console.error('Failed to fetch imported NFTs');
             loadImportedNFTsFromLocalStorage();
@@ -406,14 +415,14 @@ function showEmptyImportedNFTs(grid) {
                 <i class="fas fa-info-circle"></i> 
                 NFTs created or minted in this marketplace appear in "My NFTs" tab
             </p>
-            <div style="margin-top: 20px;">
+            <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
                 <button class="btn btn-primary" onclick="showWalletImportModal()">
                     <i class="fas fa-wallet"></i> Import from Wallet
                 </button>
-                <button class="btn" onclick="showMarketplaceImportModal()" style="margin-left: 10px;">
+                <button class="btn" onclick="showMarketplaceImportModal()" style="margin-left: 0;">
                     <i class="fas fa-store"></i> Import from Marketplace
                 </button>
-                <button class="btn" onclick="showManualImportModal()" style="margin-left: 10px;">
+                <button class="btn" onclick="showManualImportModal()" style="margin-left: 0;">
                     <i class="fas fa-plus-circle"></i> Manual Import
                 </button>
             </div>
@@ -684,6 +693,8 @@ async function scanWalletForNFTs(address) {
         await new Promise(resolve => setTimeout(resolve, 400));
     }
     
+    // In a real implementation, you would fetch actual NFTs here
+    // For demo, showing sample NFTs
     const sampleNFTs = [
         { id: '1', name: 'Bored Ape #1234', collection: 'Bored Ape Yacht Club', image: 'https://via.placeholder.com/150/8a2be2/ffffff?text=BAYC', contract: '0xbc4ca0...', tokenId: '1234' },
         { id: '2', name: 'CryptoPunk #5678', collection: 'CryptoPunks', image: 'https://via.placeholder.com/150/4169e1/ffffff?text=PUNK', contract: '0xb47e...', tokenId: '5678' }
@@ -723,6 +734,7 @@ function toggleSelectNFT(element) {
     element.classList.toggle('selected');
 }
 
+// ========== FIXED: IMPORT SELECTED NFTS FROM WALLET ==========
 async function importSelectedNFTs() {
     const selectedItems = document.querySelectorAll('.found-nft-item.selected');
     const importedNFTs = [];
@@ -734,7 +746,8 @@ async function importSelectedNFTs() {
             collection: item.dataset.nftCollection,
             contract: item.dataset.nftContract,
             tokenId: item.dataset.nftTokenId,
-            importedFrom: 'wallet'
+            importedFrom: 'wallet',
+            marketplace: 'wallet'
         });
     });
     
@@ -748,7 +761,10 @@ async function importSelectedNFTs() {
 
 async function fetchFromMarketplaces() {
     const walletAddress = document.getElementById('marketplaceWallet').value.trim();
-    if (!walletAddress) return showNotification('Please enter a wallet address', 'error');
+    if (!walletAddress) {
+        showNotification('Please enter a wallet address', 'error');
+        return;
+    }
     
     const resultsDiv = document.getElementById('marketplaceResults');
     resultsDiv.style.display = 'block';
@@ -759,17 +775,25 @@ async function fetchFromMarketplaces() {
         const token = localStorage.getItem('token');
         const response = await fetch('/api/nft-import/fetch-nfts', {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ walletAddress, marketplaces: ['opensea'] })
+            headers: { 
+                'Authorization': `Bearer ${token}`, 
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({ walletAddress })
         });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         
         const data = await response.json();
         if (data.success) {
             displayMarketplaceNFTs(data.nfts);
         } else {
-            throw new Error(data.error);
+            throw new Error(data.error || 'Failed to fetch NFTs');
         }
     } catch (error) {
+        console.error('Error fetching NFTs:', error);
         grid.innerHTML = `<div class="empty-state error"><p>${error.message}</p></div>`;
     }
 }
@@ -788,11 +812,12 @@ function displayMarketplaceNFTs(nfts) {
         item.dataset.nftCollection = nft.collection;
         item.dataset.nftContract = nft.contract;
         item.dataset.nftTokenId = nft.tokenId;
-        item.dataset.nftMarketplace = nft.marketplace;
+        item.dataset.nftMarketplace = nft.marketplace || 'opensea';
         
         item.innerHTML = `
-            <img src="${nft.image}" class="found-nft-image">
+            <img src="${nft.image || 'https://picsum.photos/150/150?random=' + index}" class="found-nft-image" onerror="this.src='https://picsum.photos/150/150?random=' + Math.floor(Math.random() * 1000);">
             <div class="found-nft-name">${nft.name}</div>
+            ${nft.isImported ? '<div style="font-size: 10px; color: #4CAF50;">Already imported</div>' : ''}
         `;
         grid.appendChild(item);
     });
@@ -800,7 +825,10 @@ function displayMarketplaceNFTs(nfts) {
 
 async function importMarketplaceNFTs() {
     const selectedItems = document.querySelectorAll('#marketplaceNFTsGrid .found-nft-item.selected');
-    if (selectedItems.length === 0) return;
+    if (selectedItems.length === 0) {
+        showNotification('Please select at least one NFT', 'error');
+        return;
+    }
     
     const importedNFTs = [];
     selectedItems.forEach(item => {
@@ -827,37 +855,83 @@ async function importManualNFT() {
     const name = document.getElementById('manualName').value || `NFT #${tokenId}`;
     const image = document.getElementById('manualImage').value || 'https://picsum.photos/300/200?random=1';
     
-    if (!contract || !tokenId) return showNotification('Please enter contract and token ID', 'error');
+    if (!contract || !tokenId) {
+        showNotification('Please enter contract and token ID', 'error');
+        return;
+    }
     
-    const nftData = [{ name, image, contract, tokenId, collection: 'Manual Import', importedFrom: 'manual' }];
+    const nftData = [{ 
+        name, 
+        image, 
+        contract, 
+        tokenId, 
+        collection: 'Manual Import', 
+        importedFrom: 'manual',
+        marketplace: 'manual'
+    }];
     
     await saveImportedNFTs(nftData, 'manual');
     closeModal('manualImportModal');
 }
 
-// ========== SAVE IMPORTED NFTS ==========
-
+// ========== FIXED: SAVE IMPORTED NFTS ==========
 async function saveImportedNFTs(newNFTs, source) {
     try {
         const token = localStorage.getItem('token');
-        if (!token) return;
-        
-        const response = await fetch('/api/nft-import', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ importedNFTs: newNFTs })
-        });
-        
-        const data = await response.json();
-        if (response.ok && data.success) {
-            showNotification(`Successfully imported ${data.saved} NFT(s)!`, 'success');
-            await loadImportedNFTs();
-            await updateImportedStats();
-        } else {
-            alert('Failed to save NFTs: ' + (data.error || 'Unknown error'));
+        if (!token) {
+            showNotification('Please login first', 'error');
+            window.location.href = '/login';
+            return;
         }
+
+        console.log('📤 Saving NFTs:', newNFTs);
+        
+        // Format the NFTs correctly for the backend
+        const selectedNFTs = newNFTs.map(nft => ({
+            name: nft.name || `NFT #${nft.tokenId}`,
+            image: nft.image || 'https://picsum.photos/300/200?random=1',
+            collection: nft.collection || 'Imported Collection',
+            contract: nft.contract,
+            tokenId: nft.tokenId.toString(),
+            marketplace: nft.marketplace || source || 'moralis',
+            price: nft.price || 0,
+            metadata: nft.metadata || {}
+        }));
+
+        // ✅ FIXED: Correct endpoint and parameter name
+        const response = await fetch('/api/nft-import/save-nfts', {
+            method: 'POST',
+            headers: { 
+                'Authorization': `Bearer ${token}`, 
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({ selectedNFTs: selectedNFTs })
+        });
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+                return;
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('📥 Save response:', data);
+        
+        if (data.success) {
+            showNotification(`✅ Successfully imported ${data.saved} NFT(s)!`, 'success');
+            await loadImportedNFTs();  // Refresh the list
+            await updateImportedStats();  // Update stats
+        } else {
+            showNotification('❌ Failed to save NFTs: ' + (data.error || 'Unknown error'), 'error');
+        }
+        
     } catch (error) {
-        console.error('Error saving imported NFTs:', error);
+        console.error('❌ Error saving imported NFTs:', error);
+        showNotification('❌ Error saving NFTs: ' + error.message, 'error');
     }
 }
 
@@ -870,8 +944,13 @@ function showImportedNFTDetails(nft) {
 
 async function confirmImportedListing() {
     const price = parseFloat(document.getElementById('sellPrice').value);
-    if (!price || price <= 0) return alert('Please enter a valid price');
-    if (currentSelectedNFT) await listImportedNFT(currentSelectedNFT._id, price);
+    if (!price || price <= 0) {
+        showNotification('Please enter a valid price', 'error');
+        return;
+    }
+    if (currentSelectedNFT) {
+        await listImportedNFT(currentSelectedNFT._id, price);
+    }
 }
 
 // ========== ACTIVITY FUNCTIONS ==========
@@ -885,23 +964,37 @@ async function loadUserActivity(userId) {
         if (!token) return;
         
         const response = await fetch(`/api/user/${userId}/activity`, {
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            headers: { 
+                'Authorization': `Bearer ${token}`, 
+                'Content-Type': 'application/json' 
+            }
         });
         
         if (response.ok) {
             const data = await response.json();
-            if (data.success && data.activities) displayActivity(activityList, data.activities);
+            if (data.success && data.activities) {
+                displayActivity(activityList, data.activities);
+            } else {
+                showEmptyActivity(activityList);
+            }
+        } else {
+            showEmptyActivity(activityList);
         }
     } catch (error) {
         console.error('Error loading activity:', error);
+        showEmptyActivity(activityList);
     }
 }
 
 function loadUserActivityFromLocalStorage() {
     const userStr = localStorage.getItem('user');
     if (userStr) {
-        const user = JSON.parse(userStr);
-        loadUserActivity(user._id || user.id);
+        try {
+            const user = JSON.parse(userStr);
+            loadUserActivity(user._id || user.id);
+        } catch (error) {
+            console.error('Error parsing user:', error);
+        }
     }
 }
 
@@ -927,14 +1020,33 @@ function displayActivity(container, activities) {
         const item = document.createElement('div');
         item.className = 'activity-item';
         
-        const iconInfo = { icon: 'fa-history', color: '#6c63ff' };
+        // Determine icon based on activity type
+        let icon = 'fa-history';
+        let color = '#6c63ff';
+        
+        if (activity.type === 'nft_created' || activity.type === 'create') {
+            icon = 'fa-plus-circle';
+            color = '#4CAF50';
+        } else if (activity.type === 'purchase' || activity.type === 'buy') {
+            icon = 'fa-shopping-cart';
+            color = '#2196F3';
+        } else if (activity.type === 'sale' || activity.type === 'sell') {
+            icon = 'fa-tag';
+            color = '#FF9800';
+        } else if (activity.type === 'transfer') {
+            icon = 'fa-exchange-alt';
+            color = '#9C27B0';
+        } else if (activity.type === 'import') {
+            icon = 'fa-download';
+            color = '#8a2be2';
+        }
         
         item.innerHTML = `
-            <div class="activity-icon" style="background: ${iconInfo.color}20; color: ${iconInfo.color};">
-                <i class="fas ${iconInfo.icon}"></i>
+            <div class="activity-icon" style="background: ${color}20; color: ${color};">
+                <i class="fas ${icon}"></i>
             </div>
             <div class="activity-details">
-                <div class="activity-title">${activity.note || activity.type}</div>
+                <div class="activity-title">${activity.note || activity.title || activity.type || 'Activity'}</div>
                 <div class="activity-time">${new Date(activity.createdAt).toLocaleString()}</div>
             </div>
         `;
@@ -956,7 +1068,10 @@ async function loadUserCollections(userId) {
         }
         
         const response = await fetch(`/api/collections/user/${userId}`, {
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            headers: { 
+                'Authorization': `Bearer ${token}`, 
+                'Content-Type': 'application/json' 
+            }
         });
         
         if (response.ok) {
@@ -970,6 +1085,7 @@ async function loadUserCollections(userId) {
             showEmptyCollections(collectionsGrid);
         }
     } catch (error) {
+        console.error('Error loading collections:', error);
         showEmptyCollections(collectionsGrid);
     }
 }
@@ -977,8 +1093,12 @@ async function loadUserCollections(userId) {
 function loadUserCollectionsFromLocalStorage() {
     const userStr = localStorage.getItem('user');
     if (userStr) {
-        const user = JSON.parse(userStr);
-        loadUserCollections(user._id || user.id);
+        try {
+            const user = JSON.parse(userStr);
+            loadUserCollections(user._id || user.id);
+        } catch (error) {
+            console.error('Error parsing user:', error);
+        }
     }
 }
 
@@ -998,6 +1118,8 @@ function displayCollections(container, collections) {
     collections.forEach(collection => {
         const card = document.createElement('div');
         card.className = 'collection-card';
+        card.onclick = () => window.location.href = `/collection/${collection._id}`;
+        
         card.innerHTML = `
             <div class="collection-header">
                 <div class="collection-icon"><i class="fas fa-layer-group"></i></div>
@@ -1028,8 +1150,12 @@ function loadUserSettings(user) {
 function loadUserSettingsFromLocalStorage() {
     const userStr = localStorage.getItem('user');
     if (userStr) {
-        const user = JSON.parse(userStr);
-        loadUserSettings(user);
+        try {
+            const user = JSON.parse(userStr);
+            loadUserSettings(user);
+        } catch (error) {
+            console.error('Error parsing user:', error);
+        }
     }
 }
 
@@ -1039,18 +1165,32 @@ async function saveProfile() {
     
     try {
         const token = localStorage.getItem('token');
-        if (!token) return;
+        if (!token) {
+            showNotification('Please login first', 'error');
+            return;
+        }
         
-        const response = await fetch('/api/auth/profile', {
+        const userStr = localStorage.getItem('user');
+        if (!userStr) return;
+        
+        const user = JSON.parse(userStr);
+        const userId = user._id || user.id;
+        
+        const response = await fetch(`/api/user/${userId}/profile`, {
             method: 'PUT',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            headers: { 
+                'Authorization': `Bearer ${token}`, 
+                'Content-Type': 'application/json' 
+            },
             body: JSON.stringify({ fullName, bio })
         });
         
         if (response.ok) {
             const data = await response.json();
             if (data.success) {
-                alert('Profile updated successfully');
+                showNotification('✅ Profile updated successfully', 'success');
+                
+                // Update localStorage
                 const userStr = localStorage.getItem('user');
                 if (userStr) {
                     const user = JSON.parse(userStr);
@@ -1060,27 +1200,92 @@ async function saveProfile() {
                     updateProfileHeader(user);
                     updateProfileData(user);
                 }
+            } else {
+                showNotification('❌ Failed to update profile', 'error');
             }
+        } else {
+            showNotification('❌ Failed to update profile', 'error');
         }
     } catch (error) {
-        alert('Failed to update profile');
+        console.error('Error saving profile:', error);
+        showNotification('❌ Error saving profile', 'error');
     }
 }
 
 // ========== BUTTON FUNCTIONS ==========
 
-function editProfile() { showProfileTab('settings'); }
-function createCollection() { alert('Create collection feature coming soon!'); }
-function resetPassword() { alert('Password reset feature coming soon!'); }
+function editProfile() { 
+    showProfileTab('settings'); 
+}
+
+function createCollection() { 
+    window.location.href = '/create-collection';
+}
+
+function resetPassword() { 
+    showNotification('Password reset feature coming soon!', 'info');
+}
 
 function showNotification(message, type = 'info') {
+    // Check if toast container exists, if not create it
+    let toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container';
+        toastContainer.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        `;
+        document.body.appendChild(toastContainer);
+    }
+    
     const toast = document.createElement('div');
     toast.className = `feature-toast ${type}`;
-    const icon = type === 'success' ? 'fa-check-circle' : 'fa-info-circle';
+    
+    const icon = type === 'success' ? 'fa-check-circle' : 
+                 type === 'error' ? 'fa-exclamation-circle' : 
+                 'fa-info-circle';
+    
+    toast.style.cssText = `
+        background: ${type === 'success' ? '#4CAF50' : 
+                     type === 'error' ? '#f44336' : 
+                     '#2196F3'};
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        animation: slideIn 0.3s ease;
+    `;
+    
     toast.innerHTML = `<i class="fas ${icon}"></i><span>${message}</span>`;
-    document.body.appendChild(toast);
-    setTimeout(() => { toast.classList.add('fade-out'); setTimeout(() => toast.remove(), 300); }, 3000);
+    
+    toastContainer.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
+
+// Add animation styles
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+`;
+document.head.appendChild(style);
 
 // ========== SHARE GALLERY FUNCTION ==========
 function copyProfileLink() {
@@ -1090,7 +1295,6 @@ function copyProfileLink() {
     const user = JSON.parse(userStr);
     const userId = user._id || user.id;
     
-    // ✅ Generates clean link pointing to the new Gallery page
     const link = `${window.location.origin}/gallery?id=${userId}`;
     
     navigator.clipboard.writeText(link).then(() => {
@@ -1109,6 +1313,7 @@ window.onclick = function(event) {
     }
 }
 
+// Mobile navigation
 document.addEventListener('DOMContentLoaded', function() {
     // Mobile navigation toggle
     const hamburger = document.getElementById('hamburger');
@@ -1159,7 +1364,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Update logout to close mobile menu before redirecting
+// ========== LOGOUT FUNCTION ==========
 window.logout = function() {
     const hamburger = document.getElementById('hamburger');
     const navMenu = document.getElementById('navMenu');
@@ -1173,6 +1378,67 @@ window.logout = function() {
     localStorage.removeItem('user');
     window.location.href = '/login';
 };
+
+// ========== BUY/SELL FUNCTIONS ==========
+async function buyImportedNFT(nftId, price, ownerId, nftName) {
+    if (!confirm(`Buy ${nftName} for ${price} WETH?`)) return;
+    
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/nft-import/buy/${nftId}`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showNotification(`✅ Successfully purchased ${nftName}!`, 'success');
+            await loadImportedNFTs();
+            await updateImportedBalanceDisplay();
+        } else {
+            showNotification(`❌ Purchase failed: ${data.error}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error buying NFT:', error);
+        showNotification('❌ Error completing purchase', 'error');
+    }
+}
+
+async function unlistImportedNFT(nftId) {
+    if (!confirm('Remove this NFT from listings?')) return;
+    
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/nft-import/unlist/${nftId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showNotification('✅ NFT unlisted successfully', 'success');
+            await loadImportedNFTs();
+        } else {
+            showNotification(`❌ Failed to unlist: ${data.error}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error unlisting NFT:', error);
+        showNotification('❌ Error unlisting NFT', 'error');
+    }
+}
+
+function showSellImportedNFT() {
+    // Implement sell modal
+    alert('Sell feature coming soon!');
+}
 
 // ========== GLOBAL EXPORTS ==========
 
@@ -1194,6 +1460,10 @@ window.importMarketplaceNFTs = importMarketplaceNFTs;
 window.importManualNFT = importManualNFT;
 window.confirmImportedListing = confirmImportedListing;
 window.copyProfileLink = copyProfileLink;
+window.buyImportedNFT = buyImportedNFT;
+window.unlistImportedNFT = unlistImportedNFT;
+window.showSellImportedNFT = showSellImportedNFT;
+window.handleImageError = handleImageError;
 
 window.showNFTsTab = function(event) {
     if (event) event.preventDefault();
