@@ -612,7 +612,7 @@ function showSellModal(nftId, nftName) {
                 <p style="color: #888; margin-bottom: 20px;" id="sellNFTName"></p>
                 <div style="margin-bottom: 20px;">
                     <label style="color: white; display: block; margin-bottom: 8px;">Price (WETH)</label>
-                    <input type="text" id="sellPrice" placeholder="0.1" value="0.1" style="width: 100%; padding: 12px; background: #0a0a0a; border: 1px solid #333; color: white; border-radius: 6px; font-size: 16px;">
+                    <input type="text" id="sellPrice" placeholder="Enter price (e.g. 0.5)" style="width: 100%; padding: 12px; background: #0a0a0a; border: 1px solid #333; color: white; border-radius: 6px; font-size: 16px;">
                     <p style="color: #666; font-size: 12px; margin-top: 5px;">Minimum: 0.001 WETH</p>
                 </div>
                 <div style="display: flex; gap: 10px;">
@@ -631,12 +631,12 @@ function showSellModal(nftId, nftName) {
         nameElement.textContent = `Listing: ${nftName}`;
     }
     
-    // Reset and focus input
+    // Clear and focus input (no default value)
     const priceInput = document.getElementById('sellPrice');
     if (priceInput) {
-        priceInput.value = '0.1';
+        priceInput.value = ''; // Empty by default
+        priceInput.placeholder = 'Enter price (e.g. 0.5)';
         priceInput.focus();
-        priceInput.select();
     }
     
     modal.style.display = 'flex';
@@ -661,7 +661,7 @@ async function confirmListing() {
         return;
     }
     
-    // STORE THE ID IMMEDIATELY - this is the key fix!
+    // STORE THE ID IMMEDIATELY
     const nftId = currentSelectedNFT.id;
     const nftName = currentSelectedNFT.name;
     
@@ -781,12 +781,27 @@ async function listImportedNFT(nftId, price) {
     }
 }
 
-// ========== UNLIST NFT ==========
+// ========== FIXED: UNLIST NFT ==========
 async function unlistImportedNFT(nftId) {
+    console.log('🔄 Unlisting NFT:', nftId);
+    
+    if (!nftId) {
+        showNotification('NFT ID is missing', 'error');
+        return;
+    }
+    
     if (!confirm('Remove this NFT from listings?')) return;
     
     try {
         const token = localStorage.getItem('token');
+        if (!token) {
+            showNotification('Please login first', 'error');
+            window.location.href = '/login';
+            return;
+        }
+        
+        console.log('Making API call to:', `/api/nft-import/unlist/${nftId}`);
+        
         const response = await fetch(`/api/nft-import/unlist/${nftId}`, {
             method: 'PUT',
             headers: {
@@ -795,18 +810,35 @@ async function unlistImportedNFT(nftId) {
             }
         });
         
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+            if (response.status === 401) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+                return;
+            }
+            
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
+        console.log('📥 Unlist response:', data);
         
         if (data.success) {
             showNotification('✅ NFT unlisted successfully', 'success');
-            await loadImportedNFTs();
+            await loadImportedNFTs(); // Refresh the list
             await updateImportedStats();
         } else {
-            showNotification(`❌ Failed to unlist: ${data.error}`, 'error');
+            showNotification('❌ Failed to unlist: ' + (data.error || 'Unknown error'), 'error');
         }
+        
     } catch (error) {
-        console.error('Error unlisting NFT:', error);
-        showNotification('❌ Error unlisting NFT', 'error');
+        console.error('❌ Error unlisting NFT:', error);
+        showNotification('❌ Error unlisting NFT: ' + error.message, 'error');
     }
 }
 
