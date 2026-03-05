@@ -5,6 +5,9 @@ console.log('👤 Profile page JavaScript loading...');
 // ========== CONSTANTS ==========
 const IMPORTED_NFTS_KEY = 'imported_nfts';
 
+// ========== GLOBAL VARIABLES ==========
+let currentSelectedNFT = null;
+
 // ========== IMAGE ERROR HANDLER ==========
 function handleImageError(imgElement, ipfsUrl) {
     console.log('🖼️ Image failed to load, trying fallbacks...');
@@ -302,8 +305,6 @@ function updateNFTCount(count) {
 
 // ========== IMPORTED NFT FUNCTIONS ==========
 
-let currentSelectedNFT = null;
-
 // ========== FIXED: LOAD IMPORTED NFTS ==========
 async function loadImportedNFTs() {
     console.log('📦 Loading imported NFTs from database');
@@ -581,7 +582,9 @@ function showSellModal(nftId, nftName) {
         return;
     }
     
+    // Store the NFT data
     currentSelectedNFT = { id: nftId, name: nftName };
+    console.log('✅ Stored currentSelectedNFT:', currentSelectedNFT);
     
     // Create modal if it doesn't exist
     let modal = document.getElementById('sellNFTModal');
@@ -610,7 +613,7 @@ function showSellModal(nftId, nftName) {
                 <div style="margin-bottom: 20px;">
                     <label style="color: white; display: block; margin-bottom: 8px;">Price (WETH)</label>
                     <input type="text" id="sellPrice" placeholder="0.1" value="0.1" style="width: 100%; padding: 12px; background: #0a0a0a; border: 1px solid #333; color: white; border-radius: 6px; font-size: 16px;">
-                    <p style="color: #666; font-size: 12px; margin-top: 5px;">Enter any amount (minimum 0.001 WETH)</p>
+                    <p style="color: #666; font-size: 12px; margin-top: 5px;">Minimum: 0.001 WETH</p>
                 </div>
                 <div style="display: flex; gap: 10px;">
                     <button onclick="confirmListing()" class="btn btn-primary" style="flex: 1; background: #4CAF50; padding: 12px; border: none; border-radius: 6px; color: white; font-weight: bold; cursor: pointer;">List NFT</button>
@@ -622,7 +625,7 @@ function showSellModal(nftId, nftName) {
         document.body.appendChild(modal);
     }
     
-    // Update NFT name
+    // Update NFT name in modal
     const nameElement = document.getElementById('sellNFTName');
     if (nameElement) {
         nameElement.textContent = `Listing: ${nftName}`;
@@ -644,19 +647,25 @@ function closeSellModal() {
     if (modal) {
         modal.style.display = 'none';
     }
-    currentSelectedNFT = null;
+    // DO NOT clear currentSelectedNFT here - let confirmListing handle it
 }
 
-// ========== FIXED: CONFIRM LISTING WITH TEXT INPUT HANDLING ==========
+// ========== FIXED: CONFIRM LISTING ==========
 async function confirmListing() {
     console.log('🔍 Confirm listing called');
     console.log('Current selected NFT:', currentSelectedNFT);
     
     if (!currentSelectedNFT) {
-        showNotification('No NFT selected', 'error');
+        showNotification('No NFT selected. Please try again.', 'error');
         closeSellModal();
         return;
     }
+    
+    // STORE THE ID IMMEDIATELY - this is the key fix!
+    const nftId = currentSelectedNFT.id;
+    const nftName = currentSelectedNFT.name;
+    
+    console.log('📌 Stored NFT ID for listing:', nftId);
     
     const priceInput = document.getElementById('sellPrice');
     if (!priceInput) {
@@ -672,12 +681,10 @@ async function confirmListing() {
         return;
     }
     
-    // Remove any whitespace and convert to number
     const cleanedPrice = priceValue.toString().trim();
     const price = parseFloat(cleanedPrice);
     
     console.log('Parsed price:', price);
-    console.log('Is valid number?', !isNaN(price) && price > 0);
     
     if (isNaN(price) || price <= 0) {
         showNotification('Please enter a valid price greater than 0', 'error');
@@ -689,9 +696,20 @@ async function confirmListing() {
         return;
     }
     
-    console.log('✅ Validation passed, listing NFT...');
-    closeSellModal();
-    await listImportedNFT(currentSelectedNFT.id, price);
+    console.log('✅ Validation passed, listing NFT with ID:', nftId);
+    
+    // Close the modal (UI only)
+    const modal = document.getElementById('sellNFTModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    
+    // Call the list function with the stored ID
+    await listImportedNFT(nftId, price);
+    
+    // Clear the selected NFT ONLY AFTER successful API call
+    currentSelectedNFT = null;
+    console.log('✅ Listing complete, cleared currentSelectedNFT');
 }
 
 // ========== FIXED: LIST NFT FOR SALE ==========
@@ -707,6 +725,7 @@ async function listImportedNFT(nftId, price) {
         
         // Validate inputs
         if (!nftId) {
+            console.error('❌ NFT ID is undefined');
             showNotification('NFT ID is missing', 'error');
             return;
         }
@@ -718,6 +737,8 @@ async function listImportedNFT(nftId, price) {
         
         // Ensure price is a number with proper decimal places
         const finalPrice = Number(price.toFixed(3));
+        
+        console.log('Making API call to:', `/api/nft-import/list/${nftId}`);
         
         const response = await fetch(`/api/nft-import/list/${nftId}`, {
             method: 'PUT',
@@ -738,7 +759,6 @@ async function listImportedNFT(nftId, price) {
                 return;
             }
             
-            // Try to get error message
             const errorText = await response.text();
             console.error('Error response:', errorText);
             throw new Error(`HTTP error! status: ${response.status}`);
