@@ -609,8 +609,8 @@ function showSellModal(nftId, nftName) {
                 <p style="color: #888; margin-bottom: 20px;" id="sellNFTName"></p>
                 <div style="margin-bottom: 20px;">
                     <label style="color: white; display: block; margin-bottom: 8px;">Price (WETH)</label>
-                    <input type="number" id="sellPrice" step="0.001" min="0.001" value="0.001" style="width: 100%; padding: 12px; background: #0a0a0a; border: 1px solid #333; color: white; border-radius: 6px; font-size: 16px;">
-                    <p style="color: #666; font-size: 12px; margin-top: 5px;">Minimum: 0.001 WETH</p>
+                    <input type="text" id="sellPrice" placeholder="0.1" value="0.1" style="width: 100%; padding: 12px; background: #0a0a0a; border: 1px solid #333; color: white; border-radius: 6px; font-size: 16px;">
+                    <p style="color: #666; font-size: 12px; margin-top: 5px;">Enter any amount (minimum 0.001 WETH)</p>
                 </div>
                 <div style="display: flex; gap: 10px;">
                     <button onclick="confirmListing()" class="btn btn-primary" style="flex: 1; background: #4CAF50; padding: 12px; border: none; border-radius: 6px; color: white; font-weight: bold; cursor: pointer;">List NFT</button>
@@ -631,7 +631,7 @@ function showSellModal(nftId, nftName) {
     // Reset and focus input
     const priceInput = document.getElementById('sellPrice');
     if (priceInput) {
-        priceInput.value = '0.001';
+        priceInput.value = '0.1';
         priceInput.focus();
         priceInput.select();
     }
@@ -647,7 +647,7 @@ function closeSellModal() {
     currentSelectedNFT = null;
 }
 
-// ========== FIXED: CONFIRM LISTING WITH BETTER VALIDATION ==========
+// ========== FIXED: CONFIRM LISTING WITH TEXT INPUT HANDLING ==========
 async function confirmListing() {
     console.log('🔍 Confirm listing called');
     console.log('Current selected NFT:', currentSelectedNFT);
@@ -664,33 +664,33 @@ async function confirmListing() {
         return;
     }
     
-    const priceValue = priceInput.value.trim();
+    const priceValue = priceInput.value;
     console.log('Price input value:', priceValue);
     
-    if (!priceValue) {
+    if (!priceValue || priceValue.trim() === '') {
         showNotification('Please enter a price', 'error');
         return;
     }
     
-    const price = parseFloat(priceValue);
-    console.log('Parsed price:', price);
+    // Remove any whitespace and convert to number
+    const cleanedPrice = priceValue.toString().trim();
+    const price = parseFloat(cleanedPrice);
     
-    // Check if it's a valid number
+    console.log('Parsed price:', price);
+    console.log('Is valid number?', !isNaN(price) && price > 0);
+    
     if (isNaN(price) || price <= 0) {
         showNotification('Please enter a valid price greater than 0', 'error');
         return;
     }
     
-    // Optional: Add minimum price check
     if (price < 0.001) {
         showNotification('Minimum price is 0.001 WETH', 'error');
         return;
     }
     
-    // Close modal first to prevent double-click
+    console.log('✅ Validation passed, listing NFT...');
     closeSellModal();
-    
-    // Call the list function
     await listImportedNFT(currentSelectedNFT.id, price);
 }
 
@@ -711,10 +711,13 @@ async function listImportedNFT(nftId, price) {
             return;
         }
         
-        if (!price || price <= 0) {
+        if (!price || price <= 0 || isNaN(price)) {
             showNotification('Invalid price', 'error');
             return;
         }
+        
+        // Ensure price is a number with proper decimal places
+        const finalPrice = Number(price.toFixed(3));
         
         const response = await fetch(`/api/nft-import/list/${nftId}`, {
             method: 'PUT',
@@ -722,7 +725,7 @@ async function listImportedNFT(nftId, price) {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ price: price })
+            body: JSON.stringify({ price: finalPrice })
         });
         
         console.log('Response status:', response.status);
@@ -745,7 +748,7 @@ async function listImportedNFT(nftId, price) {
         console.log('📥 List response:', data);
         
         if (data.success) {
-            showNotification(`✅ NFT listed for ${price} WETH!`, 'success');
+            showNotification(`✅ NFT listed for ${finalPrice} WETH!`, 'success');
             await loadImportedNFTs(); // Refresh the list
             await updateImportedStats();
         } else {
