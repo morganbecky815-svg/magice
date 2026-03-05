@@ -124,7 +124,7 @@ function updateProfileData(user) {
     const joinDate = document.getElementById('joinDate');
     
     if (profileName) profileName.textContent = user.fullName || user.name || user.email || 'User';
-    if (profileEmail) profileName ? profileEmail.textContent = user.email || 'No email' : null;
+    if (profileEmail) profileEmail.textContent = user.email || 'No email';
     if (walletBalance) walletBalance.textContent = (user.wethBalance || user.balance || 0) + ' WETH';
     
     if (joinDate) {
@@ -734,9 +734,15 @@ function toggleSelectNFT(element) {
     element.classList.toggle('selected');
 }
 
-// ========== FIXED: IMPORT SELECTED NFTS FROM WALLET ==========
+// ========== IMPORT SELECTED NFTS FROM WALLET ==========
 async function importSelectedNFTs() {
-    const selectedItems = document.querySelectorAll('.found-nft-item.selected');
+    const selectedItems = document.querySelectorAll('#foundNFTsGrid .found-nft-item.selected');
+    
+    if (selectedItems.length === 0) {
+        showNotification('Please select at least one NFT', 'error');
+        return;
+    }
+    
     const importedNFTs = [];
     
     selectedItems.forEach(item => {
@@ -746,8 +752,8 @@ async function importSelectedNFTs() {
             collection: item.dataset.nftCollection,
             contract: item.dataset.nftContract,
             tokenId: item.dataset.nftTokenId,
-            importedFrom: 'wallet',
-            marketplace: 'wallet'
+            marketplace: 'wallet',
+            importedFrom: 'wallet'
         });
     });
     
@@ -823,14 +829,17 @@ function displayMarketplaceNFTs(nfts) {
     });
 }
 
+// ========== IMPORT MARKETPLACE NFTS ==========
 async function importMarketplaceNFTs() {
     const selectedItems = document.querySelectorAll('#marketplaceNFTsGrid .found-nft-item.selected');
+    
     if (selectedItems.length === 0) {
         showNotification('Please select at least one NFT', 'error');
         return;
     }
     
     const importedNFTs = [];
+    
     selectedItems.forEach(item => {
         importedNFTs.push({
             name: item.dataset.nftName,
@@ -838,7 +847,7 @@ async function importMarketplaceNFTs() {
             collection: item.dataset.nftCollection,
             contract: item.dataset.nftContract,
             tokenId: item.dataset.nftTokenId,
-            marketplace: item.dataset.nftMarketplace,
+            marketplace: item.dataset.nftMarketplace || 'opensea',
             importedFrom: 'marketplace'
         });
     });
@@ -874,7 +883,7 @@ async function importManualNFT() {
     closeModal('manualImportModal');
 }
 
-// ========== FIXED: SAVE IMPORTED NFTS ==========
+// ========== FIXED: SAVE IMPORTED NFTS (CRITICAL FIX) ==========
 async function saveImportedNFTs(newNFTs, source) {
     try {
         const token = localStorage.getItem('token');
@@ -915,6 +924,10 @@ async function saveImportedNFTs(newNFTs, source) {
                 window.location.href = '/login';
                 return;
             }
+            
+            // Try to get error message from response
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
