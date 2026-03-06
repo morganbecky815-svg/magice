@@ -1,4 +1,4 @@
-// ========== PROFILE.JS - COMPLETE WITH FIXED LISTING/UNLISTING ==========
+// ========== PROFILE.JS - COMPLETE WITH FIXED UNLISTING ==========
 
 console.log('👤 Profile page JavaScript loading...');
 
@@ -699,7 +699,7 @@ async function confirmListing() {
     console.log('✅ Listing complete, cleared currentSelectedNFT');
 }
 
-// ========== FIXED: LIST NFT FOR SALE ==========
+// ========== LIST NFT FOR SALE ==========
 async function listImportedNFT(nftId, price) {
     try {
         console.log('🏷️ Listing NFT for sale:', { nftId, price });
@@ -769,7 +769,7 @@ async function listImportedNFT(nftId, price) {
     }
 }
 
-// ========== BEST FIX: UNLIST NFT ==========
+// ========== CORRECTED UNLIST NFT - USING DELETE ENDPOINT ==========
 async function unlistImportedNFT(nftId) {
     console.log('🔄 Unlisting NFT:', nftId);
     
@@ -790,36 +790,13 @@ async function unlistImportedNFT(nftId) {
         
         console.log('Making API call to unlist NFT:', nftId);
         
-        // FIRST: Get the current NFT data to know its price
-        const nftResponse = await fetch(`/api/nft-import/${nftId}`, {
+        // Use the DELETE endpoint to remove the listing
+        const response = await fetch(`/api/nft-import/${nftId}`, {
+            method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             }
-        });
-        
-        if (!nftResponse.ok) {
-            throw new Error('Could not fetch NFT details');
-        }
-        
-        const nftData = await nftResponse.json();
-        console.log('Current NFT data:', nftData);
-        
-        // Get the current price (if listed) or use a minimum valid price
-        const currentPrice = nftData.nft?.price || 0.001;
-        console.log('Using price for unlist:', currentPrice);
-        
-        // THEN: Update the NFT with isListed: false but keep the price
-        const response = await fetch(`/api/nft-import/list/${nftId}`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-                isListed: false,
-                price: currentPrice // Send the actual price, not 0
-            })
         });
         
         console.log('Response status:', response.status);
