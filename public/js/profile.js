@@ -1,4 +1,4 @@
-// ========== PROFILE.JS - COMPLETE WITH FIXED SELLING FUNCTIONS ==========
+// ========== PROFILE.JS - COMPLETE WITH FIXED LISTING/UNLISTING ==========
 
 console.log('👤 Profile page JavaScript loading...');
 
@@ -305,7 +305,6 @@ function updateNFTCount(count) {
 
 // ========== IMPORTED NFT FUNCTIONS ==========
 
-// ========== FIXED: LOAD IMPORTED NFTS ==========
 async function loadImportedNFTs() {
     console.log('📦 Loading imported NFTs from database');
     
@@ -325,7 +324,6 @@ async function loadImportedNFTs() {
         
         grid.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Loading imported NFTs...</div>';
         
-        // ✅ FIXED: Added trailing slash to URL
         const response = await fetch('/api/nft-import/', {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -338,7 +336,6 @@ async function loadImportedNFTs() {
             console.log('📥 Load response:', data);
             
             if (data.success && data.nfts) {
-                // Filter to ensure we only show marketplace/wallet imports
                 const importedNFTs = data.nfts.filter(nft => 
                     nft.importedFrom && ['wallet', 'marketplace', 'manual'].includes(nft.importedFrom)
                 );
@@ -357,7 +354,6 @@ async function loadImportedNFTs() {
                 showEmptyImportedNFTs(grid);
             }
         } else if (response.status === 401) {
-            // Token expired
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = '/login';
@@ -572,7 +568,7 @@ async function updateImportedStats() {
     }
 }
 
-// ========== FIXED: SELL MODAL FUNCTIONS ==========
+// ========== SELL MODAL FUNCTIONS ==========
 
 function showSellModal(nftId, nftName) {
     console.log('💰 Showing sell modal for:', nftId, nftName);
@@ -582,11 +578,9 @@ function showSellModal(nftId, nftName) {
         return;
     }
     
-    // Store the NFT data
     currentSelectedNFT = { id: nftId, name: nftName };
     console.log('✅ Stored currentSelectedNFT:', currentSelectedNFT);
     
-    // Create modal if it doesn't exist
     let modal = document.getElementById('sellNFTModal');
     if (!modal) {
         console.log('Creating sell modal');
@@ -625,16 +619,14 @@ function showSellModal(nftId, nftName) {
         document.body.appendChild(modal);
     }
     
-    // Update NFT name in modal
     const nameElement = document.getElementById('sellNFTName');
     if (nameElement) {
         nameElement.textContent = `Listing: ${nftName}`;
     }
     
-    // Clear and focus input (no default value)
     const priceInput = document.getElementById('sellPrice');
     if (priceInput) {
-        priceInput.value = ''; // Empty by default
+        priceInput.value = '';
         priceInput.placeholder = 'Enter price (e.g. 0.5)';
         priceInput.focus();
     }
@@ -647,10 +639,9 @@ function closeSellModal() {
     if (modal) {
         modal.style.display = 'none';
     }
-    // DO NOT clear currentSelectedNFT here - let confirmListing handle it
 }
 
-// ========== FIXED: CONFIRM LISTING ==========
+// ========== CONFIRM LISTING ==========
 async function confirmListing() {
     console.log('🔍 Confirm listing called');
     console.log('Current selected NFT:', currentSelectedNFT);
@@ -661,7 +652,6 @@ async function confirmListing() {
         return;
     }
     
-    // STORE THE ID IMMEDIATELY
     const nftId = currentSelectedNFT.id;
     const nftName = currentSelectedNFT.name;
     
@@ -698,16 +688,13 @@ async function confirmListing() {
     
     console.log('✅ Validation passed, listing NFT with ID:', nftId);
     
-    // Close the modal (UI only)
     const modal = document.getElementById('sellNFTModal');
     if (modal) {
         modal.style.display = 'none';
     }
     
-    // Call the list function with the stored ID
     await listImportedNFT(nftId, price);
     
-    // Clear the selected NFT ONLY AFTER successful API call
     currentSelectedNFT = null;
     console.log('✅ Listing complete, cleared currentSelectedNFT');
 }
@@ -723,7 +710,6 @@ async function listImportedNFT(nftId, price) {
             return;
         }
         
-        // Validate inputs
         if (!nftId) {
             console.error('❌ NFT ID is undefined');
             showNotification('NFT ID is missing', 'error');
@@ -735,7 +721,6 @@ async function listImportedNFT(nftId, price) {
             return;
         }
         
-        // Ensure price is a number with proper decimal places
         const finalPrice = Number(price.toFixed(3));
         
         console.log('Making API call to:', `/api/nft-import/list/${nftId}`);
@@ -746,7 +731,10 @@ async function listImportedNFT(nftId, price) {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ price: finalPrice })
+            body: JSON.stringify({ 
+                price: finalPrice,
+                isListed: true 
+            })
         });
         
         console.log('Response status:', response.status);
@@ -769,7 +757,7 @@ async function listImportedNFT(nftId, price) {
         
         if (data.success) {
             showNotification(`✅ NFT listed for ${finalPrice} WETH!`, 'success');
-            await loadImportedNFTs(); // Refresh the list
+            await loadImportedNFTs();
             await updateImportedStats();
         } else {
             showNotification('❌ Failed to list NFT: ' + (data.error || 'Unknown error'), 'error');
@@ -800,14 +788,19 @@ async function unlistImportedNFT(nftId) {
             return;
         }
         
-        console.log('Making API call to:', `/api/nft-import/unlist/${nftId}`);
+        console.log('Making API call to unlist NFT:', nftId);
         
-        const response = await fetch(`/api/nft-import/unlist/${nftId}`, {
+        // Use the list endpoint with isListed: false to unlist
+        const response = await fetch(`/api/nft-import/list/${nftId}`, {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify({ 
+                isListed: false,
+                price: 0 
+            })
         });
         
         console.log('Response status:', response.status);
@@ -830,7 +823,7 @@ async function unlistImportedNFT(nftId) {
         
         if (data.success) {
             showNotification('✅ NFT unlisted successfully', 'success');
-            await loadImportedNFTs(); // Refresh the list
+            await loadImportedNFTs();
             await updateImportedStats();
         } else {
             showNotification('❌ Failed to unlist: ' + (data.error || 'Unknown error'), 'error');
@@ -842,7 +835,7 @@ async function unlistImportedNFT(nftId) {
     }
 }
 
-// ========== FIXED: BUY NFT ==========
+// ========== BUY NFT ==========
 async function buyImportedNFT(nftId, price, ownerId, nftName) {
     if (!confirm(`Buy ${nftName} for ${price} WETH?`)) return;
     
@@ -858,7 +851,6 @@ async function buyImportedNFT(nftId, price, ownerId, nftName) {
         
         const user = JSON.parse(userStr);
         
-        // Check if user has enough balance
         if ((user.wethBalance || user.balance || 0) < price) {
             showNotification(`Insufficient balance. You need ${price} WETH`, 'error');
             return;
@@ -890,7 +882,6 @@ async function buyImportedNFT(nftId, price, ownerId, nftName) {
         if (data.success) {
             showNotification(`✅ Successfully purchased ${nftName}!`, 'success');
             
-            // Update local user balance
             if (data.newBalance !== undefined) {
                 user.wethBalance = data.newBalance;
                 localStorage.setItem('user', JSON.stringify(user));
@@ -1032,8 +1023,6 @@ async function scanWalletForNFTs(address) {
         await new Promise(resolve => setTimeout(resolve, 400));
     }
     
-    // In a real implementation, you would fetch actual NFTs here
-    // For demo, showing sample NFTs
     const sampleNFTs = [
         { id: '1', name: 'Bored Ape #1234', collection: 'Bored Ape Yacht Club', image: 'https://via.placeholder.com/150/8a2be2/ffffff?text=BAYC', contract: '0xbc4ca0...', tokenId: '1234' },
         { id: '2', name: 'CryptoPunk #5678', collection: 'CryptoPunks', image: 'https://via.placeholder.com/150/4169e1/ffffff?text=PUNK', contract: '0xb47e...', tokenId: '5678' }
@@ -1073,7 +1062,6 @@ function toggleSelectNFT(element) {
     element.classList.toggle('selected');
 }
 
-// ========== IMPORT SELECTED NFTS FROM WALLET ==========
 async function importSelectedNFTs() {
     const selectedItems = document.querySelectorAll('#foundNFTsGrid .found-nft-item.selected');
     
@@ -1168,7 +1156,6 @@ function displayMarketplaceNFTs(nfts) {
     });
 }
 
-// ========== IMPORT MARKETPLACE NFTS ==========
 async function importMarketplaceNFTs() {
     const selectedItems = document.querySelectorAll('#marketplaceNFTsGrid .found-nft-item.selected');
     
@@ -1222,7 +1209,7 @@ async function importManualNFT() {
     closeModal('manualImportModal');
 }
 
-// ========== FIXED: SAVE IMPORTED NFTS ==========
+// ========== SAVE IMPORTED NFTS ==========
 async function saveImportedNFTs(newNFTs, source) {
     try {
         const token = localStorage.getItem('token');
@@ -1234,7 +1221,6 @@ async function saveImportedNFTs(newNFTs, source) {
 
         console.log('📤 Saving NFTs:', newNFTs);
         
-        // Format the NFTs correctly for the backend
         const selectedNFTs = newNFTs.map(nft => ({
             name: nft.name || `NFT #${nft.tokenId}`,
             image: nft.image || 'https://picsum.photos/300/200?random=1',
@@ -1246,7 +1232,6 @@ async function saveImportedNFTs(newNFTs, source) {
             metadata: nft.metadata || {}
         }));
 
-        // ✅ FIXED: Correct endpoint and parameter name
         const response = await fetch('/api/nft-import/save-nfts', {
             method: 'POST',
             headers: { 
@@ -1264,7 +1249,6 @@ async function saveImportedNFTs(newNFTs, source) {
                 return;
             }
             
-            // Try to get error message from response
             const errorText = await response.text();
             console.error('Error response:', errorText);
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -1275,8 +1259,8 @@ async function saveImportedNFTs(newNFTs, source) {
         
         if (data.success) {
             showNotification(`✅ Successfully imported ${data.saved} NFT(s)!`, 'success');
-            await loadImportedNFTs();  // Refresh the list
-            await updateImportedStats();  // Update stats
+            await loadImportedNFTs();
+            await updateImportedStats();
         } else {
             showNotification('❌ Failed to save NFTs: ' + (data.error || 'Unknown error'), 'error');
         }
@@ -1361,7 +1345,6 @@ function displayActivity(container, activities) {
         const item = document.createElement('div');
         item.className = 'activity-item';
         
-        // Determine icon based on activity type
         let icon = 'fa-history';
         let color = '#6c63ff';
         
@@ -1537,7 +1520,6 @@ async function saveProfile() {
             if (data.success) {
                 showNotification('✅ Profile updated successfully', 'success');
                 
-                // Update localStorage
                 const userStr = localStorage.getItem('user');
                 if (userStr) {
                     const user = JSON.parse(userStr);
@@ -1574,7 +1556,6 @@ function resetPassword() {
 }
 
 function showNotification(message, type = 'info') {
-    // Check if toast container exists, if not create it
     let toastContainer = document.querySelector('.toast-container');
     if (!toastContainer) {
         toastContainer = document.createElement('div');
@@ -1653,16 +1634,13 @@ function copyProfileLink() {
 
 // ========== MOBILE NAVIGATION & MODALS ==========
 
-// Close modals when clicking outside
 window.onclick = function(event) { 
     if (event.target.classList.contains('modal')) {
         event.target.style.display = 'none'; 
     }
 }
 
-// Mobile navigation
 document.addEventListener('DOMContentLoaded', function() {
-    // Mobile navigation toggle
     const hamburger = document.getElementById('hamburger');
     const navMenu = document.getElementById('navMenu');
     
@@ -1671,7 +1649,6 @@ document.addEventListener('DOMContentLoaded', function() {
             hamburger.classList.toggle('active');
             navMenu.classList.toggle('active');
             
-            // Prevent body scrolling when menu is open
             if (navMenu.classList.contains('active')) {
                 document.body.style.overflow = 'hidden';
             } else {
@@ -1679,7 +1656,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Close menu when clicking on a nav link
         const navLinks = document.querySelectorAll('.nav-link');
         navLinks.forEach(link => {
             link.addEventListener('click', function() {
@@ -1689,7 +1665,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
         
-        // Close menu when clicking outside
         document.addEventListener('click', function(event) {
             if (!hamburger.contains(event.target) && 
                 !navMenu.contains(event.target) && 
@@ -1700,7 +1675,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Handle window resize
         window.addEventListener('resize', function() {
             if (window.innerWidth > 768) {
                 hamburger.classList.remove('active');
