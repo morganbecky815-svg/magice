@@ -769,7 +769,7 @@ async function listImportedNFT(nftId, price) {
     }
 }
 
-// ========== FIXED: UNLIST NFT ==========
+// ========== BEST FIX: UNLIST NFT ==========
 async function unlistImportedNFT(nftId) {
     console.log('🔄 Unlisting NFT:', nftId);
     
@@ -790,7 +790,26 @@ async function unlistImportedNFT(nftId) {
         
         console.log('Making API call to unlist NFT:', nftId);
         
-        // Use the list endpoint with isListed: false to unlist
+        // FIRST: Get the current NFT data to know its price
+        const nftResponse = await fetch(`/api/nft-import/${nftId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!nftResponse.ok) {
+            throw new Error('Could not fetch NFT details');
+        }
+        
+        const nftData = await nftResponse.json();
+        console.log('Current NFT data:', nftData);
+        
+        // Get the current price (if listed) or use a minimum valid price
+        const currentPrice = nftData.nft?.price || 0.001;
+        console.log('Using price for unlist:', currentPrice);
+        
+        // THEN: Update the NFT with isListed: false but keep the price
         const response = await fetch(`/api/nft-import/list/${nftId}`, {
             method: 'PUT',
             headers: {
@@ -799,7 +818,7 @@ async function unlistImportedNFT(nftId) {
             },
             body: JSON.stringify({ 
                 isListed: false,
-                price: 0 
+                price: currentPrice // Send the actual price, not 0
             })
         });
         
