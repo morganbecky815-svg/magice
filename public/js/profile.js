@@ -648,8 +648,7 @@ function closeSellModal() {
         modal.style.display = 'none';
     }
 }
-
-// ========== FIXED: CONFIRM LISTING WITH TEXT INPUT ==========
+// ========== ENHANCED DEBUG: CONFIRM LISTING ==========
 async function confirmListing() {
     console.log('🔍 Confirm listing called');
     console.log('Current selected NFT:', currentSelectedNFT);
@@ -665,31 +664,69 @@ async function confirmListing() {
     
     console.log('📌 Stored NFT ID for listing:', nftId);
     
+    // Get the price input element
     const priceInput = document.getElementById('sellPrice');
+    console.log('Price input element:', priceInput);
+    
     if (!priceInput) {
+        console.error('❌ Price input element not found in DOM');
         showNotification('Price input not found', 'error');
         return;
     }
     
+    // Log all input attributes
+    console.log('Input type:', priceInput.type);
+    console.log('Input value:', priceInput.value);
+    console.log('Input value length:', priceInput.value.length);
+    console.log('Input placeholder:', priceInput.placeholder);
+    
+    // Try different ways to get the value
+    const value1 = priceInput.value;
+    const value2 = priceInput.getAttribute('value');
+    const value3 = document.querySelector('#sellPrice').value;
+    
+    console.log('Direct value:', value1);
+    console.log('Attribute value:', value2);
+    console.log('QuerySelector value:', value3);
+    
     // Get the raw value
     const rawPrice = priceInput.value;
     console.log('Raw price input value:', rawPrice);
+    console.log('Raw price type:', typeof rawPrice);
     
-    if (!rawPrice || rawPrice.trim() === '') {
+    if (rawPrice === null || rawPrice === undefined) {
+        console.error('❌ Price is null or undefined');
+        showNotification('Price input error', 'error');
+        return;
+    }
+    
+    if (rawPrice === '') {
+        console.error('❌ Price is empty string');
         showNotification('Please enter a price', 'error');
         priceInput.focus();
         return;
     }
     
-    // Remove whitespace and replace comma with dot
-    const cleanedPrice = rawPrice.toString().trim().replace(',', '.');
-    console.log('Cleaned price:', cleanedPrice);
+    const trimmedPrice = rawPrice.toString().trim();
+    console.log('Trimmed price:', trimmedPrice);
+    
+    if (trimmedPrice === '') {
+        console.error('❌ Price is empty after trim');
+        showNotification('Please enter a price', 'error');
+        priceInput.focus();
+        return;
+    }
+    
+    // Replace comma with dot
+    const normalizedPrice = trimmedPrice.replace(',', '.');
+    console.log('Normalized price:', normalizedPrice);
     
     // Parse as float
-    const price = parseFloat(cleanedPrice);
+    const price = parseFloat(normalizedPrice);
     console.log('Parsed price:', price);
     
     if (isNaN(price)) {
+        console.error('❌ Price is NaN');
         showNotification('Please enter a valid number', 'error');
         priceInput.focus();
         priceInput.select();
@@ -697,6 +734,7 @@ async function confirmListing() {
     }
     
     if (price <= 0) {
+        console.error('❌ Price is not positive');
         showNotification('Price must be greater than 0', 'error');
         priceInput.focus();
         priceInput.select();
@@ -704,6 +742,7 @@ async function confirmListing() {
     }
     
     if (price < 0.001) {
+        console.error('❌ Price below minimum');
         showNotification('Minimum price is 0.001 WETH', 'error');
         priceInput.focus();
         priceInput.select();
@@ -725,6 +764,7 @@ async function confirmListing() {
     currentSelectedNFT = null;
     console.log('✅ Listing complete, cleared currentSelectedNFT');
 }
+
 
 // ========== FIXED: LIST NFT FOR SALE ==========
 async function listImportedNFT(nftId, price) {
