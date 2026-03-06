@@ -1,4 +1,4 @@
-// ========== PROFILE.JS - COMPLETE WITH FIXED LISTING/UNLISTING ==========
+// ========== PROFILE.JS - COMPLETE WITH ENHANCED DEBUGGING ==========
 
 console.log('👤 Profile page JavaScript loading...');
 
@@ -568,7 +568,7 @@ async function updateImportedStats() {
     }
 }
 
-// ========== FIXED: SHOW SELL MODAL WITH TEXT INPUT ==========
+// ========== ENHANCED DEBUG: SHOW SELL MODAL ==========
 function showSellModal(nftId, nftName) {
     console.log('💰 Showing sell modal for:', nftId, nftName);
     
@@ -580,9 +580,12 @@ function showSellModal(nftId, nftName) {
     currentSelectedNFT = { id: nftId, name: nftName };
     console.log('✅ Stored currentSelectedNFT:', currentSelectedNFT);
     
+    // Check if modal already exists
     let modal = document.getElementById('sellNFTModal');
+    console.log('Modal exists?', !!modal);
+    
     if (!modal) {
-        console.log('Creating sell modal');
+        console.log('Creating new sell modal');
         modal = document.createElement('div');
         modal.id = 'sellNFTModal';
         modal.className = 'modal';
@@ -605,7 +608,7 @@ function showSellModal(nftId, nftName) {
                 <p style="color: #888; margin-bottom: 20px;" id="sellNFTName"></p>
                 <div style="margin-bottom: 20px;">
                     <label style="color: white; display: block; margin-bottom: 8px;">Price (WETH)</label>
-                    <input type="text" id="sellPrice" placeholder="e.g. 0.5" style="width: 100%; padding: 12px; background: #0a0a0a; border: 1px solid #333; color: white; border-radius: 6px; font-size: 16px;">
+                    <input type="text" id="sellPrice" placeholder="e.g. 0.5" value="" style="width: 100%; padding: 12px; background: #0a0a0a; border: 1px solid #333; color: white; border-radius: 6px; font-size: 16px;">
                     <p style="color: #666; font-size: 12px; margin-top: 5px;">Minimum: 0.001 WETH (use dot, not comma)</p>
                 </div>
                 <div style="display: flex; gap: 10px;">
@@ -616,30 +619,42 @@ function showSellModal(nftId, nftName) {
         `;
         
         document.body.appendChild(modal);
+        console.log('✅ New modal created and added to DOM');
     } else {
-        // If modal exists, update the input to be text type
+        console.log('Using existing modal');
+        // Update existing modal's input to be text type
         const priceInput = document.getElementById('sellPrice');
         if (priceInput) {
             priceInput.type = 'text';
             priceInput.removeAttribute('min');
             priceInput.removeAttribute('step');
             priceInput.placeholder = 'e.g. 0.5';
+            console.log('✅ Updated existing input to text type');
         }
     }
     
+    // Update NFT name
     const nameElement = document.getElementById('sellNFTName');
     if (nameElement) {
         nameElement.textContent = `Listing: ${nftName}`;
+        console.log('✅ Updated NFT name in modal');
+    } else {
+        console.error('❌ Name element not found');
     }
     
+    // Reset and focus input
     const priceInput = document.getElementById('sellPrice');
     if (priceInput) {
         priceInput.value = '';
         priceInput.placeholder = 'e.g. 0.5';
         priceInput.focus();
+        console.log('✅ Reset input field');
+    } else {
+        console.error('❌ Price input not found in modal');
     }
     
     modal.style.display = 'flex';
+    console.log('✅ Modal displayed');
 }
 
 function closeSellModal() {
@@ -648,6 +663,7 @@ function closeSellModal() {
         modal.style.display = 'none';
     }
 }
+
 // ========== ENHANCED DEBUG: CONFIRM LISTING ==========
 async function confirmListing() {
     console.log('🔍 Confirm listing called');
@@ -764,7 +780,6 @@ async function confirmListing() {
     currentSelectedNFT = null;
     console.log('✅ Listing complete, cleared currentSelectedNFT');
 }
-
 
 // ========== FIXED: LIST NFT FOR SALE ==========
 async function listImportedNFT(nftId, price) {
