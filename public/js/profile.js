@@ -1,4 +1,4 @@
-// ========== PROFILE.JS - COMPLETE WORKING VERSION ==========
+// ========== PROFILE.JS - COMPLETE WITH PROMPT-BASED LISTING ==========
 
 console.log('👤 Profile page JavaScript loading...');
 
@@ -568,89 +568,30 @@ async function updateImportedStats() {
     }
 }
 
-// ========== WORKING SELL MODAL FUNCTIONS ==========
-
+// ========== SIMPLE PROMPT-BASED LISTING ==========
 function showSellModal(nftId, nftName) {
-    console.log('💰 Showing sell modal for:', nftId, nftName);
+    console.log('💰 Listing NFT:', nftId, nftName);
     
     if (!nftId || !nftName) {
         alert('Invalid NFT data');
         return;
     }
     
-    currentSelectedNFT = { id: nftId, name: nftName };
+    // Use a simple prompt for price input
+    const priceStr = prompt(`Enter price in WETH for "${nftName}":`, "0.5");
     
-    // Remove any existing modal
-    const existingModal = document.querySelector('div[style*="fixed"]');
-    if (existingModal) existingModal.remove();
-    
-    // Create new modal
-    const modal = document.createElement('div');
-    modal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.95);
-        z-index: 999999;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    `;
-    
-    modal.innerHTML = `
-        <div style="background: #1a1a1a; padding: 30px; border-radius: 12px; width: 90%; max-width: 400px; border: 2px solid #8a2be2;">
-            <h2 style="color: white; margin-bottom: 20px;">List NFT for Sale</h2>
-            <p style="color: #888; margin-bottom: 20px;">NFT: ${nftName}</p>
-            <div style="margin-bottom: 20px;">
-                <label style="color: white; display: block; margin-bottom: 8px;">Price (WETH)</label>
-                <input type="text" id="sellPriceInput" placeholder="0.5" value="0.5" style="width: 100%; padding: 12px; background: #0a0a0a; border: 1px solid #8a2be2; color: white; border-radius: 6px; font-size: 16px;">
-                <p style="color: #ff6b6b; font-size: 12px; margin-top: 5px;">Minimum: 0.001 WETH</p>
-            </div>
-            <div style="display: flex; gap: 10px;">
-                <button onclick="completeListing('${nftId}')" style="flex: 1; background: #4CAF50; padding: 12px; border: none; border-radius: 6px; color: white; font-weight: bold; cursor: pointer;">List NFT</button>
-                <button onclick="this.closest('div[style*="fixed"]').remove()" style="flex: 1; background: #f44336; padding: 12px; border: none; border-radius: 6px; color: white; font-weight: bold; cursor: pointer;">Cancel</button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    // Ensure input is text type
-    setTimeout(() => {
-        const input = document.getElementById('sellPriceInput');
-        if (input) {
-            input.type = 'text';
-            input.focus();
-            input.select();
-        }
-    }, 100);
-}
-
-// ========== COMPLETE LISTING FUNCTION ==========
-async function completeListing(nftId) {
-    console.log('💰 Completing listing for NFT:', nftId);
-    
-    const input = document.getElementById('sellPriceInput');
-    
-    if (!input) {
-        alert('Price input not found. Please try again.');
-        const modal = document.querySelector('div[style*="fixed"]');
-        if (modal) modal.remove();
+    // Check if user cancelled
+    if (priceStr === null) {
         return;
     }
     
-    const priceValue = input.value;
-    console.log('Price entered:', priceValue);
-    
-    if (!priceValue || priceValue.trim() === '') {
+    // Validate price
+    if (!priceStr || priceStr.trim() === '') {
         alert('Please enter a price');
         return;
     }
     
-    const price = parseFloat(priceValue.replace(',', '.'));
-    console.log('Parsed price:', price);
+    const price = parseFloat(priceStr.replace(',', '.'));
     
     if (isNaN(price) || price <= 0) {
         alert('Please enter a valid price');
@@ -665,13 +606,22 @@ async function completeListing(nftId) {
     const finalPrice = Number(price.toFixed(3));
     console.log('Final price:', finalPrice);
     
-    // Remove modal
-    const modal = document.querySelector('div[style*="fixed"]');
-    if (modal) modal.remove();
-    
-    // Make API call
-    const token = localStorage.getItem('token');
+    // Make API call directly
+    listImportedNFT(nftId, finalPrice);
+}
+
+// ========== SIMPLIFIED LIST FUNCTION ==========
+async function listImportedNFT(nftId, price) {
     try {
+        console.log('🏷️ Listing NFT for sale:', { nftId, price });
+        
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert('Please login first');
+            window.location.href = '/login';
+            return;
+        }
+        
         const response = await fetch(`/api/nft-import/list/${nftId}`, {
             method: 'PUT',
             headers: {
@@ -679,7 +629,7 @@ async function completeListing(nftId) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ 
-                price: finalPrice,
+                price: price,
                 isListed: true 
             })
         });
@@ -695,10 +645,9 @@ async function completeListing(nftId) {
             alert('❌ Failed: ' + (data.error || 'Unknown error'));
         }
     } catch (error) {
+        console.error('Error listing NFT:', error);
         alert('❌ Error: ' + error.message);
     }
-    
-    currentSelectedNFT = null;
 }
 
 // ========== FIXED: UNLIST NFT ==========
@@ -706,7 +655,7 @@ async function unlistImportedNFT(nftId) {
     console.log('🔄 Unlisting NFT:', nftId);
     
     if (!nftId) {
-        showNotification('NFT ID is missing', 'error');
+        alert('NFT ID is missing');
         return;
     }
     
@@ -715,7 +664,7 @@ async function unlistImportedNFT(nftId) {
     try {
         const token = localStorage.getItem('token');
         if (!token) {
-            showNotification('Please login first', 'error');
+            alert('Please login first');
             window.location.href = '/login';
             return;
         }
@@ -731,16 +680,16 @@ async function unlistImportedNFT(nftId) {
         const data = await response.json();
         
         if (data.success) {
-            showNotification('✅ NFT unlisted successfully', 'success');
+            alert('✅ NFT unlisted successfully');
             await loadImportedNFTs();
             await updateImportedStats();
         } else {
-            showNotification('❌ Failed to unlist: ' + (data.error || 'Unknown error'), 'error');
+            alert('❌ Failed: ' + (data.error || 'Unknown error'));
         }
         
     } catch (error) {
         console.error('Error unlisting NFT:', error);
-        showNotification('❌ Error: ' + error.message, 'error');
+        alert('❌ Error: ' + error.message);
     }
 }
 
@@ -753,7 +702,7 @@ async function buyImportedNFT(nftId, price, ownerId, nftName) {
         const userStr = localStorage.getItem('user');
         
         if (!token || !userStr) {
-            showNotification('Please login first', 'error');
+            alert('Please login first');
             window.location.href = '/login';
             return;
         }
@@ -761,7 +710,7 @@ async function buyImportedNFT(nftId, price, ownerId, nftName) {
         const user = JSON.parse(userStr);
         
         if ((user.wethBalance || user.balance || 0) < price) {
-            showNotification(`Insufficient balance. You need ${price} WETH`, 'error');
+            alert(`Insufficient balance. You need ${price} WETH`);
             return;
         }
         
@@ -789,7 +738,7 @@ async function buyImportedNFT(nftId, price, ownerId, nftName) {
         console.log('📥 Buy response:', data);
         
         if (data.success) {
-            showNotification(`✅ Successfully purchased ${nftName}!`, 'success');
+            alert(`✅ Successfully purchased ${nftName}!`);
             
             if (data.newBalance !== undefined) {
                 user.wethBalance = data.newBalance;
@@ -802,11 +751,11 @@ async function buyImportedNFT(nftId, price, ownerId, nftName) {
             await updateImportedBalanceDisplay();
             await updateImportedStats();
         } else {
-            showNotification(`❌ Purchase failed: ${data.error}`, 'error');
+            alert(`❌ Purchase failed: ${data.error}`);
         }
     } catch (error) {
         console.error('Error buying NFT:', error);
-        showNotification('❌ Error: ' + error.message, 'error');
+        alert('❌ Error: ' + error.message);
     }
 }
 
@@ -975,7 +924,7 @@ async function importSelectedNFTs() {
     const selectedItems = document.querySelectorAll('#foundNFTsGrid .found-nft-item.selected');
     
     if (selectedItems.length === 0) {
-        showNotification('Please select at least one NFT', 'error');
+        alert('Please select at least one NFT');
         return;
     }
     
@@ -1004,7 +953,7 @@ async function importSelectedNFTs() {
 async function fetchFromMarketplaces() {
     const walletAddress = document.getElementById('marketplaceWallet').value.trim();
     if (!walletAddress) {
-        showNotification('Please enter a wallet address', 'error');
+        alert('Please enter a wallet address');
         return;
     }
     
@@ -1069,7 +1018,7 @@ async function importMarketplaceNFTs() {
     const selectedItems = document.querySelectorAll('#marketplaceNFTsGrid .found-nft-item.selected');
     
     if (selectedItems.length === 0) {
-        showNotification('Please select at least one NFT', 'error');
+        alert('Please select at least one NFT');
         return;
     }
     
@@ -1100,7 +1049,7 @@ async function importManualNFT() {
     const image = document.getElementById('manualImage').value || 'https://picsum.photos/300/200?random=1';
     
     if (!contract || !tokenId) {
-        showNotification('Please enter contract and token ID', 'error');
+        alert('Please enter contract and token ID');
         return;
     }
     
@@ -1123,7 +1072,7 @@ async function saveImportedNFTs(newNFTs, source) {
     try {
         const token = localStorage.getItem('token');
         if (!token) {
-            showNotification('Please login first', 'error');
+            alert('Please login first');
             window.location.href = '/login';
             return;
         }
@@ -1167,16 +1116,16 @@ async function saveImportedNFTs(newNFTs, source) {
         console.log('📥 Save response:', data);
         
         if (data.success) {
-            showNotification(`✅ Successfully imported ${data.saved} NFT(s)!`, 'success');
+            alert(`✅ Successfully imported ${data.saved} NFT(s)!`);
             await loadImportedNFTs();
             await updateImportedStats();
         } else {
-            showNotification('❌ Failed to save NFTs: ' + (data.error || 'Unknown error'), 'error');
+            alert('❌ Failed to save NFTs: ' + (data.error || 'Unknown error'));
         }
         
     } catch (error) {
         console.error('❌ Error saving imported NFTs:', error);
-        showNotification('❌ Error saving NFTs: ' + error.message, 'error');
+        alert('❌ Error saving NFTs: ' + error.message);
     }
 }
 
@@ -1405,7 +1354,7 @@ async function saveProfile() {
     try {
         const token = localStorage.getItem('token');
         if (!token) {
-            showNotification('Please login first', 'error');
+            alert('Please login first');
             return;
         }
         
@@ -1427,7 +1376,7 @@ async function saveProfile() {
         if (response.ok) {
             const data = await response.json();
             if (data.success) {
-                showNotification('✅ Profile updated successfully', 'success');
+                alert('✅ Profile updated successfully');
                 
                 const userStr = localStorage.getItem('user');
                 if (userStr) {
@@ -1439,14 +1388,14 @@ async function saveProfile() {
                     updateProfileData(user);
                 }
             } else {
-                showNotification('❌ Failed to update profile', 'error');
+                alert('❌ Failed to update profile');
             }
         } else {
-            showNotification('❌ Failed to update profile', 'error');
+            alert('❌ Failed to update profile');
         }
     } catch (error) {
         console.error('Error saving profile:', error);
-        showNotification('❌ Error saving profile', 'error');
+        alert('❌ Error saving profile');
     }
 }
 
@@ -1461,68 +1410,13 @@ function createCollection() {
 }
 
 function resetPassword() { 
-    showNotification('Password reset feature coming soon!', 'info');
+    alert('Password reset feature coming soon!');
 }
 
 function showNotification(message, type = 'info') {
-    let toastContainer = document.querySelector('.toast-container');
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.className = 'toast-container';
-        toastContainer.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-        `;
-        document.body.appendChild(toastContainer);
-    }
-    
-    const toast = document.createElement('div');
-    toast.className = `feature-toast ${type}`;
-    
-    const icon = type === 'success' ? 'fa-check-circle' : 
-                 type === 'error' ? 'fa-exclamation-circle' : 
-                 'fa-info-circle';
-    
-    toast.style.cssText = `
-        background: ${type === 'success' ? '#4CAF50' : 
-                     type === 'error' ? '#f44336' : 
-                     '#2196F3'};
-        color: white;
-        padding: 12px 24px;
-        border-radius: 8px;
-        margin-bottom: 10px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        animation: slideIn 0.3s ease;
-    `;
-    
-    toast.innerHTML = `<i class="fas ${icon}"></i><span>${message}</span>`;
-    
-    toastContainer.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    // For backward compatibility, use alert for now
+    alert(message);
 }
-
-// Add animation styles
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-    @keyframes slideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
-    }
-`;
-document.head.appendChild(style);
 
 // ========== SHARE GALLERY FUNCTION ==========
 function copyProfileLink() {
@@ -1535,7 +1429,7 @@ function copyProfileLink() {
     const link = `${window.location.origin}/gallery?id=${userId}`;
     
     navigator.clipboard.writeText(link).then(() => {
-        showNotification('✅ Gallery link copied to clipboard!', 'success');
+        alert('✅ Gallery link copied to clipboard!');
     }).catch(() => {
         prompt('Copy your public gallery link:', link);
     });
@@ -1632,7 +1526,7 @@ window.copyProfileLink = copyProfileLink;
 window.buyImportedNFT = buyImportedNFT;
 window.unlistImportedNFT = unlistImportedNFT;
 window.showSellModal = showSellModal;
-window.completeListing = completeListing;
+window.listImportedNFT = listImportedNFT;
 window.handleImageError = handleImageError;
 
 window.showNFTsTab = function(event) {
