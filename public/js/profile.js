@@ -1,4 +1,4 @@
-// ========== PROFILE.JS - COMPLETE WITH ACTIVITY DISPLAY ==========
+// ========== PROFILE.JS - COMPLETE WITH FIXED ACTIVITY DISPLAY ==========
 
 console.log('👤 Profile page JavaScript loading...');
 
@@ -1136,7 +1136,7 @@ function showImportedNFTDetails(nft) {
     window.location.href = `/nft/${nft._id}`;
 }
 
-// ========== UPDATED ACTIVITY FUNCTIONS ==========
+// ========== FIXED ACTIVITY FUNCTIONS ==========
 
 async function loadUserActivities(page = 1) {
     console.log('📊 Loading user activities...');
@@ -1181,10 +1181,67 @@ function displayActivities(container, activities) {
         
         const date = new Date(activity.createdAt);
         const timeAgo = getTimeAgo(date);
+        const formattedDate = formatActivityDate(date);
         
         // Get icon and color based on activity type
         const icon = getActivityIcon(activity.type);
         const color = getActivityColor(activity.type);
+        
+        // Format description based on type
+        let description = activity.description || '';
+        if (activity.type === 'login') {
+            description = 'Logged into your account';
+        } else if (activity.type === 'logout') {
+            description = 'Logged out of your account';
+        } else if (activity.type === 'register') {
+            description = 'Created a new account';
+        } else if (activity.type === 'profile_updated') {
+            description = description || 'Updated profile information';
+        } else if (activity.type === 'nft_created') {
+            description = description || 'Created a new NFT';
+        } else if (activity.type === 'nft_purchased') {
+            description = description || 'Purchased an NFT';
+        } else if (activity.type === 'nft_sold') {
+            description = description || 'Sold an NFT';
+        } else if (activity.type === 'nft_listed') {
+            description = description || 'Listed an NFT for sale';
+        } else if (activity.type === 'nft_unlisted') {
+            description = description || 'Unlisted an NFT from marketplace';
+        } else if (activity.type === 'nft_imported') {
+            description = description || 'Imported an NFT from external wallet';
+        } else if (activity.type === 'nft_transferred') {
+            description = description || 'Transferred an NFT';
+        } else if (activity.type === 'funds_added') {
+            description = description || 'Added funds to wallet';
+        } else if (activity.type === 'funds_withdrawn') {
+            description = description || 'Withdrawn funds from wallet';
+        } else if (activity.type === 'deposit_received') {
+            description = description || 'Deposit received';
+        } else if (activity.type === 'withdrawal_requested') {
+            description = description || 'Withdrawal requested';
+        } else if (activity.type === 'staking') {
+            description = description || 'Staked tokens';
+        } else if (activity.type === 'unstaking') {
+            description = description || 'Unstaked tokens';
+        } else if (activity.type === 'reward_claimed') {
+            description = description || 'Claimed rewards';
+        } else if (activity.type === 'offer_made') {
+            description = description || 'Made an offer on an NFT';
+        } else if (activity.type === 'offer_accepted') {
+            description = description || 'Offer accepted';
+        } else if (activity.type === 'offer_cancelled') {
+            description = description || 'Offer cancelled';
+        } else if (activity.type === 'collection_created') {
+            description = description || 'Created a new collection';
+        } else if (activity.type === 'collection_updated') {
+            description = description || 'Updated a collection';
+        }
+        
+        // Format amount if present
+        const amountHtml = activity.amount ? 
+            `<div class="activity-amount" style="color: ${color}">
+                ${activity.amount} ${activity.currency || 'WETH'}
+            </div>` : '';
         
         item.innerHTML = `
             <div class="activity-icon" style="background: ${color}20; color: ${color};">
@@ -1192,14 +1249,10 @@ function displayActivities(container, activities) {
             </div>
             <div class="activity-details">
                 <div class="activity-title">${activity.title}</div>
-                <div class="activity-description">${activity.description || ''}</div>
-                <div class="activity-time">${timeAgo}</div>
+                <div class="activity-description">${description}</div>
+                <div class="activity-time" title="${formattedDate}">${timeAgo}</div>
             </div>
-            ${activity.amount ? `
-                <div class="activity-amount" style="color: ${color}">
-                    ${activity.amount} ${activity.currency || 'WETH'}
-                </div>
-            ` : ''}
+            ${amountHtml}
         `;
         
         container.appendChild(item);
@@ -1211,7 +1264,7 @@ function getActivityIcon(type) {
         'login': '🔐',
         'logout': '👋',
         'register': '📝',
-        'profile_update': '👤',
+        'profile_updated': '👤',
         'nft_created': '🖼️',
         'nft_purchased': '🛒',
         'nft_sold': '💰',
@@ -1240,7 +1293,7 @@ function getActivityColor(type) {
         'login': '#4CAF50',
         'logout': '#f44336',
         'register': '#2196F3',
-        'profile_update': '#9C27B0',
+        'profile_updated': '#9C27B0',
         'nft_created': '#8a2be2',
         'nft_purchased': '#00bcd4',
         'nft_sold': '#ff9800',
@@ -1284,6 +1337,17 @@ function getTimeAgo(date) {
     }
     
     return 'just now';
+}
+
+function formatActivityDate(date) {
+    return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
 }
 
 function showEmptyActivity(container) {
