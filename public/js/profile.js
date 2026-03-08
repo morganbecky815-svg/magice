@@ -1,4 +1,4 @@
-// ========== PROFILE.JS - COMPLETE WITH PROMPT-BASED LISTING ==========
+// ========== PROFILE.JS - COMPLETE WITH ACTIVITY DISPLAY ==========
 
 console.log('👤 Profile page JavaScript loading...');
 
@@ -79,7 +79,7 @@ async function checkAuthAndLoadProfile() {
         
         // Load default tab data
         await loadUserNFTs(user._id || user.id);
-        await loadUserActivity(user._id || user.id);
+        await loadUserActivities(); // Updated to use new activity function
         loadUserSettings(user);
         
         // Load imported NFTs if tab is active
@@ -190,7 +190,7 @@ function showProfileTab(tabName, event) {
             updateImportedStats();
             break;
         case 'activity':
-            loadUserActivityFromLocalStorage();
+            loadUserActivities();
             break;
         case 'collections':
             loadUserCollectionsFromLocalStorage();
@@ -1136,62 +1136,38 @@ function showImportedNFTDetails(nft) {
     window.location.href = `/nft/${nft._id}`;
 }
 
-// ========== ACTIVITY FUNCTIONS ==========
+// ========== UPDATED ACTIVITY FUNCTIONS ==========
 
-async function loadUserActivity(userId) {
+async function loadUserActivities(page = 1) {
+    console.log('📊 Loading user activities...');
+    
     const activityList = document.getElementById('activityList');
     if (!activityList) return;
     
     try {
         const token = localStorage.getItem('token');
-        if (!token) return;
-        
-        const response = await fetch(`/api/user/${userId}/activity`, {
-            headers: { 
-                'Authorization': `Bearer ${token}`, 
-                'Content-Type': 'application/json' 
+        const response = await fetch(`/api/activity/user?limit=20&page=${page}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
             }
         });
         
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success && data.activities) {
-                displayActivity(activityList, data.activities);
-            } else {
-                showEmptyActivity(activityList);
-            }
+        const data = await response.json();
+        
+        if (data.success) {
+            displayActivities(activityList, data.activities);
+            updateActivityPagination(data.pagination);
         } else {
             showEmptyActivity(activityList);
         }
     } catch (error) {
-        console.error('Error loading activity:', error);
+        console.error('Error loading activities:', error);
         showEmptyActivity(activityList);
     }
 }
 
-function loadUserActivityFromLocalStorage() {
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-        try {
-            const user = JSON.parse(userStr);
-            loadUserActivity(user._id || user.id);
-        } catch (error) {
-            console.error('Error parsing user:', error);
-        }
-    }
-}
-
-function showEmptyActivity(container) {
-    container.innerHTML = `
-        <div class="empty-state">
-            <i class="fas fa-history"></i>
-            <h3>No Recent Activity</h3>
-            <p>Your transactions will appear here</p>
-        </div>
-    `;
-}
-
-function displayActivity(container, activities) {
+function displayActivities(container, activities) {
     if (!activities || activities.length === 0) {
         showEmptyActivity(container);
         return;
@@ -1203,43 +1179,153 @@ function displayActivity(container, activities) {
         const item = document.createElement('div');
         item.className = 'activity-item';
         
-        let icon = 'fa-history';
-        let color = '#6c63ff';
+        const date = new Date(activity.createdAt);
+        const timeAgo = getTimeAgo(date);
         
-        if (activity.type === 'nft_created' || activity.type === 'create') {
-            icon = 'fa-plus-circle';
-            color = '#4CAF50';
-        } else if (activity.type === 'purchase' || activity.type === 'buy') {
-            icon = 'fa-shopping-cart';
-            color = '#2196F3';
-        } else if (activity.type === 'sale' || activity.type === 'sell') {
-            icon = 'fa-tag';
-            color = '#FF9800';
-        } else if (activity.type === 'transfer') {
-            icon = 'fa-exchange-alt';
-            color = '#9C27B0';
-        } else if (activity.type === 'import') {
-            icon = 'fa-download';
-            color = '#8a2be2';
-        } else if (activity.type === 'list') {
-            icon = 'fa-tag';
-            color = '#4CAF50';
-        } else if (activity.type === 'unlist') {
-            icon = 'fa-ban';
-            color = '#f44336';
-        }
+        // Get icon and color based on activity type
+        const icon = getActivityIcon(activity.type);
+        const color = getActivityColor(activity.type);
         
         item.innerHTML = `
             <div class="activity-icon" style="background: ${color}20; color: ${color};">
-                <i class="fas ${icon}"></i>
+                ${icon}
             </div>
             <div class="activity-details">
-                <div class="activity-title">${activity.note || activity.title || activity.type || 'Activity'}</div>
-                <div class="activity-time">${new Date(activity.createdAt).toLocaleString()}</div>
+                <div class="activity-title">${activity.title}</div>
+                <div class="activity-description">${activity.description || ''}</div>
+                <div class="activity-time">${timeAgo}</div>
             </div>
+            ${activity.amount ? `
+                <div class="activity-amount" style="color: ${color}">
+                    ${activity.amount} ${activity.currency || 'WETH'}
+                </div>
+            ` : ''}
         `;
+        
         container.appendChild(item);
     });
+}
+
+function getActivityIcon(type) {
+    const icons = {
+        'login': '🔐',
+        'logout': '👋',
+        'register': '📝',
+        'profile_update': '👤',
+        'nft_created': '🖼️',
+        'nft_purchased': '🛒',
+        'nft_sold': '💰',
+        'nft_listed': '🏷️',
+        'nft_unlisted': '🚫',
+        'nft_imported': '📦',
+        'nft_transferred': '🔄',
+        'funds_added': '➕',
+        'funds_withdrawn': '➖',
+        'deposit_received': '📥',
+        'withdrawal_requested': '📤',
+        'staking': '🔒',
+        'unstaking': '🔓',
+        'reward_claimed': '🎁',
+        'offer_made': '🤝',
+        'offer_accepted': '✅',
+        'offer_cancelled': '❌',
+        'collection_created': '📁',
+        'collection_updated': '📂'
+    };
+    return icons[type] || '📌';
+}
+
+function getActivityColor(type) {
+    const colors = {
+        'login': '#4CAF50',
+        'logout': '#f44336',
+        'register': '#2196F3',
+        'profile_update': '#9C27B0',
+        'nft_created': '#8a2be2',
+        'nft_purchased': '#00bcd4',
+        'nft_sold': '#ff9800',
+        'nft_listed': '#4CAF50',
+        'nft_unlisted': '#f44336',
+        'nft_imported': '#673ab7',
+        'nft_transferred': '#3f51b5',
+        'funds_added': '#4CAF50',
+        'funds_withdrawn': '#f44336',
+        'deposit_received': '#4CAF50',
+        'withdrawal_requested': '#ff9800',
+        'staking': '#2196F3',
+        'unstaking': '#ff9800',
+        'reward_claimed': '#ffc107',
+        'offer_made': '#9C27B0',
+        'offer_accepted': '#4CAF50',
+        'offer_cancelled': '#f44336',
+        'collection_created': '#8a2be2',
+        'collection_updated': '#673ab7'
+    };
+    return colors[type] || '#6c63ff';
+}
+
+function getTimeAgo(date) {
+    const seconds = Math.floor((new Date() - date) / 1000);
+    
+    const intervals = {
+        year: 31536000,
+        month: 2592000,
+        week: 604800,
+        day: 86400,
+        hour: 3600,
+        minute: 60
+    };
+    
+    for (const [unit, secondsInUnit] of Object.entries(intervals)) {
+        const interval = Math.floor(seconds / secondsInUnit);
+        if (interval >= 1) {
+            return interval === 1 ? `1 ${unit} ago` : `${interval} ${unit}s ago`;
+        }
+    }
+    
+    return 'just now';
+}
+
+function showEmptyActivity(container) {
+    container.innerHTML = `
+        <div class="empty-state">
+            <i class="fas fa-history"></i>
+            <h3>No Recent Activity</h3>
+            <p>Your transactions and actions will appear here</p>
+        </div>
+    `;
+}
+
+function updateActivityPagination(pagination) {
+    const paginationContainer = document.getElementById('activityPagination');
+    if (!paginationContainer) return;
+    
+    if (pagination.pages <= 1) {
+        paginationContainer.innerHTML = '';
+        return;
+    }
+    
+    let html = '<div class="pagination">';
+    
+    for (let i = 1; i <= pagination.pages; i++) {
+        html += `<button class="page-btn ${i === pagination.page ? 'active' : ''}" onclick="loadUserActivities(${i})">${i}</button>`;
+    }
+    
+    html += '</div>';
+    paginationContainer.innerHTML = html;
+}
+
+// Keep old function for backward compatibility
+async function loadUserActivity(userId) {
+    // This is now deprecated, but we'll keep it for backward compatibility
+    console.log('⚠️ loadUserActivity is deprecated, using loadUserActivities instead');
+    await loadUserActivities();
+}
+
+function loadUserActivityFromLocalStorage() {
+    // This is now deprecated
+    console.log('⚠️ loadUserActivityFromLocalStorage is deprecated');
+    loadUserActivities();
 }
 
 // ========== COLLECTIONS FUNCTIONS ==========
@@ -1528,6 +1614,8 @@ window.unlistImportedNFT = unlistImportedNFT;
 window.showSellModal = showSellModal;
 window.listImportedNFT = listImportedNFT;
 window.handleImageError = handleImageError;
+window.loadUserActivities = loadUserActivities;
+window.getTimeAgo = getTimeAgo;
 
 window.showNFTsTab = function(event) {
     if (event) event.preventDefault();
