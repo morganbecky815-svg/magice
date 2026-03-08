@@ -1,3 +1,4 @@
+// routes/auth.js
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
@@ -5,7 +6,8 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const Ticket = require('../models/Ticket');
 const NFT = require('../models/NFT');
-const walletService = require('../services/walletService'); // ADD THIS
+const walletService = require('../services/walletService');
+const ActivityLogger = require('../utils/activityLogger');
 
 // ========================
 // ADMIN AUTH MIDDLEWARE
@@ -98,6 +100,9 @@ router.post('/register', async (req, res) => {
 
     await user.save();
 
+    // Log registration activity
+    await ActivityLogger.logRegister(user._id, user.email);
+
     // Generate token
     const token = jwt.sign(
       { userId: user._id, email: user.email },
@@ -166,6 +171,9 @@ router.post('/login', async (req, res) => {
       { _id: user._id },
       { $set: { lastLogin: new Date() } }
     );
+
+    // Log login activity
+    await ActivityLogger.logLogin(user._id);
 
     console.log('🔍 Creating token...');
     const token = jwt.sign(
@@ -298,9 +306,19 @@ router.put('/profile', authMiddleware, async (req, res, next) => {
         }
 
         const { fullName } = req.body;
-        if (fullName !== undefined) user.fullName = fullName;
+        const updates = {};
+        
+        if (fullName !== undefined && fullName !== user.fullName) {
+            updates.fullName = fullName;
+            user.fullName = fullName;
+        }
 
         await user.save();
+
+        // Log profile update activity
+        if (Object.keys(updates).length > 0) {
+            await ActivityLogger.logProfileUpdate(user._id, updates);
+        }
 
         res.json({
             success: true,
@@ -394,6 +412,13 @@ router.post('/support/ticket', authMiddleware, async (req, res) => {
         });
         
         await ticket.save();
+        
+        // Log ticket creation activity
+        await ActivityLogger.logProfileUpdate(user._id, { 
+            action: 'ticket_created', 
+            ticketId: ticket.ticketId,
+            subject 
+        });
         
         console.log('✅ Ticket created:', ticket.ticketId);
         
@@ -640,6 +665,13 @@ router.post('/admin/nfts', adminAuth, async (req, res) => {
     owner.nftCount = (owner.nftCount || 0) + 1;
     await owner.save();
     
+    // Log admin activity
+    await ActivityLogger.logProfileUpdate(req.user._id, { 
+      action: 'admin_created_nft', 
+      nftName: name,
+      ownerEmail 
+    });
+    
     res.json({
       success: true,
       message: 'NFT created successfully',
@@ -677,6 +709,14 @@ router.post('/admin/nfts/:id/boost', adminAuth, async (req, res) => {
     
     await nft.save();
     
+    // Log admin activity
+    await ActivityLogger.logProfileUpdate(req.user._id, { 
+      action: 'admin_boosted_nft', 
+      nftName: nft.name,
+      type,
+      amount 
+    });
+    
     res.json({
       success: true,
       message: `Boosted ${type} by ${amount}`,
@@ -701,6 +741,12 @@ router.post('/admin/nfts/:id/feature', adminAuth, async (req, res) => {
     
     nft.isFeatured = featured;
     await nft.save();
+    
+    // Log admin activity
+    await ActivityLogger.logProfileUpdate(req.user._id, { 
+      action: featured ? 'admin_featured_nft' : 'admin_unfeatured_nft',
+      nftName: nft.name
+    });
     
     res.json({
       success: true,
@@ -870,8 +916,17 @@ router.put('/admin/users/:userId/balance', adminAuth, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
+    const oldBalance = user.internalBalance;
     user.internalBalance = parseFloat(internalBalance);
     await user.save();
+    
+    // Log admin activity
+    await ActivityLogger.logProfileUpdate(req.user._id, { 
+      action: 'admin_updated_balance',
+      targetUser: user.email,
+      oldBalance,
+      newBalance: internalBalance
+    });
     
     res.json({
       success: true,
@@ -951,6 +1006,12 @@ router.put('/admin/tickets/:ticketId/resolve', adminAuth, async (req, res) => {
     ticket.resolvedAt = new Date();
     await ticket.save();
     
+    // Log admin activity
+    await ActivityLogger.logProfileUpdate(req.user._id, { 
+      action: 'admin_resolved_ticket',
+      ticketId: ticket.ticketId
+    });
+    
     res.json({
       success: true,
       message: 'Ticket resolved successfully',
@@ -988,6 +1049,12 @@ router.put('/admin/tickets/:ticketId/close', adminAuth, async (req, res) => {
     
     ticket.status = 'closed';
     await ticket.save();
+    
+    // Log admin activity
+    await ActivityLogger.logProfileUpdate(req.user._id, { 
+      action: 'admin_closed_ticket',
+      ticketId: ticket.ticketId
+    });
     
     res.json({
       success: true,
