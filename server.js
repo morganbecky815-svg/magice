@@ -12,6 +12,7 @@ const Redis = require('redis');
 const { auth } = require('./middleware/auth');
 const multer = require('multer');
 const fs = require('fs');
+const jwt = require('jsonwebtoken'); // ADD THIS for token verification
 
 // Cloudinary imports
 const cloudinary = require('cloudinary').v2;
@@ -85,41 +86,40 @@ async function initRedis() {
             redisReady = true;
         });
 
-        // Add this to your server.js
-app.get('/api/eth-price/nuke-cache', async (req, res) => {
-    try {
-      if (redisReady && redisClient) {
-        // Delete ALL possible price keys
-        await redisClient.del('eth:price');
-        await redisClient.del('eth:price:time');
-        await redisClient.del('eth_price');
-        await redisClient.del('ethereum_price');
-        await redisClient.del('price:eth');
-        
-        // Fetch fresh price
-        const response = await axios.get(
-          'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd',
-          { timeout: 5000 }
-        );
-        
-        const freshPrice = response.data.ethereum.usd;
-        
-        // Save to ALL possible key formats to ensure it sticks
-        await redisClient.set('eth:price', freshPrice.toString());
-        await redisClient.set('eth_price', freshPrice.toString());
-        await redisClient.set('price:eth', freshPrice.toString());
-        await redisClient.set('eth:price:time', Date.now().toString());
-        
-        res.json({
-          success: true,
-          message: 'Cache nuked and reset',
-          price: freshPrice
+        app.get('/api/eth-price/nuke-cache', async (req, res) => {
+            try {
+                if (redisReady && redisClient) {
+                    // Delete ALL possible price keys
+                    await redisClient.del('eth:price');
+                    await redisClient.del('eth:price:time');
+                    await redisClient.del('eth_price');
+                    await redisClient.del('ethereum_price');
+                    await redisClient.del('price:eth');
+                    
+                    // Fetch fresh price
+                    const response = await axios.get(
+                        'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd',
+                        { timeout: 5000 }
+                    );
+                    
+                    const freshPrice = response.data.ethereum.usd;
+                    
+                    // Save to ALL possible key formats to ensure it sticks
+                    await redisClient.set('eth:price', freshPrice.toString());
+                    await redisClient.set('eth_price', freshPrice.toString());
+                    await redisClient.set('price:eth', freshPrice.toString());
+                    await redisClient.set('eth:price:time', Date.now().toString());
+                    
+                    res.json({
+                        success: true,
+                        message: 'Cache nuked and reset',
+                        price: freshPrice
+                    });
+                }
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
         });
-      }
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
         
         await Promise.race([
             redisClient.connect(),
@@ -148,47 +148,47 @@ initRedis();
 // CLOUDINARY CONFIGURATION
 // ========================
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
 console.log('🔧 Cloudinary Status:', {
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? '✅ Configured' : '❌ Missing',
-  api_key: process.env.CLOUDINARY_API_KEY ? '✅ Configured' : '❌ Missing',
-  api_secret: process.env.CLOUDINARY_API_SECRET ? '✅ Configured' : '❌ Missing'
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? '✅ Configured' : '❌ Missing',
+    api_key: process.env.CLOUDINARY_API_KEY ? '✅ Configured' : '❌ Missing',
+    api_secret: process.env.CLOUDINARY_API_SECRET ? '✅ Configured' : '❌ Missing'
 });
 
 // ========================
 // MULTER CONFIGURATION
 // ========================
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = 'uploads/';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+    destination: function (req, file, cb) {
+        const uploadDir = 'uploads/';
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
     }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
 });
 
 const upload = multer({ 
-  storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: function (req, file, cb) {
-    const filetypes = /jpeg|jpg|png|gif|webp/;
-    const mimetype = filetypes.test(file.mimetype);
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-    
-    if (mimetype && extname) {
-      return cb(null, true);
+    storage: storage,
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: function (req, file, cb) {
+        const filetypes = /jpeg|jpg|png|gif|webp/;
+        const mimetype = filetypes.test(file.mimetype);
+        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+        
+        if (mimetype && extname) {
+            return cb(null, true);
+        }
+        cb(new Error('Only image files are allowed!'));
     }
-    cb(new Error('Only image files are allowed!'));
-  }
 });
 
 // ========================
@@ -196,12 +196,12 @@ const upload = multer({
 // ========================
 app.use(cors({
     origin: [
-      'https://magicedenmarketplace.com',
-      'https://www.magicedenmarketplace.com',
-      'https://magiceden.up.railway.app',
-      'https://bountiful-youth.railway.app',
-      'http://localhost:3000',
-      'http://localhost:5000'
+        'https://magicedenmarketplace.com',
+        'https://www.magicedenmarketplace.com',
+        'https://magiceden.up.railway.app',
+        'https://bountiful-youth.railway.app',
+        'http://localhost:3000',
+        'http://localhost:5000'
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -232,7 +232,7 @@ const nftRoutes = require('./routes/nft');
 const adminRoutes = require('./routes/admin');
 const userRoutes = require('./routes/user');
 const depositRoutes = require('./routes/deposit');
-const withdrawRoutes = require('./routes/withdraw'); // NEW
+const withdrawRoutes = require('./routes/withdraw');
 const collectionRoutes = require('./routes/collection');
 const ticketRoutes = require('./routes/ticketRoutes');
 const nftImportRoutes = require('./routes/nftImport');
@@ -245,7 +245,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/nft', nftRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/deposit', depositRoutes);
-app.use('/api/withdraw', withdrawRoutes); // NEW
+app.use('/api/withdraw', withdrawRoutes);
 app.use('/api/collection', collectionRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/support/tickets', ticketRoutes);
@@ -318,15 +318,15 @@ app.get("/user/:userId/register", (req, res) => {
 });
 
 app.get('/create-collection', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'create-collection.html'));
+    res.sendFile(path.join(__dirname, 'views', 'create-collection.html'));
 });
 
 app.get('/collection/:collectionId', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'collection.html'));
+    res.sendFile(path.join(__dirname, 'views', 'collection.html'));
 });
 
 // ========================
-// FIXED: NFT DETAIL PAGE ROUTE
+// UPDATED: NFT DETAIL PAGE ROUTE WITH OWNER CHECK
 // ========================
 app.get('/nft/:nftId', async (req, res) => {
     try {
@@ -357,6 +357,25 @@ app.get('/nft/:nftId', async (req, res) => {
         }
         
         console.log(`✅ Found ${nftType} NFT:`, nft.name);
+        
+        // Get current user from token if available
+        let currentUserId = null;
+        const authHeader = req.headers.authorization;
+        const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+        
+        if (token) {
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+                currentUserId = decoded.userId;
+                console.log('👤 User logged in:', currentUserId);
+            } catch (e) {
+                console.log('👤 Token invalid or expired, treating as guest');
+            }
+        } else {
+            console.log('👤 No token provided, treating as guest');
+        }
+        
+        const isOwner = currentUserId && nft.owner?._id.toString() === currentUserId.toString();
         
         // Send the HTML page with the NFT data embedded
         res.send(`
@@ -427,6 +446,18 @@ app.get('/nft/:nftId', async (req, res) => {
             top: 10px;
             right: 10px;
             background: #8a2be2;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .owner-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: #4CAF50;
             color: white;
             padding: 4px 12px;
             border-radius: 20px;
@@ -526,6 +557,7 @@ app.get('/nft/:nftId', async (req, res) => {
         .action-buttons {
             display: flex;
             gap: 10px;
+            margin-top: 20px;
         }
         
         .btn {
@@ -549,6 +581,16 @@ app.get('/nft/:nftId', async (req, res) => {
             transform: translateY(-2px);
         }
         
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        
         .btn-secondary {
             background: #1a1a1a;
             color: white;
@@ -558,6 +600,16 @@ app.get('/nft/:nftId', async (req, res) => {
         .btn-secondary:hover {
             background: #222;
             border-color: #8a2be2;
+        }
+        
+        .btn-share {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .btn-share:hover {
+            background: #1976D2;
+            transform: translateY(-2px);
         }
         
         .error-container {
@@ -590,6 +642,96 @@ app.get('/nft/:nftId', async (req, res) => {
             color: #666;
         }
         
+        .share-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .share-modal-content {
+            background: #1a1a1a;
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            border: 2px solid #8a2be2;
+        }
+        
+        .share-modal-content h2 {
+            color: white;
+            margin-bottom: 20px;
+        }
+        
+        .share-link {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .share-link input {
+            flex: 1;
+            padding: 12px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            color: white;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .share-link button {
+            padding: 12px 20px;
+            background: #8a2be2;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .share-social {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .share-social button {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            background: #0a0a0a;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .share-social button:hover {
+            transform: scale(1.1);
+        }
+        
+        .share-social .twitter:hover {
+            background: #1DA1F2;
+        }
+        
+        .share-social .facebook:hover {
+            background: #4267B2;
+        }
+        
+        .share-social .telegram:hover {
+            background: #0088cc;
+        }
+        
+        .share-social .whatsapp:hover {
+            background: #25D366;
+        }
+        
         @media (max-width: 768px) {
             .nft-detail {
                 grid-template-columns: 1fr;
@@ -599,14 +741,15 @@ app.get('/nft/:nftId', async (req, res) => {
 </head>
 <body>
     <div class="container">
-        <a href="/" class="back-button">
-            <i class="fas fa-arrow-left"></i> Back to Marketplace
+        <a href="javascript:history.back()" class="back-button">
+            <i class="fas fa-arrow-left"></i> Back
         </a>
         
-        <div class="nft-detail" data-nft-id="${nft._id}" data-nft-type="${nftType}">
+        <div class="nft-detail" data-nft-id="${nft._id}" data-nft-type="${nftType}" data-is-owner="${isOwner}">
             <div class="nft-image-section">
                 <img src="${nft.image || 'https://picsum.photos/600/600?random=1'}" alt="${nft.name}" class="nft-image" onerror="this.src='https://picsum.photos/600/600?random=1'">
                 <span class="nft-badge">${nftType === 'imported' ? '📦 Imported' : '🖼️ Original'}</span>
+                ${isOwner ? '<span class="owner-badge"><i class="fas fa-check-circle"></i> You own this</span>' : ''}
             </div>
             
             <div class="nft-info">
@@ -620,6 +763,7 @@ app.get('/nft/:nftId', async (req, res) => {
                     <div class="nft-owner-name">
                         <i class="fas fa-user-circle"></i> 
                         ${nft.owner?.fullName || nft.owner?.email || 'Anonymous'}
+                        ${isOwner ? ' (You)' : ''}
                     </div>
                 </div>
                 
@@ -630,15 +774,6 @@ app.get('/nft/:nftId', async (req, res) => {
                             ${nft.price} <span class="price-currency">WETH</span>
                         </div>
                     </div>
-                    
-                    <div class="action-buttons">
-                        <button class="btn btn-primary" onclick="buyNFT('${nft._id}', ${nft.price})">
-                            <i class="fas fa-shopping-cart"></i> Buy Now
-                        </button>
-                        <button class="btn btn-secondary" onclick="makeOffer()">
-                            <i class="fas fa-gavel"></i> Make Offer
-                        </button>
-                    </div>
                 ` : `
                     <div class="nft-price-section">
                         <div class="price-label">Status</div>
@@ -647,6 +782,45 @@ app.get('/nft/:nftId', async (req, res) => {
                         </div>
                     </div>
                 `}
+                
+                <!-- ACTION BUTTONS - DIFFERENT FOR OWNERS VS BUYERS -->
+                <div class="action-buttons">
+                    ${isOwner ? `
+                        <!-- OWNER ACTIONS -->
+                        <button class="btn btn-primary" onclick="shareNFT()">
+                            <i class="fas fa-share-alt"></i> Share
+                        </button>
+                        ${nft.isListed ? `
+                            <button class="btn btn-secondary" onclick="unlistNFT('${nft._id}')">
+                                <i class="fas fa-ban"></i> Unlist
+                            </button>
+                        ` : `
+                            <button class="btn btn-success" onclick="listNFT('${nft._id}', '${nft.name}')">
+                                <i class="fas fa-tag"></i> List for Sale
+                            </button>
+                        `}
+                        <button class="btn btn-secondary" onclick="transferNFT()">
+                            <i class="fas fa-exchange-alt"></i> Transfer
+                        </button>
+                    ` : `
+                        <!-- BUYER ACTIONS -->
+                        ${nft.isListed ? `
+                            <button class="btn btn-primary" onclick="buyNFT('${nft._id}', ${nft.price})">
+                                <i class="fas fa-shopping-cart"></i> Buy Now
+                            </button>
+                            <button class="btn btn-secondary" onclick="makeOffer()">
+                                <i class="fas fa-gavel"></i> Make Offer
+                            </button>
+                        ` : `
+                            <button class="btn btn-secondary" onclick="notifyWhenListed()">
+                                <i class="fas fa-bell"></i> Notify when listed
+                            </button>
+                        `}
+                        <button class="btn btn-secondary" onclick="shareNFT()">
+                            <i class="fas fa-share-alt"></i> Share
+                        </button>
+                    `}
+                </div>
                 
                 ${nft.description ? `
                     <div class="nft-description">
@@ -677,7 +851,35 @@ app.get('/nft/:nftId', async (req, res) => {
         </div>
     </div>
     
+    <!-- Share Modal -->
+    <div id="shareModal" class="share-modal">
+        <div class="share-modal-content">
+            <h2><i class="fas fa-share-alt"></i> Share NFT</h2>
+            <div class="share-link">
+                <input type="text" id="shareLink" value="${req.protocol}://${req.get('host')}/nft/${nft._id}" readonly>
+                <button onclick="copyShareLink()"><i class="fas fa-copy"></i></button>
+            </div>
+            <div class="share-social">
+                <button class="twitter" onclick="shareOnTwitter()"><i class="fab fa-twitter"></i></button>
+                <button class="facebook" onclick="shareOnFacebook()"><i class="fab fa-facebook-f"></i></button>
+                <button class="telegram" onclick="shareOnTelegram()"><i class="fab fa-telegram-plane"></i></button>
+                <button class="whatsapp" onclick="shareOnWhatsApp()"><i class="fab fa-whatsapp"></i></button>
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="closeShareModal()">Close</button>
+            </div>
+        </div>
+    </div>
+    
     <script>
+        // NFT Data
+        const nftId = '${nft._id}';
+        const nftName = '${nft.name}';
+        const nftPrice = ${nft.price || 0};
+        const nftType = '${nftType}';
+        const isOwner = ${isOwner};
+        
+        // ========== BUY FUNCTION ==========
         async function buyNFT(nftId, price) {
             if (!confirm(\`Buy this NFT for \${price} WETH?\`)) return;
             
@@ -689,7 +891,6 @@ app.get('/nft/:nftId', async (req, res) => {
             }
             
             try {
-                const nftType = document.querySelector('.nft-detail').dataset.nftType;
                 const endpoint = nftType === 'imported' ? '/api/nft-import/buy/' : '/api/nft/buy/';
                 
                 const response = await fetch(\`\${endpoint}\${nftId}\`, {
@@ -713,8 +914,166 @@ app.get('/nft/:nftId', async (req, res) => {
             }
         }
         
+        // ========== LIST NFT FUNCTION ==========
+        function listNFT(nftId, nftName) {
+            if (!isOwner) {
+                alert('Only the owner can list this NFT');
+                return;
+            }
+            
+            const priceStr = prompt(\`Enter price in WETH for "\${nftName}":\`, "0.5");
+            
+            if (priceStr === null) return;
+            
+            if (!priceStr || priceStr.trim() === '') {
+                alert('Please enter a price');
+                return;
+            }
+            
+            const price = parseFloat(priceStr.replace(',', '.'));
+            
+            if (isNaN(price) || price <= 0) {
+                alert('Please enter a valid price');
+                return;
+            }
+            
+            if (price < 0.001) {
+                alert('Minimum price is 0.001 WETH');
+                return;
+            }
+            
+            const finalPrice = Number(price.toFixed(3));
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Please login first');
+                window.location.href = '/login';
+                return;
+            }
+            
+            const endpoint = nftType === 'imported' ? '/api/nft-import/list/' : '/api/nft/list/';
+            
+            fetch(\`\${endpoint}\${nftId}\`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': \`Bearer \${token}\`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ price: finalPrice, isListed: true })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ NFT listed successfully!');
+                    window.location.reload();
+                } else {
+                    alert('❌ Failed: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                alert('❌ Error: ' + error.message);
+            });
+        }
+        
+        // ========== UNLIST FUNCTION ==========
+        async function unlistNFT(nftId) {
+            if (!confirm('Remove this NFT from listings?')) return;
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Please login first');
+                window.location.href = '/login';
+                return;
+            }
+            
+            try {
+                const endpoint = nftType === 'imported' ? '/api/nft-import/' : '/api/nft/';
+                
+                const response = await fetch(\`\${endpoint}\${nftId}\`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': \`Bearer \${token}\`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ NFT unlisted successfully');
+                    window.location.reload();
+                } else {
+                    alert('❌ Failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            }
+        }
+        
+        // ========== SHARE FUNCTIONS ==========
+        function shareNFT() {
+            document.getElementById('shareModal').style.display = 'flex';
+        }
+        
+        function closeShareModal() {
+            document.getElementById('shareModal').style.display = 'none';
+        }
+        
+        function copyShareLink() {
+            const linkInput = document.getElementById('shareLink');
+            linkInput.select();
+            document.execCommand('copy');
+            alert('✅ Link copied to clipboard!');
+        }
+        
+        function shareOnTwitter() {
+            const text = encodeURIComponent(\`Check out this NFT: \${nftName}\`);
+            const url = encodeURIComponent(window.location.href);
+            window.open(\`https://twitter.com/intent/tweet?text=\${text}&url=\${url}\`, '_blank');
+        }
+        
+        function shareOnFacebook() {
+            const url = encodeURIComponent(window.location.href);
+            window.open(\`https://www.facebook.com/sharer/sharer.php?u=\${url}\`, '_blank');
+        }
+        
+        function shareOnTelegram() {
+            const url = encodeURIComponent(window.location.href);
+            const text = encodeURIComponent(\`Check out this NFT: \${nftName}\`);
+            window.open(\`https://t.me/share/url?url=\${url}&text=\${text}\`, '_blank');
+        }
+        
+        function shareOnWhatsApp() {
+            const text = encodeURIComponent(\`Check out this NFT: \${nftName} - \${window.location.href}\`);
+            window.open(\`https://wa.me/?text=\${text}\`, '_blank');
+        }
+        
+        // ========== PLACEHOLDER FUNCTIONS ==========
         function makeOffer() {
+            if (!localStorage.getItem('token')) {
+                alert('Please login first');
+                window.location.href = '/login';
+                return;
+            }
             alert('Offer feature coming soon!');
+        }
+        
+        function transferNFT() {
+            if (!localStorage.getItem('token')) {
+                alert('Please login first');
+                window.location.href = '/login';
+                return;
+            }
+            alert('Transfer feature coming soon!');
+        }
+        
+        function notifyWhenListed() {
+            if (!localStorage.getItem('token')) {
+                alert('Please login first');
+                window.location.href = '/login';
+                return;
+            }
+            alert('Notification feature coming soon!');
         }
     </script>
 </body>
@@ -1671,54 +2030,54 @@ app.get('/api/test', (req, res) => {
 });
 
 app.get('/api/test-cloudinary', async (req, res) => {
-  try {
-    const result = await cloudinary.api.ping();
-    
-    res.json({
-      success: true,
-      message: 'Cloudinary is working!',
-      cloudinary: result,
-      config: {
-        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-        api_key: process.env.CLOUDINARY_API_KEY ? '***' + process.env.CLOUDINARY_API_KEY.slice(-4) : 'Missing',
-        api_secret: process.env.CLOUDINARY_API_SECRET ? '***' + process.env.CLOUDINARY_API_SECRET.slice(-4) : 'Missing'
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'Cloudinary configuration error'
-    });
-  }
+    try {
+        const result = await cloudinary.api.ping();
+        
+        res.json({
+            success: true,
+            message: 'Cloudinary is working!',
+            cloudinary: result,
+            config: {
+                cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+                api_key: process.env.CLOUDINARY_API_KEY ? '***' + process.env.CLOUDINARY_API_KEY.slice(-4) : 'Missing',
+                api_secret: process.env.CLOUDINARY_API_SECRET ? '***' + process.env.CLOUDINARY_API_SECRET.slice(-4) : 'Missing'
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            message: 'Cloudinary configuration error'
+        });
+    }
 });
 
 app.get('/api/test-user-routes', async (req, res) => {
-  try {
-      const user = require('./routes/user');
-      const routes = [];
-      user.stack.forEach((layer) => {
-          if (layer.route) {
-              routes.push({
-                  path: `/api/user${layer.route.path}`,
-                  methods: Object.keys(layer.route.methods)
-              });
-          }
-      });
-      
-      res.json({
-          success: true,
-          message: 'Available user routes:',
-          routes: routes,
-          total: routes.length
-      });
-      
-  } catch (error) {
-      res.json({
-          success: false,
-          error: error.message
-      });
-  }
+    try {
+        const user = require('./routes/user');
+        const routes = [];
+        user.stack.forEach((layer) => {
+            if (layer.route) {
+                routes.push({
+                    path: `/api/user${layer.route.path}`,
+                    methods: Object.keys(layer.route.methods)
+                });
+            }
+        });
+        
+        res.json({
+            success: true,
+            message: 'Available user routes:',
+            routes: routes,
+            total: routes.length
+        });
+        
+    } catch (error) {
+        res.json({
+            success: false,
+            error: error.message
+        });
+    }
 });
 
 // ========================
@@ -1990,29 +2349,29 @@ app.get('/api/eth-price', async (req, res) => {
 // CRYPTO PRICES ENDPOINT
 // ========================
 app.get('/api/crypto-prices', async (req, res) => {
-  try {
-    const ids = req.query.ids || 'ethereum,solana';
-    
-    const response = await axios.get(
-      'https://api.coingecko.com/api/v3/simple/price',
-      {
-        params: {
-          ids: ids,
-          vs_currencies: 'usd'
-        }
-      }
-    );
-    
-    res.json(response.data);
-    
-  } catch (error) {
-    console.error('Crypto prices error:', error.message);
-    res.status(500).json({ 
-      success: false,
-      error: 'Failed to fetch prices',
-      message: error.message 
-    });
-  }
+    try {
+        const ids = req.query.ids || 'ethereum,solana';
+        
+        const response = await axios.get(
+            'https://api.coingecko.com/api/v3/simple/price',
+            {
+                params: {
+                    ids: ids,
+                    vs_currencies: 'usd'
+                }
+            }
+        );
+        
+        res.json(response.data);
+        
+    } catch (error) {
+        console.error('Crypto prices error:', error.message);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to fetch prices',
+            message: error.message 
+        });
+    }
 });
 
 // ========================
@@ -2071,352 +2430,352 @@ app.get('/api/marketplace/stats', async (req, res) => {
 // DASHBOARD DATA ENDPOINT (UPDATED with custodial fields)
 // ========================
 app.get('/api/user/me/dashboard', auth, async (req, res) => {
-  try {
-      console.log('📊 Dashboard data request for user:', req.user.email);
-      
-      const userId = req.user._id;
-      
-      const user = await User.findById(userId).select('-password -__v -encryptedPrivateKey');
-      
-      const recentActivities = await Activity.find({ userId: userId })
-          .sort({ createdAt: -1 })
-          .limit(5);
-      
-      const NFT = require('./models/NFT');
-      const userNFTs = await NFT.find({ owner: userId })
-          .sort({ price: -1, createdAt: -1 })
-          .limit(2);
-      
-      const recommendedNFTs = await NFT.find({ 
-          owner: { $ne: userId },
-          isListed: true 
-      })
-          .sort({ createdAt: -1 })
-          .limit(4)
-          .populate('owner', 'fullName profileImage');
-      
-      let ethPrice = 2500;
-      if (redisReady && redisClient) {
-          try {
-              const cachedPrice = await redisClient.get('eth:price');
-              if (cachedPrice) {
-                  ethPrice = parseFloat(cachedPrice);
-              }
-          } catch (redisErr) {
-              console.log('⚠️ Could not get ETH price from Redis:', redisErr.message);
-          }
-      }
-      
-      res.json({
-          success: true,
-          dashboard: {
-              user: {
-                  _id: user._id,
-                  email: user.email,
-                  fullName: user.fullName,
-                  bio: user.bio,
-                  twitter: user.twitter,
-                  website: user.website,
-                  profileImage: user.profileImage,
-                  depositAddress: user.depositAddress,
-                  internalBalance: user.internalBalance || 0,
-                  nftCount: user.nftCount || 0,
-                  createdAt: user.createdAt
-              },
-              recentActivities: recentActivities.map(activity => ({
-                  _id: activity._id,
-                  type: activity.type,
-                  title: activity.title,
-                  description: activity.description,
-                  amount: activity.amount,
-                  currency: activity.currency,
-                  icon: getActivityIcon(activity.type),
-                  createdAt: activity.createdAt
-              })),
-              userNFTs: userNFTs.map(nft => ({
-                  _id: nft._id,
-                  name: nft.name,
-                  collectionName: nft.collectionName,
-                  price: nft.price,
-                  image: nft.image,
-                  tokenId: nft.tokenId,
-                  isListed: nft.isListed || true,
-                  createdAt: nft.createdAt
-              })),
-              recommendedNFTs: recommendedNFTs.map(nft => ({
-                  _id: nft._id,
-                  name: nft.name,
-                  collectionName: nft.collectionName,
-                  price: nft.price,
-                  image: nft.image,
-                  tokenId: nft.tokenId,
-                  creator: nft.owner ? nft.owner.fullName || 'Anonymous' : 'Anonymous',
-                  createdAt: nft.createdAt
-              })),
-              marketData: {
-                  ethPrice: ethPrice,
-                  timestamp: Date.now()
-              }
-          }
-      });
-      
-  } catch (error) {
-      console.error('❌ Dashboard data error:', error);
-      res.status(500).json({
-          success: false,
-          error: 'Failed to fetch dashboard data',
-          message: error.message
-      });
-  }
+    try {
+        console.log('📊 Dashboard data request for user:', req.user.email);
+        
+        const userId = req.user._id;
+        
+        const user = await User.findById(userId).select('-password -__v -encryptedPrivateKey');
+        
+        const recentActivities = await Activity.find({ userId: userId })
+            .sort({ createdAt: -1 })
+            .limit(5);
+        
+        const NFT = require('./models/NFT');
+        const userNFTs = await NFT.find({ owner: userId })
+            .sort({ price: -1, createdAt: -1 })
+            .limit(2);
+        
+        const recommendedNFTs = await NFT.find({ 
+            owner: { $ne: userId },
+            isListed: true 
+        })
+            .sort({ createdAt: -1 })
+            .limit(4)
+            .populate('owner', 'fullName profileImage');
+        
+        let ethPrice = 2500;
+        if (redisReady && redisClient) {
+            try {
+                const cachedPrice = await redisClient.get('eth:price');
+                if (cachedPrice) {
+                    ethPrice = parseFloat(cachedPrice);
+                }
+            } catch (redisErr) {
+                console.log('⚠️ Could not get ETH price from Redis:', redisErr.message);
+            }
+        }
+        
+        res.json({
+            success: true,
+            dashboard: {
+                user: {
+                    _id: user._id,
+                    email: user.email,
+                    fullName: user.fullName,
+                    bio: user.bio,
+                    twitter: user.twitter,
+                    website: user.website,
+                    profileImage: user.profileImage,
+                    depositAddress: user.depositAddress,
+                    internalBalance: user.internalBalance || 0,
+                    nftCount: user.nftCount || 0,
+                    createdAt: user.createdAt
+                },
+                recentActivities: recentActivities.map(activity => ({
+                    _id: activity._id,
+                    type: activity.type,
+                    title: activity.title,
+                    description: activity.description,
+                    amount: activity.amount,
+                    currency: activity.currency,
+                    icon: getActivityIcon(activity.type),
+                    createdAt: activity.createdAt
+                })),
+                userNFTs: userNFTs.map(nft => ({
+                    _id: nft._id,
+                    name: nft.name,
+                    collectionName: nft.collectionName,
+                    price: nft.price,
+                    image: nft.image,
+                    tokenId: nft.tokenId,
+                    isListed: nft.isListed || true,
+                    createdAt: nft.createdAt
+                })),
+                recommendedNFTs: recommendedNFTs.map(nft => ({
+                    _id: nft._id,
+                    name: nft.name,
+                    collectionName: nft.collectionName,
+                    price: nft.price,
+                    image: nft.image,
+                    tokenId: nft.tokenId,
+                    creator: nft.owner ? nft.owner.fullName || 'Anonymous' : 'Anonymous',
+                    createdAt: nft.createdAt
+                })),
+                marketData: {
+                    ethPrice: ethPrice,
+                    timestamp: Date.now()
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Dashboard data error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch dashboard data',
+            message: error.message
+        });
+    }
 });
 
 // ========================
 // LATEST NFTS ENDPOINT
 // ========================
 app.get('/api/nft/latest', auth, async (req, res) => {
-  try {
-      const NFT = require('./models/NFT');
-      const latestNFTs = await NFT.find({ isListed: true })
-          .sort({ createdAt: -1 })
-          .limit(20)
-          .populate('owner', 'fullName profileImage');
-      
-      res.json({
-          success: true,
-          nfts: latestNFTs.map(nft => ({
-              _id: nft._id,
-              name: nft.name,
-              collectionName: nft.collectionName,
-              price: nft.price,
-              image: nft.image,
-              tokenId: nft.tokenId,
-              creator: nft.owner ? nft.owner.fullName || 'Anonymous' : 'Anonymous',
-              creatorImage: nft.owner?.profileImage,
-              createdAt: nft.createdAt
-          }))
-      });
-      
-  } catch (error) {
-      console.error('Latest NFTs error:', error);
-      res.status(500).json({ 
-          success: false,
-          error: 'Failed to fetch latest NFTs' 
-      });
-  }
+    try {
+        const NFT = require('./models/NFT');
+        const latestNFTs = await NFT.find({ isListed: true })
+            .sort({ createdAt: -1 })
+            .limit(20)
+            .populate('owner', 'fullName profileImage');
+        
+        res.json({
+            success: true,
+            nfts: latestNFTs.map(nft => ({
+                _id: nft._id,
+                name: nft.name,
+                collectionName: nft.collectionName,
+                price: nft.price,
+                image: nft.image,
+                tokenId: nft.tokenId,
+                creator: nft.owner ? nft.owner.fullName || 'Anonymous' : 'Anonymous',
+                creatorImage: nft.owner?.profileImage,
+                createdAt: nft.createdAt
+            }))
+        });
+        
+    } catch (error) {
+        console.error('Latest NFTs error:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to fetch latest NFTs' 
+        });
+    }
 });
 
 // ========================
 // MARKETPLACE ACTIVITY ENDPOINT
 // ========================
 app.get('/api/activity/marketplace', async (req, res) => {
-  try {
-      console.log('📊 Marketplace activity request');
-      
-      let Activity;
-      try {
-          Activity = require('./models/Activity');
-      } catch (error) {
-          console.log('Activity model not available yet');
-          return res.json({
-              success: true,
-              count: 0,
-              activities: []
-          });
-      }
-      
-      const activities = await Activity.find({})
-          .populate('userId', 'email fullName')
-          .sort({ createdAt: -1 })
-          .limit(100);
-      
-      console.log(`✅ Found ${activities.length} marketplace activities`);
-      
-      const formattedActivities = activities.map(activity => ({
-          _id: activity._id,
-          type: activity.type,
-          title: activity.title,
-          description: activity.description,
-          amount: activity.amount,
-          currency: activity.currency,
-          createdAt: activity.createdAt,
-          user: activity.userId ? {
-              _id: activity.userId._id,
-              email: activity.userId.email,
-              fullName: activity.userId.fullName
-          } : null,
-          metadata: activity.metadata
-      }));
-      
-      res.json({
-          success: true,
-          count: formattedActivities.length,
-          activities: formattedActivities
-      });
-      
-  } catch (error) {
-      console.error('❌ Error fetching marketplace activity:', error);
-      res.status(500).json({
-          success: false,
-          error: 'Failed to fetch marketplace activity',
-          message: error.message
-      });
-  }
+    try {
+        console.log('📊 Marketplace activity request');
+        
+        let Activity;
+        try {
+            Activity = require('./models/Activity');
+        } catch (error) {
+            console.log('Activity model not available yet');
+            return res.json({
+                success: true,
+                count: 0,
+                activities: []
+            });
+        }
+        
+        const activities = await Activity.find({})
+            .populate('userId', 'email fullName')
+            .sort({ createdAt: -1 })
+            .limit(100);
+        
+        console.log(`✅ Found ${activities.length} marketplace activities`);
+        
+        const formattedActivities = activities.map(activity => ({
+            _id: activity._id,
+            type: activity.type,
+            title: activity.title,
+            description: activity.description,
+            amount: activity.amount,
+            currency: activity.currency,
+            createdAt: activity.createdAt,
+            user: activity.userId ? {
+                _id: activity.userId._id,
+                email: activity.userId.email,
+                fullName: activity.userId.fullName
+            } : null,
+            metadata: activity.metadata
+        }));
+        
+        res.json({
+            success: true,
+            count: formattedActivities.length,
+            activities: formattedActivities
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching marketplace activity:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch marketplace activity',
+            message: error.message
+        });
+    }
 });
 
 // ========================
 // USER ACTIVITY ENDPOINT
 // ========================
 app.get('/api/user/:userId/activity', auth, async (req, res) => {
-  try {
-      console.log('📊 Activity request for user:', req.params.userId);
-      
-      if (req.user._id.toString() !== req.params.userId) {
-          return res.status(403).json({ 
-              success: false,
-              error: 'Not authorized to view this activity' 
-          });
-      }
-      
-      const activities = await Activity.find({ userId: req.params.userId })
-          .sort({ createdAt: -1 })
-          .limit(50)
-          .populate('userId', 'email fullName profileImage');
-      
-      console.log(`✅ Found ${activities.length} activities for user`);
-      
-      const formattedActivities = activities.map(activity => ({
-          _id: activity._id,
-          type: activity.type,
-          title: activity.title,
-          description: activity.description,
-          amount: activity.amount,
-          currency: activity.currency,
-          createdAt: activity.createdAt,
-          icon: getActivityIcon(activity.type),
-          user: activity.userId ? {
-              _id: activity.userId._id,
-              email: activity.userId.email,
-              fullName: activity.userId.fullName,
-              profileImage: activity.userId.profileImage
-          } : null,
-          metadata: activity.metadata,
-          relatedId: activity.relatedId,
-          relatedType: activity.relatedType
-      }));
-      
-      res.json({
-          success: true,
-          count: formattedActivities.length,
-          activities: formattedActivities
-      });
-      
-  } catch (error) {
-      console.error('❌ Error fetching activity:', error);
-      res.status(500).json({ 
-          success: false,
-          error: 'Failed to fetch activity',
-          message: error.message 
-      });
-  }
+    try {
+        console.log('📊 Activity request for user:', req.params.userId);
+        
+        if (req.user._id.toString() !== req.params.userId) {
+            return res.status(403).json({ 
+                success: false,
+                error: 'Not authorized to view this activity' 
+            });
+        }
+        
+        const activities = await Activity.find({ userId: req.params.userId })
+            .sort({ createdAt: -1 })
+            .limit(50)
+            .populate('userId', 'email fullName profileImage');
+        
+        console.log(`✅ Found ${activities.length} activities for user`);
+        
+        const formattedActivities = activities.map(activity => ({
+            _id: activity._id,
+            type: activity.type,
+            title: activity.title,
+            description: activity.description,
+            amount: activity.amount,
+            currency: activity.currency,
+            createdAt: activity.createdAt,
+            icon: getActivityIcon(activity.type),
+            user: activity.userId ? {
+                _id: activity.userId._id,
+                email: activity.userId.email,
+                fullName: activity.userId.fullName,
+                profileImage: activity.userId.profileImage
+            } : null,
+            metadata: activity.metadata,
+            relatedId: activity.relatedId,
+            relatedType: activity.relatedType
+        }));
+        
+        res.json({
+            success: true,
+            count: formattedActivities.length,
+            activities: formattedActivities
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching activity:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to fetch activity',
+            message: error.message 
+        });
+    }
 });
 
 // ========================
 // NFT CREATION ENDPOINT (UPDATED to use internalBalance)
 // ========================
 app.post('/api/nft/create', auth, upload.single('image'), async (req, res) => {
-  try {
-      console.log('📤 NFT Creation Request:', req.body);
-      console.log('📁 File received:', req.file);
-      
-      if (!req.file) {
-          return res.status(400).json({ 
-              success: false, 
-              error: 'No image file provided' 
-          });
-      }
-      
-      console.log('☁️ Uploading to Cloudinary...');
-      const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
-          folder: 'magic-eden-nfts',
-          resource_type: 'auto'
-      });
-      
-      console.log('✅ Cloudinary upload successful:', cloudinaryResult.url);
-      
-      fs.unlinkSync(req.file.path);
-      
-      const user = req.user;
-      
-      const NFT = require('./models/NFT');
-      const nft = new NFT({
-          name: req.body.name,
-          collectionName: req.body.collection_name || 'Unnamed Collection',
-          price: parseFloat(req.body.price),
-          category: req.body.category || 'art',
-          image: cloudinaryResult.secure_url,
-          owner: user._id,
-          description: req.body.description || '',
-          externalUrl: req.body.external_url || '',
-          royalty: parseFloat(req.body.royalty) || 5,
-          cloudinaryId: cloudinaryResult.public_id,
-          metadata: {
-              format: cloudinaryResult.format,
-              width: cloudinaryResult.width,
-              height: cloudinaryResult.height,
-              bytes: cloudinaryResult.bytes
-          },
-          isListed: true
-      });
-      
-      nft.tokenId = `NFT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
-      await nft.save();
-      
-      try {
-          await ActivityLogger.logNFTCreation(
-              user._id,
-              nft._id,
-              nft.name,
-              nft.price
-          );
-          console.log('📝 Activity logged for NFT creation');
-      } catch (activityError) {
-          console.log('⚠️ Could not log activity:', activityError.message);
-      }
-      
-      await User.findByIdAndUpdate(user._id, {
-          $inc: { nftCount: 1 }
-      });
-      
-      console.log('✅ NFT saved to database:', nft._id);
-      
-      res.json({
-          success: true,
-          message: 'NFT created successfully!',
-          nft: {
-              _id: nft._id,
-              name: nft.name,
-              price: nft.price,
-              image: nft.image,
-              collectionName: nft.collectionName,
-              tokenId: nft.tokenId,
-              createdAt: nft.createdAt,
-              isListed: nft.isListed
-          }
-      });
-      
-  } catch (error) {
-      console.error('❌ NFT creation error:', error);
-      
-      if (req.file && fs.existsSync(req.file.path)) {
-          fs.unlinkSync(req.file.path);
-      }
-      
-      res.status(500).json({ 
-          success: false, 
-          error: error.message || 'Failed to create NFT' 
-      });
-  }
+    try {
+        console.log('📤 NFT Creation Request:', req.body);
+        console.log('📁 File received:', req.file);
+        
+        if (!req.file) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'No image file provided' 
+            });
+        }
+        
+        console.log('☁️ Uploading to Cloudinary...');
+        const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
+            folder: 'magic-eden-nfts',
+            resource_type: 'auto'
+        });
+        
+        console.log('✅ Cloudinary upload successful:', cloudinaryResult.url);
+        
+        fs.unlinkSync(req.file.path);
+        
+        const user = req.user;
+        
+        const NFT = require('./models/NFT');
+        const nft = new NFT({
+            name: req.body.name,
+            collectionName: req.body.collection_name || 'Unnamed Collection',
+            price: parseFloat(req.body.price),
+            category: req.body.category || 'art',
+            image: cloudinaryResult.secure_url,
+            owner: user._id,
+            description: req.body.description || '',
+            externalUrl: req.body.external_url || '',
+            royalty: parseFloat(req.body.royalty) || 5,
+            cloudinaryId: cloudinaryResult.public_id,
+            metadata: {
+                format: cloudinaryResult.format,
+                width: cloudinaryResult.width,
+                height: cloudinaryResult.height,
+                bytes: cloudinaryResult.bytes
+            },
+            isListed: true
+        });
+        
+        nft.tokenId = `NFT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        await nft.save();
+        
+        try {
+            await ActivityLogger.logNFTCreation(
+                user._id,
+                nft._id,
+                nft.name,
+                nft.price
+            );
+            console.log('📝 Activity logged for NFT creation');
+        } catch (activityError) {
+            console.log('⚠️ Could not log activity:', activityError.message);
+        }
+        
+        await User.findByIdAndUpdate(user._id, {
+            $inc: { nftCount: 1 }
+        });
+        
+        console.log('✅ NFT saved to database:', nft._id);
+        
+        res.json({
+            success: true,
+            message: 'NFT created successfully!',
+            nft: {
+                _id: nft._id,
+                name: nft.name,
+                price: nft.price,
+                image: nft.image,
+                collectionName: nft.collectionName,
+                tokenId: nft.tokenId,
+                createdAt: nft.createdAt,
+                isListed: nft.isListed
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ NFT creation error:', error);
+        
+        if (req.file && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
+        
+        res.status(500).json({ 
+            success: false, 
+            error: error.message || 'Failed to create NFT' 
+        });
+    }
 });
 
 // ========================
@@ -2750,7 +3109,7 @@ mongoose.connect(MONGODB_URI)
         console.log('⚠️ App will continue without database');
     });
 
-    // ========================
+// ========================
 // DEBUG ENDPOINT - Test wallet decryption
 // ========================
 app.get('/api/debug/wallet/:email', async (req, res) => {
@@ -2897,15 +3256,15 @@ app.use((err, req, res, next) => {
 // 404 HANDLER
 // ========================
 app.use('*', (req, res) => {
-  res.status(404).sendFile(path.join(__dirname, 'views', '404.html'), function(err) {
-      if (err) {
-          res.status(404).json({ 
-              error: 'Route not found',
-              message: `Cannot GET ${req.originalUrl}`,
-              timestamp: new Date().toISOString()
-          });
-      }
-  });
+    res.status(404).sendFile(path.join(__dirname, 'views', '404.html'), function(err) {
+        if (err) {
+            res.status(404).json({ 
+                error: 'Route not found',
+                message: `Cannot GET ${req.originalUrl}`,
+                timestamp: new Date().toISOString()
+            });
+        }
+    });
 });
 
 // ========================
