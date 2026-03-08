@@ -323,8 +323,465 @@ app.get('/collection/:collectionId', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'collection.html'));
 });
 
-app.get('/nft/:nftId', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'nft-detail.html'));
+// ========================
+// FIXED: NFT DETAIL PAGE ROUTE
+// ========================
+app.get('/nft/:nftId', async (req, res) => {
+    try {
+        const { nftId } = req.params;
+        console.log('🔍 Fetching NFT detail page for:', nftId);
+        
+        // Check if it's a valid ObjectId
+        if (!nftId.match(/^[0-9a-fA-F]{24}$/)) {
+            console.log('❌ Invalid NFT ID format:', nftId);
+            return res.status(404).sendFile(path.join(__dirname, 'views', '404.html'));
+        }
+        
+        // Try to fetch from both regular and imported NFTs
+        const NFT = require('./models/NFT');
+        const ImportedNFT = require('./models/ImportedNFT');
+        
+        let nft = await NFT.findById(nftId).populate('owner', 'email fullName profileImage');
+        let nftType = 'regular';
+        
+        if (!nft) {
+            nft = await ImportedNFT.findById(nftId).populate('owner', 'email fullName profileImage');
+            nftType = 'imported';
+        }
+        
+        if (!nft) {
+            console.log('❌ NFT not found in database:', nftId);
+            return res.status(404).sendFile(path.join(__dirname, 'views', '404.html'));
+        }
+        
+        console.log(`✅ Found ${nftType} NFT:`, nft.name);
+        
+        // Send the HTML page with the NFT data embedded
+        res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${nft.name} | Magic Eden</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0a0a0a;
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #888;
+            text-decoration: none;
+            margin-bottom: 30px;
+            transition: color 0.3s;
+        }
+        
+        .back-button:hover {
+            color: #8a2be2;
+        }
+        
+        .nft-detail {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            background: #111;
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid #222;
+        }
+        
+        .nft-image-section {
+            position: relative;
+        }
+        
+        .nft-image {
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid #333;
+        }
+        
+        .nft-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #8a2be2;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .nft-info h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .nft-collection {
+            color: #8a2be2;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        
+        .nft-owner {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+        }
+        
+        .nft-owner-label {
+            color: #888;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        
+        .nft-owner-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #8a2be2;
+        }
+        
+        .nft-price-section {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+        }
+        
+        .price-label {
+            color: #888;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        
+        .price-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #8a2be2;
+        }
+        
+        .price-currency {
+            font-size: 18px;
+            color: #888;
+            margin-left: 5px;
+        }
+        
+        .nft-description {
+            color: #ccc;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        
+        .nft-meta {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .meta-item {
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #333;
+        }
+        
+        .meta-label {
+            color: #888;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+        
+        .meta-value {
+            font-weight: bold;
+            color: #8a2be2;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #8a2be2;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #7a1bd2;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #1a1a1a;
+            color: white;
+            border: 1px solid #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #222;
+            border-color: #8a2be2;
+        }
+        
+        .error-container {
+            text-align: center;
+            padding: 100px 20px;
+            background: #111;
+            border-radius: 20px;
+            border: 1px solid #333;
+        }
+        
+        .error-container i {
+            font-size: 48px;
+            color: #f44336;
+            margin-bottom: 20px;
+        }
+        
+        .error-container h2 {
+            color: white;
+            margin-bottom: 10px;
+        }
+        
+        .error-container p {
+            color: #888;
+            margin-bottom: 30px;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            color: #666;
+        }
+        
+        @media (max-width: 768px) {
+            .nft-detail {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-button">
+            <i class="fas fa-arrow-left"></i> Back to Marketplace
+        </a>
+        
+        <div class="nft-detail" data-nft-id="${nft._id}" data-nft-type="${nftType}">
+            <div class="nft-image-section">
+                <img src="${nft.image || 'https://picsum.photos/600/600?random=1'}" alt="${nft.name}" class="nft-image" onerror="this.src='https://picsum.photos/600/600?random=1'">
+                <span class="nft-badge">${nftType === 'imported' ? '📦 Imported' : '🖼️ Original'}</span>
+            </div>
+            
+            <div class="nft-info">
+                <h1>${nft.name}</h1>
+                <div class="nft-collection">
+                    <i class="fas fa-layer-group"></i> ${nft.collection || nft.collectionName || 'Unnamed Collection'}
+                </div>
+                
+                <div class="nft-owner">
+                    <div class="nft-owner-label">Owned by</div>
+                    <div class="nft-owner-name">
+                        <i class="fas fa-user-circle"></i> 
+                        ${nft.owner?.fullName || nft.owner?.email || 'Anonymous'}
+                    </div>
+                </div>
+                
+                ${nft.isListed ? `
+                    <div class="nft-price-section">
+                        <div class="price-label">Current Price</div>
+                        <div class="price-value">
+                            ${nft.price} <span class="price-currency">WETH</span>
+                        </div>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="buyNFT('${nft._id}', ${nft.price})">
+                            <i class="fas fa-shopping-cart"></i> Buy Now
+                        </button>
+                        <button class="btn btn-secondary" onclick="makeOffer()">
+                            <i class="fas fa-gavel"></i> Make Offer
+                        </button>
+                    </div>
+                ` : `
+                    <div class="nft-price-section">
+                        <div class="price-label">Status</div>
+                        <div class="price-value" style="color: #888; font-size: 24px;">
+                            <i class="fas fa-clock"></i> Not for Sale
+                        </div>
+                    </div>
+                `}
+                
+                ${nft.description ? `
+                    <div class="nft-description">
+                        <h3 style="color: white; margin-bottom: 10px;">Description</h3>
+                        <p>${nft.description}</p>
+                    </div>
+                ` : ''}
+                
+                <div class="nft-meta">
+                    <div class="meta-item">
+                        <div class="meta-label">Token ID</div>
+                        <div class="meta-value">${nft.tokenId ? nft.tokenId.substring(0, 6) + '...' : 'N/A'}</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">Contract</div>
+                        <div class="meta-value">${nft.contract ? nft.contract.substring(0, 6) + '...' : 'N/A'}</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">Type</div>
+                        <div class="meta-value">${nftType}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            © 2024 Magic Eden. All rights reserved.
+        </div>
+    </div>
+    
+    <script>
+        async function buyNFT(nftId, price) {
+            if (!confirm(\`Buy this NFT for \${price} WETH?\`)) return;
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Please login first');
+                window.location.href = '/login';
+                return;
+            }
+            
+            try {
+                const nftType = document.querySelector('.nft-detail').dataset.nftType;
+                const endpoint = nftType === 'imported' ? '/api/nft-import/buy/' : '/api/nft/buy/';
+                
+                const response = await fetch(\`\${endpoint}\${nftId}\`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': \`Bearer \${token}\`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ NFT purchased successfully!');
+                    window.location.reload();
+                } else {
+                    alert('❌ Failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            }
+        }
+        
+        function makeOffer() {
+            alert('Offer feature coming soon!');
+        }
+    </script>
+</body>
+</html>
+        `);
+        
+    } catch (error) {
+        console.error('❌ Error loading NFT detail page:', error);
+        res.status(500).send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error | Magic Eden</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .error-box {
+            background: #111;
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid #333;
+            text-align: center;
+            max-width: 500px;
+        }
+        .error-box i {
+            font-size: 48px;
+            color: #f44336;
+            margin-bottom: 20px;
+        }
+        .error-box h1 {
+            margin-bottom: 10px;
+        }
+        .error-box p {
+            color: #888;
+            margin-bottom: 30px;
+        }
+        .btn {
+            background: #8a2be2;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-box">
+        <i class="fas fa-exclamation-circle"></i>
+        <h1>Something went wrong</h1>
+        <p>${error.message}</p>
+        <a href="/" class="btn">Go Home</a>
+    </div>
+</body>
+</html>
+        `);
+    }
 });
 
 // ========================
