@@ -172,8 +172,8 @@ router.post('/login', async (req, res) => {
       { $set: { lastLogin: new Date() } }
     );
 
-    // Log login activity
-    await ActivityLogger.logLogin(user._id);
+    // LOGIN ACTIVITY LOGGING REMOVED - Commented out to stop login entries
+    // await ActivityLogger.logLogin(user._id);
 
     console.log('🔍 Creating token...');
     const token = jwt.sign(
