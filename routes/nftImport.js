@@ -8,7 +8,7 @@ const { auth } = require('../middleware/auth');
 const moralisService = require('../services/moralisService');
 const ImportedNFT = require('../models/ImportedNFT');
 const Transaction = require('../models/Transaction');
-const User = require('../models/User'); // Add this if missing
+const User = require('../models/User');
 
 // ========== HELPER: Extract best image URL ==========
 const extractBestImage = (nft) => {
@@ -47,13 +47,14 @@ const extractBestImage = (nft) => {
 };
 
 // ========== GET ALL IMPORTED NFTS FOR USER ==========
+// FIXED: Now filters by owner, not userId
 router.get('/', auth, async (req, res) => {
     try {
         const userId = req.user._id;
         
+        // IMPORTANT FIX: Filter by owner, not userId
         const nfts = await ImportedNFT.find({ 
-            userId,
-            importedFrom: 'marketplace' 
+            owner: userId  // Changed from 'userId' to 'owner'
         }).sort({ importedAt: -1 });
         
         res.json({
@@ -176,7 +177,7 @@ router.post('/save-nfts', auth, async (req, res) => {
                     marketplace: nft.marketplace?.toLowerCase() || 'moralis',
                     isListed: false,
                     price: nft.price || 0,
-                    owner: userId,
+                    owner: userId, // Set owner to the user who imported it
                     metadata: {
                         ...nft.metadata,
                         chain: nft.chain || 'eth',
@@ -240,7 +241,7 @@ router.post('/save-nfts', auth, async (req, res) => {
     }
 });
 
-// ========== REFRESH NFT IMAGE (NEW) ==========
+// ========== REFRESH NFT IMAGE ==========
 router.post('/refresh-image/:nftId', auth, async (req, res) => {
     try {
         const userId = req.user._id;
@@ -385,7 +386,6 @@ router.get('/transactions', auth, async (req, res) => {
 });
 
 // ========== LIST NFT FOR SALE ==========
-// ========== LIST NFT FOR SALE ==========
 router.put('/list/:nftId', auth, async (req, res) => {
     console.log('🔥🔥🔥 LIST ROUTE HIT!');
     console.log('📌 Params:', req.params);
@@ -432,7 +432,8 @@ router.put('/list/:nftId', auth, async (req, res) => {
         });
     }
 });
-// ========== BUY NFT ==========
+
+// ========== FIXED: BUY NFT ==========
 router.post('/buy/:nftId', auth, async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -440,6 +441,8 @@ router.post('/buy/:nftId', auth, async (req, res) => {
     try {
         const buyerId = req.user._id;
         const { nftId } = req.params;
+        
+        console.log(`🛒 Buy request for NFT: ${nftId} from user: ${buyerId}`);
         
         const nft = await ImportedNFT.findById(nftId).session(session);
         
@@ -452,6 +455,8 @@ router.post('/buy/:nftId', auth, async (req, res) => {
             });
         }
         
+        console.log(`📦 NFT found: ${nft.name}, Owner: ${nft.owner}, Listed: ${nft.isListed}, Price: ${nft.price}`);
+        
         if (!nft.isListed) {
             await session.abortTransaction();
             session.endSession();
@@ -461,7 +466,7 @@ router.post('/buy/:nftId', auth, async (req, res) => {
             });
         }
         
-        if (nft.owner.toString() === buyerId) {
+        if (nft.owner.toString() === buyerId.toString()) {
             await session.abortTransaction();
             session.endSession();
             return res.status(400).json({
@@ -482,76 +487,142 @@ router.post('/buy/:nftId', auth, async (req, res) => {
             });
         }
         
+        console.log(`👤 Buyer: ${buyer.email}, Balance: ${buyer.wethBalance || 0}`);
+        console.log(`👤 Seller: ${seller.email}, Balance: ${seller.wethBalance || 0}`);
+        
         const buyerBalance = buyer.wethBalance || buyer.balance || 0;
         if (buyerBalance < nft.price) {
             await session.abortTransaction();
             session.endSession();
             return res.status(400).json({
                 success: false,
-                error: 'Insufficient balance'
+                error: `Insufficient balance. You need ${nft.price} WETH`
             });
         }
         
+        // Update balances
         buyer.wethBalance = (buyer.wethBalance || 0) - nft.price;
         seller.wethBalance = (seller.wethBalance || 0) + nft.price;
         
         await buyer.save({ session });
         await seller.save({ session });
         
+        // IMPORTANT: Update NFT ownership and unlist it
         const oldOwner = nft.owner;
         nft.owner = buyerId;
         nft.isListed = false;
+        nft.price = 0; // Reset price
+        nft.lastUpdated = new Date();
+        
         await nft.save({ session });
         
+        console.log(`✅ NFT ownership transferred from ${oldOwner} to ${buyerId}`);
+        
+        // Create purchase transaction
         const purchaseTransaction = new Transaction({
             type: 'purchase',
             fromUser: buyerId,
             toUser: oldOwner,
             nft: nft._id,
-            amount: nft.price,
+            amount: nft.priceBeforeUpdate || 0, // Use original price
             currency: 'WETH',
             status: 'completed',
             note: `Purchased ${nft.name}`,
             metadata: {
                 isVirtual: true,
-                nftType: 'imported'
+                nftType: 'imported',
+                price: nft.priceBeforeUpdate || 0,
+                timestamp: new Date()
             }
         });
         await purchaseTransaction.save({ session });
         
+        // Create sale transaction
         const saleTransaction = new Transaction({
             type: 'sale',
             fromUser: oldOwner,
             toUser: buyerId,
             nft: nft._id,
-            amount: nft.price,
+            amount: nft.priceBeforeUpdate || 0,
             currency: 'WETH',
             status: 'completed',
             note: `Sold ${nft.name}`,
             metadata: {
                 isVirtual: true,
-                nftType: 'imported'
+                nftType: 'imported',
+                price: nft.priceBeforeUpdate || 0,
+                timestamp: new Date()
             }
         });
         await saleTransaction.save({ session });
         
+        // Log activity
+        try {
+            const Activity = require('../models/Activity');
+            
+            // Buyer activity
+            await Activity.create({
+                userId: buyerId,
+                type: 'purchase',
+                title: 'NFT Purchased',
+                description: `Purchased ${nft.name}`,
+                amount: nft.priceBeforeUpdate || 0,
+                currency: 'WETH',
+                relatedId: nft._id,
+                relatedType: 'ImportedNFT',
+                metadata: {
+                    nftName: nft.name,
+                    seller: seller.email,
+                    price: nft.priceBeforeUpdate || 0
+                }
+            });
+            
+            // Seller activity
+            await Activity.create({
+                userId: oldOwner,
+                type: 'sale',
+                title: 'NFT Sold',
+                description: `Sold ${nft.name}`,
+                amount: nft.priceBeforeUpdate || 0,
+                currency: 'WETH',
+                relatedId: nft._id,
+                relatedType: 'ImportedNFT',
+                metadata: {
+                    nftName: nft.name,
+                    buyer: buyer.email,
+                    price: nft.priceBeforeUpdate || 0
+                }
+            });
+            
+            console.log('📝 Activities logged for purchase and sale');
+        } catch (activityError) {
+            console.log('⚠️ Could not log activities:', activityError.message);
+        }
+        
         await session.commitTransaction();
         session.endSession();
+        
+        console.log(`✅ Purchase completed successfully! New owner: ${buyerId}`);
         
         res.json({
             success: true,
             message: 'NFT purchased successfully',
-            nft,
+            nft: {
+                _id: nft._id,
+                name: nft.name,
+                owner: nft.owner,
+                isListed: nft.isListed
+            },
             newBalance: buyer.wethBalance
         });
 
     } catch (error) {
         await session.abortTransaction();
         session.endSession();
-        console.error('Error buying NFT:', error);
+        console.error('❌ Error buying NFT:', error);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: error.message || 'Failed to complete purchase'
         });
     }
 });
@@ -582,9 +653,8 @@ router.get('/:nftId', auth, async (req, res) => {
             });
         }
         
-        // Optional: Check if user has permission to view this NFT
-        // You can remove this if you want public access to NFT details
-        if (nft.userId.toString() !== userId.toString() && nft.owner.toString() !== userId.toString()) {
+        // Check if user has permission to view this NFT
+        if (nft.owner.toString() !== userId.toString()) {
             return res.status(403).json({
                 success: false,
                 error: 'Not authorized to view this NFT'
