@@ -600,8 +600,8 @@ router.post('/buy/:nftId', auth, async (req, res) => {
         });
         await saleTransaction.save({ session });
         
-        // Log purchase/sale activities using ActivityLogger
-        await ActivityLogger.logNFTPurchase(buyerId, oldOwner, nft._id, nft.name, purchasePrice);
+       // Log purchase/sale activities using ActivityLogger
+await ActivityLogger.logNFTPurchaseAndSale(buyerId, oldOwner, nft._id, nft.name, purchasePrice);
         
         await session.commitTransaction();
         session.endSession();
