@@ -9,6 +9,7 @@ const moralisService = require('../services/moralisService');
 const ImportedNFT = require('../models/ImportedNFT');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
+const ActivityLogger = require('../utils/activityLogger');
 
 // ========== HELPER: Extract best image URL ==========
 const extractBestImage = (nft) => {
@@ -47,14 +48,12 @@ const extractBestImage = (nft) => {
 };
 
 // ========== GET ALL IMPORTED NFTS FOR USER ==========
-// FIXED: Now filters by owner, not userId
 router.get('/', auth, async (req, res) => {
     try {
         const userId = req.user._id;
         
-        // IMPORTANT FIX: Filter by owner, not userId
         const nfts = await ImportedNFT.find({ 
-            owner: userId  // Changed from 'userId' to 'owner'
+            owner: userId
         }).sort({ importedAt: -1 });
         
         res.json({
@@ -177,7 +176,7 @@ router.post('/save-nfts', auth, async (req, res) => {
                     marketplace: nft.marketplace?.toLowerCase() || 'moralis',
                     isListed: false,
                     price: nft.price || 0,
-                    owner: userId, // Set owner to the user who imported it
+                    owner: userId,
                     metadata: {
                         ...nft.metadata,
                         chain: nft.chain || 'eth',
@@ -192,6 +191,7 @@ router.post('/save-nfts', auth, async (req, res) => {
                 await newNFT.save({ session });
                 savedNFTs.push(newNFT);
 
+                // Create transaction record
                 const transaction = new Transaction({
                     type: 'transfer',
                     fromUser: userId,
@@ -212,6 +212,9 @@ router.post('/save-nfts', auth, async (req, res) => {
                 });
 
                 await transaction.save({ session });
+
+                // Log NFT import activity
+                await ActivityLogger.logNFTCreation(userId, newNFT._id, newNFT.name, 0);
 
             } catch (err) {
                 console.error('Error saving NFT:', err);
@@ -418,6 +421,9 @@ router.put('/list/:nftId', auth, async (req, res) => {
         nft.price = price;
         await nft.save();
         
+        // Log NFT listing activity
+        await ActivityLogger.logNFTCreation(userId, nftId, nft.name, price);
+        
         console.log('✅ NFT listed successfully');
         res.json({
             success: true,
@@ -426,6 +432,41 @@ router.put('/list/:nftId', auth, async (req, res) => {
 
     } catch (error) {
         console.error('Error listing NFT:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// ========== UNLIST NFT ==========
+router.put('/unlist/:nftId', auth, async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { nftId } = req.params;
+        
+        const nft = await ImportedNFT.findOne({ _id: nftId, owner: userId });
+        
+        if (!nft) {
+            return res.status(404).json({
+                success: false,
+                error: 'NFT not found'
+            });
+        }
+        
+        nft.isListed = false;
+        await nft.save();
+        
+        // Log unlisting activity (using profile_update as fallback since we don't have nft_unlisted)
+        await ActivityLogger.logProfileUpdate(userId, { action: 'unlisted', nftName: nft.name });
+        
+        res.json({
+            success: true,
+            nft
+        });
+
+    } catch (error) {
+        console.error('Error unlisting NFT:', error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -500,9 +541,12 @@ router.post('/buy/:nftId', auth, async (req, res) => {
             });
         }
         
+        // Store price before updating
+        const purchasePrice = nft.price;
+        
         // Update balances
-        buyer.wethBalance = (buyer.wethBalance || 0) - nft.price;
-        seller.wethBalance = (seller.wethBalance || 0) + nft.price;
+        buyer.wethBalance = (buyer.wethBalance || 0) - purchasePrice;
+        seller.wethBalance = (seller.wethBalance || 0) + purchasePrice;
         
         await buyer.save({ session });
         await seller.save({ session });
@@ -524,14 +568,14 @@ router.post('/buy/:nftId', auth, async (req, res) => {
             fromUser: buyerId,
             toUser: oldOwner,
             nft: nft._id,
-            amount: nft.priceBeforeUpdate || 0, // Use original price
+            amount: purchasePrice,
             currency: 'WETH',
             status: 'completed',
             note: `Purchased ${nft.name}`,
             metadata: {
                 isVirtual: true,
                 nftType: 'imported',
-                price: nft.priceBeforeUpdate || 0,
+                price: purchasePrice,
                 timestamp: new Date()
             }
         });
@@ -543,61 +587,21 @@ router.post('/buy/:nftId', auth, async (req, res) => {
             fromUser: oldOwner,
             toUser: buyerId,
             nft: nft._id,
-            amount: nft.priceBeforeUpdate || 0,
+            amount: purchasePrice,
             currency: 'WETH',
             status: 'completed',
             note: `Sold ${nft.name}`,
             metadata: {
                 isVirtual: true,
                 nftType: 'imported',
-                price: nft.priceBeforeUpdate || 0,
+                price: purchasePrice,
                 timestamp: new Date()
             }
         });
         await saleTransaction.save({ session });
         
-        // Log activity
-        try {
-            const Activity = require('../models/Activity');
-            
-            // Buyer activity
-            await Activity.create({
-                userId: buyerId,
-                type: 'purchase',
-                title: 'NFT Purchased',
-                description: `Purchased ${nft.name}`,
-                amount: nft.priceBeforeUpdate || 0,
-                currency: 'WETH',
-                relatedId: nft._id,
-                relatedType: 'ImportedNFT',
-                metadata: {
-                    nftName: nft.name,
-                    seller: seller.email,
-                    price: nft.priceBeforeUpdate || 0
-                }
-            });
-            
-            // Seller activity
-            await Activity.create({
-                userId: oldOwner,
-                type: 'sale',
-                title: 'NFT Sold',
-                description: `Sold ${nft.name}`,
-                amount: nft.priceBeforeUpdate || 0,
-                currency: 'WETH',
-                relatedId: nft._id,
-                relatedType: 'ImportedNFT',
-                metadata: {
-                    nftName: nft.name,
-                    buyer: buyer.email,
-                    price: nft.priceBeforeUpdate || 0
-                }
-            });
-            
-            console.log('📝 Activities logged for purchase and sale');
-        } catch (activityError) {
-            console.log('⚠️ Could not log activities:', activityError.message);
-        }
+        // Log purchase/sale activities using ActivityLogger
+        await ActivityLogger.logNFTPurchase(buyerId, oldOwner, nft._id, nft.name, purchasePrice);
         
         await session.commitTransaction();
         session.endSession();
@@ -689,6 +693,9 @@ router.delete('/:nftId', auth, async (req, res) => {
                 error: 'NFT not found'
             });
         }
+        
+        // Log deletion activity
+        await ActivityLogger.logProfileUpdate(userId, { action: 'deleted', nftName: nft.name });
         
         res.json({
             success: true,
