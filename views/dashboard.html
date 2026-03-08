@@ -12,24 +12,23 @@
     
     <main class="dashboard">
         <div class="container">
-            <!-- Welcome Section -->
             <!-- Welcome Section with Logout -->
-<div class="welcome-section">
-    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-        <div>
-            <h1 id="welcomeMessage">Welcome back!</h1>
-            <p>Your NFT marketplace dashboard</p>
-        </div>
-        <button class="logout-btn" onclick="logout()">
-            <i class="fas fa-sign-out-alt"></i> Logout
-        </button>
-    </div>
-    <div class="dashboard-refresh" style="margin-top: 10px;">
-        <button class="btn btn-small" onclick="refreshAllDashboard()">
-            <i class="fas fa-sync-alt"></i> Refresh All
-        </button>
-    </div>
-</div>
+            <div class="welcome-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <div>
+                        <h1 id="welcomeMessage">Welcome back!</h1>
+                        <p>Your NFT marketplace dashboard</p>
+                    </div>
+                    <button class="logout-btn" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+                <div class="dashboard-refresh" style="margin-top: 10px;">
+                    <button class="btn btn-small" onclick="refreshAllDashboard()">
+                        <i class="fas fa-sync-alt"></i> Refresh All
+                    </button>
+                </div>
+            </div>
 
             <!-- Wallet Balances -->
             <div class="wallet-section">
@@ -142,41 +141,43 @@
 
             <!-- Dashboard Grid -->
             <div class="dashboard-grid">
-                <!-- Recent Activity -->
+                <!-- Recent Activities Section (UPDATED) -->
                 <div class="dashboard-card">
                     <div class="card-header">
-                        <h3><i class="fas fa-history"></i> Recent Activity</h3>
+                        <h3><i class="fas fa-history"></i> Recent Activities</h3>
                         <div class="header-actions">
-                            <button class="refresh-btn btn-icon" onclick="refreshRecentActivity()" title="Refresh">
+                            <button class="refresh-btn btn-icon" onclick="refreshRecentActivities()" title="Refresh">
                                 <i class="fas fa-sync-alt"></i>
                             </button>
-                            <a href="/activity" class="view-all">View All</a>
+                            <a href="/profile?tab=activity" class="view-all">View All</a>
                         </div>
                     </div>
                     <div class="card-content">
-                        <div class="activity-list" id="recentActivity">
-                            <div class="loading">Loading activity...</div>
+                        <div id="recentActivitiesList" class="activity-list">
+                            <div class="loading-state">
+                                <i class="fas fa-spinner fa-spin"></i> Loading activities...
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Your Top NFTs Section -->
-<div class="dashboard-card">
-    <div class="card-header">
-        <h3><i class="fas fa-gem"></i> Your Top NFTs</h3>
-        <div class="header-actions">
-            <button class="refresh-btn btn-icon" onclick="refreshUserNFTs()" title="Refresh">
-                <i class="fas fa-sync-alt"></i>
-            </button>
-            <a href="/profile#nfts" class="view-all">View All</a>
-        </div>
-    </div>
-    <div class="card-content">
-        <div class="nft-portfolio" id="userNFTs">
-            <div class="loading">Loading your NFTs...</div>
-        </div>
-    </div>
-</div>
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-gem"></i> Your Top NFTs</h3>
+                        <div class="header-actions">
+                            <button class="refresh-btn btn-icon" onclick="refreshUserNFTs()" title="Refresh">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                            <a href="/profile#nfts" class="view-all">View All</a>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="nft-portfolio" id="userNFTs">
+                            <div class="loading">Loading your NFTs...</div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Market Trends -->
                 <div class="dashboard-card">
@@ -229,5 +230,307 @@
     <script src="/js/eth-price-service.js"></script>
     <script src="/js/dashboard.js"></script>
 
+    <script>
+        // ========== DASHBOARD ACTIVITY FUNCTIONS ==========
+        
+        // Load recent activities on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRecentActivities();
+            loadUserNFTs();
+            updateBalances();
+        });
+
+        // Load recent activities from API
+        async function loadRecentActivities() {
+            console.log('📊 Loading recent activities...');
+            
+            const activityList = document.getElementById('recentActivitiesList');
+            if (!activityList) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    activityList.innerHTML = '<div class="empty-state">Please login to view activities</div>';
+                    return;
+                }
+                
+                const response = await fetch('/api/activity/recent', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayRecentActivities(data.activities);
+                } else {
+                    activityList.innerHTML = '<div class="empty-state">No activities found</div>';
+                }
+            } catch (error) {
+                console.error('Error loading activities:', error);
+                activityList.innerHTML = '<div class="empty-state error">Failed to load activities</div>';
+            }
+        }
+
+        // Display recent activities
+        function displayRecentActivities(activities) {
+            const activityList = document.getElementById('recentActivitiesList');
+            
+            if (!activities || activities.length === 0) {
+                activityList.innerHTML = '<div class="empty-state">No recent activities</div>';
+                return;
+            }
+            
+            activityList.innerHTML = '';
+            
+            activities.forEach(activity => {
+                const item = document.createElement('div');
+                item.className = 'activity-item';
+                
+                const date = new Date(activity.createdAt);
+                const timeAgo = getTimeAgo(date);
+                
+                // Get icon based on activity type
+                const icon = getActivityIcon(activity.type);
+                const color = getActivityColor(activity.type);
+                
+                item.innerHTML = `
+                    <div class="activity-icon" style="background: ${color}20; color: ${color};">
+                        ${icon}
+                    </div>
+                    <div class="activity-details">
+                        <div class="activity-title">${activity.title}</div>
+                        <div class="activity-description">${activity.description || ''}</div>
+                        <div class="activity-time">${timeAgo}</div>
+                    </div>
+                    ${activity.amount ? `
+                        <div class="activity-amount" style="color: ${color}">
+                            ${activity.amount} ${activity.currency || 'WETH'}
+                        </div>
+                    ` : ''}
+                `;
+                
+                activityList.appendChild(item);
+            });
+        }
+
+        // Get icon based on activity type
+        function getActivityIcon(type) {
+            const icons = {
+                'login': '🔐',
+                'logout': '👋',
+                'register': '📝',
+                'profile_update': '👤',
+                'nft_created': '🖼️',
+                'nft_purchased': '🛒',
+                'nft_sold': '💰',
+                'nft_listed': '🏷️',
+                'nft_unlisted': '🚫',
+                'nft_imported': '📦',
+                'nft_transferred': '🔄',
+                'funds_added': '➕',
+                'funds_withdrawn': '➖',
+                'deposit_received': '📥',
+                'withdrawal_requested': '📤',
+                'staking': '🔒',
+                'unstaking': '🔓',
+                'reward_claimed': '🎁',
+                'offer_made': '🤝',
+                'offer_accepted': '✅',
+                'offer_cancelled': '❌',
+                'collection_created': '📁',
+                'collection_updated': '📂'
+            };
+            return icons[type] || '📌';
+        }
+
+        // Get color based on activity type
+        function getActivityColor(type) {
+            const colors = {
+                'login': '#4CAF50',
+                'logout': '#f44336',
+                'register': '#2196F3',
+                'profile_update': '#9C27B0',
+                'nft_created': '#8a2be2',
+                'nft_purchased': '#00bcd4',
+                'nft_sold': '#ff9800',
+                'nft_listed': '#4CAF50',
+                'nft_unlisted': '#f44336',
+                'nft_imported': '#673ab7',
+                'nft_transferred': '#3f51b5',
+                'funds_added': '#4CAF50',
+                'funds_withdrawn': '#f44336',
+                'deposit_received': '#4CAF50',
+                'withdrawal_requested': '#ff9800',
+                'staking': '#2196F3',
+                'unstaking': '#ff9800',
+                'reward_claimed': '#ffc107',
+                'offer_made': '#9C27B0',
+                'offer_accepted': '#4CAF50',
+                'offer_cancelled': '#f44336',
+                'collection_created': '#8a2be2',
+                'collection_updated': '#673ab7'
+            };
+            return colors[type] || '#6c63ff';
+        }
+
+        // Get time ago string
+        function getTimeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            
+            const intervals = {
+                year: 31536000,
+                month: 2592000,
+                week: 604800,
+                day: 86400,
+                hour: 3600,
+                minute: 60
+            };
+            
+            for (const [unit, secondsInUnit] of Object.entries(intervals)) {
+                const interval = Math.floor(seconds / secondsInUnit);
+                if (interval >= 1) {
+                    return interval === 1 ? `1 ${unit} ago` : `${interval} ${unit}s ago`;
+                }
+            }
+            
+            return 'just now';
+        }
+
+        // Refresh recent activities
+        function refreshRecentActivities() {
+            const refreshBtn = document.querySelector('[onclick="refreshRecentActivities()"] i');
+            if (refreshBtn) {
+                refreshBtn.classList.add('fa-spin');
+            }
+            loadRecentActivities().finally(() => {
+                if (refreshBtn) {
+                    setTimeout(() => refreshBtn.classList.remove('fa-spin'), 500);
+                }
+            });
+        }
+
+        // Load user NFTs (existing function)
+        async function loadUserNFTs() {
+            const nftContainer = document.getElementById('userNFTs');
+            if (!nftContainer) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const userStr = localStorage.getItem('user');
+                if (!token || !userStr) return;
+                
+                const user = JSON.parse(userStr);
+                
+                const response = await fetch(`/api/user/${user._id || user.id}/nfts`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.nfts && data.nfts.length > 0) {
+                    displayUserNFTs(data.nfts.slice(0, 3)); // Show top 3
+                } else {
+                    nftContainer.innerHTML = '<div class="empty-state">No NFTs yet</div>';
+                }
+            } catch (error) {
+                console.error('Error loading NFTs:', error);
+                nftContainer.innerHTML = '<div class="empty-state error">Failed to load NFTs</div>';
+            }
+        }
+
+        // Display user NFTs
+        function displayUserNFTs(nfts) {
+            const nftContainer = document.getElementById('userNFTs');
+            nftContainer.innerHTML = '';
+            
+            nfts.forEach(nft => {
+                const card = document.createElement('div');
+                card.className = 'nft-mini-card';
+                card.onclick = () => window.location.href = `/nft/${nft._id}`;
+                
+                card.innerHTML = `
+                    <img src="${nft.image || 'https://picsum.photos/100/100?random=1'}" alt="${nft.name}" class="nft-mini-image">
+                    <div class="nft-mini-info">
+                        <div class="nft-mini-name">${nft.name || 'Unnamed NFT'}</div>
+                        <div class="nft-mini-price">${nft.price || 0} WETH</div>
+                    </div>
+                `;
+                
+                nftContainer.appendChild(card);
+            });
+        }
+
+        // Update balances
+        async function updateBalances() {
+            try {
+                const token = localStorage.getItem('token');
+                const userStr = localStorage.getItem('user');
+                if (!token || !userStr) return;
+                
+                const user = JSON.parse(userStr);
+                
+                // Update ETH and WETH balances from user object
+                document.getElementById('ethBalance').textContent = (user.internalBalance || 0).toFixed(4) + ' ETH';
+                document.getElementById('wethBalance').textContent = (user.wethBalance || 0).toFixed(4) + ' WETH';
+                
+                // Calculate portfolio value (simplified)
+                const ethPrice = window.ethPrice || 2500;
+                const portfolioValue = ((user.internalBalance || 0) + (user.wethBalance || 0)) * ethPrice;
+                document.getElementById('portfolioValue').textContent = '$' + portfolioValue.toFixed(2);
+                
+            } catch (error) {
+                console.error('Error updating balances:', error);
+            }
+        }
+
+        // Refresh all dashboard data
+        function refreshAllDashboard() {
+            refreshRecentActivities();
+            refreshUserNFTs();
+            updateBalances();
+        }
+
+        // Refresh user NFTs
+        function refreshUserNFTs() {
+            const refreshBtn = document.querySelector('[onclick="refreshUserNFTs()"] i');
+            if (refreshBtn) {
+                refreshBtn.classList.add('fa-spin');
+            }
+            loadUserNFTs().finally(() => {
+                if (refreshBtn) {
+                    setTimeout(() => refreshBtn.classList.remove('fa-spin'), 500);
+                }
+            });
+        }
+
+        // Transfer funds function
+        function transferFunds() {
+            window.location.href = '/transfer';
+        }
+
+        // Show staking
+        function showStaking() {
+            window.location.href = '/staking';
+        }
+
+        // Update market trends (placeholder)
+        function updateMarketTrends() {
+            // This would fetch real market data
+            console.log('Updating market trends...');
+        }
+
+        // Logout function
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+    </script>
 </body>
 </html>
