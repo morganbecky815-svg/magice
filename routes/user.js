@@ -58,8 +58,8 @@ router.get('/me/profile', auth, async (req, res) => {
         
         const user = await User.findById(req.user._id);
         
-        // Log login activity (already done in auth route, but just in case)
-        await ActivityLogger.logLogin(user._id);
+        // LOGIN ACTIVITY LOGGING REMOVED - Commented out to stop login entries
+        // await ActivityLogger.logLogin(user._id);
         
         res.json({
             success: true,
