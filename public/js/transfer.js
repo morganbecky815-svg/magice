@@ -532,6 +532,7 @@ function reviewWithdrawal() {
     modal.style.display = 'flex';
 }
 
+// ========== FIXED: EXECUTE WITHDRAWAL - ALWAYS PENDING ==========
 function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
     const confirmBtn = document.getElementById('confirmWithdrawalBtn');
     if (confirmBtn) {
@@ -550,6 +551,11 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
             const token = localStorage.getItem('token') || localStorage.getItem('authToken');
             const user = JSON.parse(localStorage.getItem('user'));
             
+            console.log('📤 Sending withdrawal request:', {
+                amount: cryptoAmount,
+                toAddress: user.depositAddress
+            });
+            
             const response = await fetch('/api/withdraw/request', {
                 method: 'POST',
                 headers: {
@@ -563,25 +569,34 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
             });
             
             const data = await response.json();
+            console.log('📥 Withdrawal response:', data);
             
             if (data.success) {
+                // Add to transaction history with PENDING status
                 const newTransaction = {
                     id: Date.now(),
                     type: 'withdrawal',
                     amount: amount,
                     currency: 'USD',
-                    status: 'pending',
-                    note: (method === 'instant' ? 'Instant' : 'Standard') + ' bank withdrawal to ' + bankDetails.bankName,
+                    status: 'pending', // This must be 'pending' not 'completed'
+                    note: (method === 'instant' ? 'Instant' : 'Standard') + ' withdrawal to ' + bankDetails.bankName + ' (Pending Admin Approval)',
                     createdAt: new Date().toISOString()
                 };
+                
                 transferData.transactions.unshift(newTransaction);
                 updateTransactionHistoryDisplay();
                 
                 closeWithdrawalModal();
+                
+                // Show pending message, not success
                 alert('✅ Withdrawal request submitted! It is now pending admin approval. You will be notified once processed.');
+                
+                // Clear the form
                 document.getElementById('withdrawAmount').value = '';
                 
+                // Refresh user data (balance should NOT be deducted yet)
                 await fetchUserFromBackend();
+                
             } else {
                 alert('❌ Error: ' + (data.error || 'Failed to submit withdrawal'));
             }
