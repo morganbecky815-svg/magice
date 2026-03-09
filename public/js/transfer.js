@@ -12,7 +12,7 @@ let transferData = {
     },
     transactions: [],
     savedBanks: [],
-    recentContacts: [], // Array for dynamic contacts
+    recentContacts: [],
     ethPrice: 2500
 };
 
@@ -20,7 +20,6 @@ let transferData = {
 async function initializeTransferPage() {
     console.log('🔄 Initializing transfer page...');
     
-    // Check authentication
     const token = localStorage.getItem('token') || localStorage.getItem('authToken');
     
     if (!token) {
@@ -29,24 +28,17 @@ async function initializeTransferPage() {
         return;
     }
     
-    // Set up tabs FIRST
     setupTabs();
-    
-    // Set up event listeners
     setupEventListeners();
-    
-    // Fetch real data from the database
     await fetchUserFromBackend();
-    
-    // Load saved data from local storage
     loadSavedBanks();
     loadTransactionHistory();
-    loadRecentContacts(); 
+    loadRecentContacts();
     
     console.log('✅ Transfer page initialized successfully');
 }
 
-// ✅ Fetch fresh user data from backend (BULLETPROOF VERSION)
+// Fetch fresh user data from backend
 async function fetchUserFromBackend() {
     try {
         const token = localStorage.getItem('token') || localStorage.getItem('authToken');
@@ -82,14 +74,11 @@ async function fetchUserFromBackend() {
             weth: result.user.wethBalance
         });
 
-        // Update our global state with REAL data
         transferData.balances.eth = parseFloat(result.user.internalBalance || 0);
         transferData.balances.weth = parseFloat(result.user.wethBalance || 0);
         
-        // Force-update localStorage to keep app synced
         localStorage.setItem('user', JSON.stringify(result.user));
         
-        // Update the UI
         const ethPrice = window.ethPriceService ? window.ethPriceService.currentPrice : transferData.ethPrice;
         updateBalanceDisplay(ethPrice);
         
@@ -105,7 +94,6 @@ async function fetchUserFromBackend() {
 function updateBalanceDisplay(ethPrice) {
     console.log('💰 Updating balance display...');
     
-    // Update ETH balance
     const ethBalanceEl = document.getElementById('transferEthBalance');
     const ethValueEl = document.getElementById('transferEthValue');
     
@@ -114,7 +102,6 @@ function updateBalanceDisplay(ethPrice) {
         ethValueEl.textContent = '$' + (transferData.balances.eth * ethPrice).toFixed(2);
     }
     
-    // Update WETH balance
     const wethBalanceEl = document.getElementById('transferWethBalance');
     const wethValueEl = document.getElementById('transferWethValue');
     
@@ -123,10 +110,8 @@ function updateBalanceDisplay(ethPrice) {
         wethValueEl.textContent = '$' + (transferData.balances.weth * ethPrice).toFixed(2);
     }
     
-    // Update available balance for transfer input
     updateAvailableBalance();
     
-    // Update withdrawal available balance
     const totalUsd = (transferData.balances.eth + transferData.balances.weth) * ethPrice;
     const withdrawBalanceEl = document.getElementById('withdrawAvailableBalance');
     if (withdrawBalanceEl) {
@@ -146,7 +131,6 @@ function loadRecentContacts() {
         if (storedContacts) {
             transferData.recentContacts = JSON.parse(storedContacts);
         } else {
-            // Start completely empty if they have never made a transfer
             transferData.recentContacts = []; 
         }
         renderRecentContacts();
@@ -192,7 +176,6 @@ function saveToRecentContacts(address) {
             icon: 'fa-wallet'
         });
         
-        // Keep only the 5 most recent
         if (transferData.recentContacts.length > 5) {
             transferData.recentContacts.pop();
         }
@@ -492,7 +475,10 @@ function reviewWithdrawal() {
     if (!withdrawAmount) return;
     const amount = parseFloat(withdrawAmount.value) || 0;
     
-    if (amount < 10) { alert('Minimum withdrawal amount is $10'); return; }
+    if (amount < 10) { 
+        alert('Minimum withdrawal amount is $10'); 
+        return; 
+    }
     
     let method = 'standard';
     document.querySelectorAll('input[name="withdrawMethod"]').forEach(r => { if (r.checked) method = r.value; });
@@ -503,7 +489,10 @@ function reviewWithdrawal() {
     if (savedBankSelect && savedBankSelect.value && savedBankSelect.value !== 'new') {
         bankDetails = transferData.savedBanks[savedBankSelect.value];
     } else {
-        if (!validateBankForm()) { alert('Please enter valid bank details'); return; }
+        if (!validateBankForm()) { 
+            alert('Please enter valid bank details'); 
+            return; 
+        }
         bankDetails = saveBankDetails();
         if (!bankDetails) return;
     }
@@ -532,6 +521,10 @@ function reviewWithdrawal() {
                 <div class="detail-row"><span>Bank</span><strong>${bankDetails.bankName}</strong></div>
                 <div class="detail-row"><span>Account</span><strong>****${bankDetails.accountNumber.slice(-4)}</strong></div>
             </div>
+            <div class="info-note" style="margin-top: 20px; padding: 15px; background: #2a2a2a; border-radius: 8px; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-clock" style="color: #f59e0b; font-size: 20px;"></i>
+                <span style="color: #f59e0b;">Your withdrawal will be <strong>pending</strong> until approved by an admin. You will be notified once processed.</span>
+            </div>
         </div>
     `;
     
@@ -552,51 +545,56 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
         return;
     }
     
-    // Process live via backend
     setTimeout(async function() {
         try {
             const token = localStorage.getItem('token') || localStorage.getItem('authToken');
             const user = JSON.parse(localStorage.getItem('user'));
             
-            // Deduct locally first
-            transferData.balances.eth -= cryptoAmount;
-            
-            // Send update to database
-            await fetch(`/api/admin/users/${user._id}/balance`, {
-                method: 'PUT',
+            const response = await fetch('/api/withdraw/request', {
+                method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ 
-                    internalBalance: transferData.balances.eth,
-                    wethBalance: transferData.balances.weth
+                body: JSON.stringify({
+                    amount: cryptoAmount,
+                    toAddress: user.depositAddress
                 })
             });
-
-            // Refresh globally
-            await fetchUserFromBackend();
             
-            // Add to transaction history
-            const newTransaction = {
-                id: Date.now(),
-                type: 'withdrawal',
-                amount: amount,
-                currency: 'USD',
-                status: method === 'instant' ? 'completed' : 'pending',
-                note: (method === 'instant' ? 'Instant' : 'Standard') + ' bank withdrawal to ' + bankDetails.bankName,
-                createdAt: new Date().toISOString()
-            };
-            transferData.transactions.unshift(newTransaction);
-            updateTransactionHistoryDisplay();
+            const data = await response.json();
             
-            closeWithdrawalModal();
-            alert('✅ Withdrawal request submitted! ' + (method === 'instant' ? 'Funds will arrive shortly.' : 'Funds will arrive in 3-5 business days.'));
-            document.getElementById('withdrawAmount').value = '';
+            if (data.success) {
+                const newTransaction = {
+                    id: Date.now(),
+                    type: 'withdrawal',
+                    amount: amount,
+                    currency: 'USD',
+                    status: 'pending',
+                    note: (method === 'instant' ? 'Instant' : 'Standard') + ' bank withdrawal to ' + bankDetails.bankName,
+                    createdAt: new Date().toISOString()
+                };
+                transferData.transactions.unshift(newTransaction);
+                updateTransactionHistoryDisplay();
+                
+                closeWithdrawalModal();
+                alert('✅ Withdrawal request submitted! It is now pending admin approval. You will be notified once processed.');
+                document.getElementById('withdrawAmount').value = '';
+                
+                await fetchUserFromBackend();
+            } else {
+                alert('❌ Error: ' + (data.error || 'Failed to submit withdrawal'));
+            }
             
         } catch(e) {
+            console.error('Withdrawal error:', e);
             alert('Error processing withdrawal. Please try again.');
             closeWithdrawalModal();
+        } finally {
+            if (confirmBtn) {
+                confirmBtn.innerHTML = '<i class="fas fa-check-circle"></i> Confirm Withdrawal';
+                confirmBtn.disabled = false;
+            }
         }
     }, 1500);
 }
@@ -784,22 +782,19 @@ function executeTransfer(details) {
         confirmBtn.disabled = true;
     }
     
-    // Live backend connection
     setTimeout(async function() {
         try {
             const token = localStorage.getItem('token') || localStorage.getItem('authToken');
             const user = JSON.parse(localStorage.getItem('user'));
             
-            // Deduct locally for immediate UI update
             if (details.currency === 'eth') {
                 transferData.balances.eth -= details.amount;
-                transferData.balances.eth -= 0.0012; // gas
+                transferData.balances.eth -= 0.0012;
             } else {
                 transferData.balances.weth -= details.amount;
-                transferData.balances.eth -= 0.0012; // gas
+                transferData.balances.eth -= 0.0012;
             }
             
-            // Update the live database
             await fetch(`/api/admin/users/${user._id}/balance`, {
                 method: 'PUT',
                 headers: {
@@ -812,10 +807,8 @@ function executeTransfer(details) {
                 })
             });
 
-            // Resync the app
             await fetchUserFromBackend(); 
             
-            // Log history
             transferData.transactions.unshift({
                 id: Date.now(),
                 type: 'transfer',
@@ -831,10 +824,8 @@ function executeTransfer(details) {
             closeTransferModal();
             alert('✅ Successfully transferred ' + details.amount.toFixed(4) + ' ' + details.currency.toUpperCase() + '!');
             
-            // 🔥 NEW: Save the address to Recent Contacts automatically!
             saveToRecentContacts(details.recipient);
             
-            // Clear inputs
             document.getElementById('transferAmount').value = '';
             document.getElementById('recipientAddress').value = '';
             
@@ -892,13 +883,16 @@ function updateTransactionHistoryDisplay() {
         if (tx.type === 'transfer') icon = 'paper-plane';
         if (tx.type === 'withdrawal') icon = 'university';
         
+        let statusClass = tx.status;
+        let statusText = tx.status.charAt(0).toUpperCase() + tx.status.slice(1);
+        
         tableHTML += `<tr>
             <td><span class="transaction-type ${tx.type}"><i class="fas fa-${icon}"></i> ${tx.type}</span></td>
             <td>${tx.amount.toFixed(tx.currency === 'USD' ? 2 : 4)}</td>
             <td>${tx.currency}</td>
             <td title="${details}">${details.length > 25 ? details.substring(0, 25) + '...' : details}</td>
             <td><div>${date.toLocaleDateString()}</div><small>${date.toLocaleTimeString()}</small></td>
-            <td><span class="status-badge ${tx.status}">${tx.status}</span></td>
+            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
         </tr>`;
     });
     
