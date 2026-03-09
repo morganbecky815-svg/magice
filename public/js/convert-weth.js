@@ -1,4 +1,6 @@
 // convert-weth.js - COMPLETE FIXED VERSION with bulletproof auth & data syncing
+// MODIFIED: Users can only convert ALL WETH at once, not partial amounts
+
 console.log('💱 convert-weth.js loaded');
 
 let currentConversionType = 'ethToWeth';
@@ -169,10 +171,16 @@ function displayUserData(user) {
         updateElementText('fromBalance', userEthBalance.toFixed(4));
         updateElementText('toBalance', userWethBalance.toFixed(4));
         updateElementText('availableBalance', userEthBalance.toFixed(4));
+        
+        // For ETH to WETH, set the input field to show the full balance
+        updateFullBalanceInput();
     } else {
         updateElementText('fromBalance', userWethBalance.toFixed(4));
         updateElementText('toBalance', userEthBalance.toFixed(4));
         updateElementText('availableBalance', userWethBalance.toFixed(4));
+        
+        // For WETH to ETH, set the input field to show the full WETH balance
+        updateFullBalanceInput();
     }
 }
 
@@ -180,6 +188,27 @@ function displayUserData(user) {
 function updateElementText(id, text) {
     const el = document.getElementById(id);
     if (el) el.textContent = text;
+}
+
+// ✅ NEW FUNCTION: Update input to show full balance (readonly)
+function updateFullBalanceInput() {
+    const amountInput = document.getElementById('convertAmount');
+    if (!amountInput) return;
+    
+    if (currentConversionType === 'ethToWeth') {
+        amountInput.value = userEthBalance.toFixed(4);
+        amountInput.setAttribute('readonly', true);
+        amountInput.style.backgroundColor = '#1a1a1a';
+        amountInput.style.cursor = 'not-allowed';
+    } else {
+        amountInput.value = userWethBalance.toFixed(4);
+        amountInput.setAttribute('readonly', true);
+        amountInput.style.backgroundColor = '#1a1a1a';
+        amountInput.style.cursor = 'not-allowed';
+    }
+    
+    // Update the preview
+    updateConversionPreview();
 }
 
 // Show loading states
@@ -253,7 +282,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 function setupEventListeners() {
     const amountInput = document.getElementById('convertAmount');
     if (amountInput) {
-        amountInput.addEventListener('input', updateConversionPreview);
+        // No input event needed since it's readonly now
+        amountInput.addEventListener('click', function() {
+            // Just update the preview to show current balance
+            updateConversionPreview();
+        });
     }
 }
 
@@ -272,7 +305,7 @@ function selectConversionType(type) {
         updateElementText('toSymbol', 'WETH');
         updateElementText('inputCurrency', 'ETH');
         updateElementText('availableCurrency', 'ETH');
-        updateElementText('receiveAmount', '0.0000 WETH');
+        updateElementText('receiveAmount', `${userWethBalance.toFixed(4)} WETH`);
         
         const warningEl = document.getElementById('ethBalanceWarning');
         if (warningEl) warningEl.style.display = 'none';
@@ -288,7 +321,7 @@ function selectConversionType(type) {
         updateElementText('toSymbol', 'ETH');
         updateElementText('inputCurrency', 'WETH');
         updateElementText('availableCurrency', 'WETH');
-        updateElementText('receiveAmount', '0.0000 ETH');
+        updateElementText('receiveAmount', `${userEthBalance.toFixed(4)} ETH`);
         
         checkEthBalanceRequirement();
         
@@ -298,9 +331,8 @@ function selectConversionType(type) {
         updateElementText('availableBalance', userWethBalance.toFixed(4));
     }
     
-    const amountInput = document.getElementById('convertAmount');
-    if (amountInput) amountInput.value = '';
-    
+    // Update the input to show full balance
+    updateFullBalanceInput();
     updateConversionPreview();
 }
 
@@ -321,64 +353,50 @@ function checkEthBalanceRequirement() {
     }
 }
 
-// Set maximum amount
+// ✅ MODIFIED: Set max amount now just updates the preview (input is readonly)
 function setMaxAmount() {
-    let maxAmount = 0;
-    
-    if (currentConversionType === 'ethToWeth') {
-        maxAmount = userEthBalance;
-    } else {
-        const requiredEth = userWethBalance * 0.15;
-        
-        if (userEthBalance < requiredEth) {
-            alert(`Cannot convert WETH to ETH. You need at least ${requiredEth.toFixed(4)} ETH balance to cover fees.`);
-            return;
-        }
-        maxAmount = userWethBalance;
-    }
-    
-    const amountInput = document.getElementById('convertAmount');
-    if (amountInput) {
-        amountInput.value = (maxAmount * 0.99).toFixed(4); // Leave a tiny bit for dust rounding
-        updateConversionPreview();
-    }
+    // Just update the preview to show current balance
+    updateConversionPreview();
+    alert(`You can only convert your entire ${currentConversionType === 'ethToWeth' ? 'ETH' : 'WETH'} balance at once.`);
 }
 
-// Update conversion preview
+// ✅ MODIFIED: Update conversion preview (now just shows full balance)
 function updateConversionPreview() {
-    const amountInput = document.getElementById('convertAmount');
     const convertBtn = document.getElementById('convertBtn');
+    if (!convertBtn) return;
     
-    if (!amountInput || !convertBtn) return;
-    
-    const amount = parseFloat(amountInput.value) || 0;
-    convertBtn.disabled = true;
-    
-    if (amount <= 0) {
-        const receiveText = currentConversionType === 'ethToWeth' ? '0.0000 WETH' : '0.0000 ETH';
-        updateElementText('toBalance', '0.0000');
-        updateElementText('receiveAmount', receiveText);
-        return;
-    }
-    
+    let amount = 0;
     let hasEnoughBalance = false;
+    
     if (currentConversionType === 'ethToWeth') {
-        hasEnoughBalance = amount <= userEthBalance;
+        amount = userEthBalance;
+        hasEnoughBalance = amount > 0;
+        
+        if (!hasEnoughBalance) {
+            updateElementText('toBalance', '0.0000');
+            updateElementText('receiveAmount', '0.0000 WETH');
+            convertBtn.disabled = true;
+            return;
+        }
+        
     } else {
-        hasEnoughBalance = amount <= userWethBalance;
+        amount = userWethBalance;
+        hasEnoughBalance = amount > 0;
+        
         if (hasEnoughBalance) {
             const requiredEth = amount * 0.15;
             if (userEthBalance < requiredEth) {
-                alert(`Insufficient ETH balance. Need ${requiredEth.toFixed(4)} ETH for this conversion.`);
-                hasEnoughBalance = false;
+                updateElementText('toBalance', 'Insufficient ETH for fees');
+                updateElementText('receiveAmount', 'Insufficient ETH for fees');
+                convertBtn.disabled = true;
+                return;
             }
+        } else {
+            updateElementText('toBalance', '0.0000');
+            updateElementText('receiveAmount', '0.0000 ETH');
+            convertBtn.disabled = true;
+            return;
         }
-    }
-    
-    if (!hasEnoughBalance) {
-        updateElementText('toBalance', 'Insufficient');
-        updateElementText('receiveAmount', 'Insufficient balance');
-        return;
     }
     
     const receive = amount;
@@ -397,11 +415,16 @@ function updateConversionPreview() {
 
 // Execute conversion
 async function executeConversion() {
-    const amountInput = document.getElementById('convertAmount');
-    const amount = parseFloat(amountInput?.value || 0);
+    let amount = 0;
     
-    if (isNaN(amount) || amount <= 0) {
-        alert('Please enter a valid amount');
+    if (currentConversionType === 'ethToWeth') {
+        amount = userEthBalance;
+    } else {
+        amount = userWethBalance;
+    }
+    
+    if (amount <= 0) {
+        alert('No balance to convert');
         return;
     }
     
@@ -416,18 +439,8 @@ async function executeConversion() {
     
     const user = JSON.parse(userStr);
     
-    // Validate balance locally before sending
-    if (currentConversionType === 'ethToWeth' && amount > userEthBalance) {
-        alert(`Insufficient ETH balance. You have ${userEthBalance.toFixed(4)} ETH.`);
-        return;
-    }
-    
+    // Validate WETH to ETH requirement
     if (currentConversionType === 'wethToEth') {
-        if (amount > userWethBalance) {
-            alert(`Insufficient WETH balance. You have ${userWethBalance.toFixed(4)} WETH.`);
-            return;
-        }
-        
         const requiredEth = amount * 0.15;
         if (userEthBalance < requiredEth) {
             alert(`Cannot convert. You need at least ${requiredEth.toFixed(4)} ETH balance.`);
@@ -447,7 +460,7 @@ async function executeConversion() {
             ? `/api/user/${user._id}/convert-to-weth`
             : `/api/user/${user._id}/convert-to-eth`;
         
-        console.log(`📤 Calling endpoint: ${endpoint}`);
+        console.log(`📤 Calling endpoint: ${endpoint} with amount: ${amount}`);
         
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -474,8 +487,7 @@ async function executeConversion() {
                 localStorage.setItem('magicEdenCurrentUser', JSON.stringify(data.user));
             }
             
-            // Refresh the page to show updated balances cleanly
-            alert(`✅ Successfully converted ${amount.toFixed(4)}!`);
+            alert(`✅ Successfully converted your entire ${currentConversionType === 'ethToWeth' ? 'ETH' : 'WETH'} balance!`);
             window.location.reload();
         }
         
@@ -504,4 +516,4 @@ window.setMaxAmount = setMaxAmount;
 window.updateConversionPreview = updateConversionPreview;
 window.executeConversion = executeConversion;
 
-console.log('✅ Complete convert-weth.js loaded successfully');
+console.log('✅ Complete convert-weth.js loaded successfully (Modified: Full balance conversion only)');
