@@ -3,14 +3,13 @@ const express = require('express');
 const router = express.Router();
 const { auth } = require('../middleware/auth');
 const { adminAuth } = require('../middleware/auth');
-const checkCommission = require('../middleware/checkCommission');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 
 // ========================
 // USER: REQUEST WITHDRAWAL - ALWAYS PENDING
 // ========================
-router.post('/request', auth, checkCommission, async (req, res) => {
+router.post('/request', auth, async (req, res) => {
     try {
         const { amount, toAddress } = req.body;
         const user = req.user;
@@ -66,7 +65,6 @@ router.post('/request', auth, checkCommission, async (req, res) => {
                 requestedAt: new Date(),
                 requestedBy: user.email,
                 userName: user.fullName || user.email,
-                commissionStatus: 'cleared',
                 originalBalance: user.internalBalance
             }
         });
@@ -194,33 +192,6 @@ router.post('/cancel/:transactionId', auth, async (req, res) => {
         res.status(500).json({ 
             success: false, 
             error: 'Failed to cancel withdrawal' 
-        });
-    }
-});
-
-// ========================
-// USER: GET COMMISSION STATUS
-// ========================
-router.get('/commission-status', auth, async (req, res) => {
-    try {
-        const user = await User.findById(req.user._id);
-        
-        res.json({
-            success: true,
-            commission: {
-                due: user.commissionDue || 0,
-                totalSales: user.totalSales || 0,
-                totalCommissionOwed: user.totalCommissionOwed || 0,
-                totalCommissionPaid: user.totalCommissionPaid || 0,
-                lastSettlement: user.lastCommissionSettlement
-            },
-            canWithdraw: (user.commissionDue || 0) === 0
-        });
-    } catch (error) {
-        console.error('Commission status error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to fetch commission status'
         });
     }
 });
