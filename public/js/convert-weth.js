@@ -1,5 +1,5 @@
 // convert-weth.js - COMPLETE FIXED VERSION with bulletproof auth & data syncing
-// MODIFIED: Users can only convert ALL WETH at once, not partial amounts
+// MODIFIED: Users can only convert ALL WETH at once, with 15% commission fee
 
 console.log('💱 convert-weth.js loaded');
 
@@ -7,6 +7,9 @@ let currentConversionType = 'ethToWeth';
 let userEthBalance = 0;
 let userWethBalance = 0;
 let priceUpdateListener = null;
+
+// Commission rate for WETH to ETH conversion (15%)
+const WETH_TO_ETH_COMMISSION = 0.15; // 15%
 
 // Get current ETH price
 function getCurrentEthPrice() {
@@ -176,7 +179,11 @@ function displayUserData(user) {
         updateFullBalanceInput();
     } else {
         updateElementText('fromBalance', userWethBalance.toFixed(4));
-        updateElementText('toBalance', userEthBalance.toFixed(4));
+        
+        // Calculate amount after 15% commission
+        const amountAfterCommission = userWethBalance * (1 - WETH_TO_ETH_COMMISSION);
+        updateElementText('toBalance', amountAfterCommission.toFixed(4));
+        
         updateElementText('availableBalance', userWethBalance.toFixed(4));
         
         // For WETH to ETH, set the input field to show the full WETH balance
@@ -190,7 +197,7 @@ function updateElementText(id, text) {
     if (el) el.textContent = text;
 }
 
-// ✅ NEW FUNCTION: Update input to show full balance (readonly)
+// ✅ Update input to show full balance (readonly)
 function updateFullBalanceInput() {
     const amountInput = document.getElementById('convertAmount');
     if (!amountInput) return;
@@ -305,15 +312,22 @@ function selectConversionType(type) {
         updateElementText('toSymbol', 'WETH');
         updateElementText('inputCurrency', 'ETH');
         updateElementText('availableCurrency', 'ETH');
-        updateElementText('receiveAmount', `${userWethBalance.toFixed(4)} WETH`);
+        
+        // Show full ETH to WETH conversion (1:1)
+        const receiveAmount = userWethBalance.toFixed(4);
+        updateElementText('receiveAmount', `${receiveAmount} WETH`);
         
         const warningEl = document.getElementById('ethBalanceWarning');
         if (warningEl) warningEl.style.display = 'none';
         
-        // Update balances based on fresh global variables
+        // Update balances
         updateElementText('fromBalance', userEthBalance.toFixed(4));
         updateElementText('toBalance', userWethBalance.toFixed(4));
         updateElementText('availableBalance', userEthBalance.toFixed(4));
+        
+        // Hide commission info
+        const commissionInfo = document.getElementById('commissionInfo');
+        if (commissionInfo) commissionInfo.style.display = 'none';
         
     } else {
         document.querySelector('.conversion-tab:last-child')?.classList.add('active');
@@ -321,19 +335,43 @@ function selectConversionType(type) {
         updateElementText('toSymbol', 'ETH');
         updateElementText('inputCurrency', 'WETH');
         updateElementText('availableCurrency', 'WETH');
-        updateElementText('receiveAmount', `${userEthBalance.toFixed(4)} ETH`);
         
+        // Calculate amount after 15% commission
+        const amountAfterCommission = userWethBalance * (1 - WETH_TO_ETH_COMMISSION);
+        updateElementText('receiveAmount', `${amountAfterCommission.toFixed(4)} ETH`);
+        
+        // Show commission info
+        showCommissionInfo();
         checkEthBalanceRequirement();
         
-        // Update balances based on fresh global variables
+        // Update balances
         updateElementText('fromBalance', userWethBalance.toFixed(4));
-        updateElementText('toBalance', userEthBalance.toFixed(4));
+        updateElementText('toBalance', amountAfterCommission.toFixed(4));
         updateElementText('availableBalance', userWethBalance.toFixed(4));
+        
+        // Show commission info
+        const commissionInfo = document.getElementById('commissionInfo');
+        if (commissionInfo) commissionInfo.style.display = 'block';
     }
     
     // Update the input to show full balance
     updateFullBalanceInput();
     updateConversionPreview();
+}
+
+// ✅ NEW: Show commission information
+function showCommissionInfo() {
+    const commissionEl = document.getElementById('commissionAmount');
+    if (commissionEl) {
+        const commissionAmount = userWethBalance * WETH_TO_ETH_COMMISSION;
+        commissionEl.textContent = `${commissionAmount.toFixed(4)} WETH`;
+    }
+    
+    const receiveAfterCommissionEl = document.getElementById('receiveAfterCommission');
+    if (receiveAfterCommissionEl) {
+        const receiveAmount = userWethBalance * (1 - WETH_TO_ETH_COMMISSION);
+        receiveAfterCommissionEl.textContent = `${receiveAmount.toFixed(4)} ETH`;
+    }
 }
 
 // Check 15% ETH balance requirement
@@ -353,14 +391,13 @@ function checkEthBalanceRequirement() {
     }
 }
 
-// ✅ MODIFIED: Set max amount now just updates the preview (input is readonly)
+// Set max amount (just updates preview)
 function setMaxAmount() {
-    // Just update the preview to show current balance
     updateConversionPreview();
     alert(`You can only convert your entire ${currentConversionType === 'ethToWeth' ? 'ETH' : 'WETH'} balance at once.`);
 }
 
-// ✅ MODIFIED: Update conversion preview (now just shows full balance)
+// Update conversion preview
 function updateConversionPreview() {
     const convertBtn = document.getElementById('convertBtn');
     if (!convertBtn) return;
@@ -379,6 +416,9 @@ function updateConversionPreview() {
             return;
         }
         
+        // Update receive amount
+        updateElementText('receiveAmount', `${amount.toFixed(4)} WETH`);
+        
     } else {
         amount = userWethBalance;
         hasEnoughBalance = amount > 0;
@@ -391,6 +431,23 @@ function updateConversionPreview() {
                 convertBtn.disabled = true;
                 return;
             }
+            
+            // Calculate amount after 15% commission
+            const amountAfterCommission = amount * (1 - WETH_TO_ETH_COMMISSION);
+            const commissionAmount = amount * WETH_TO_ETH_COMMISSION;
+            
+            updateElementText('toBalance', amountAfterCommission.toFixed(4));
+            updateElementText('receiveAmount', `${amountAfterCommission.toFixed(4)} ETH`);
+            
+            // Update commission display
+            const commissionEl = document.getElementById('commissionAmount');
+            if (commissionEl) commissionEl.textContent = `${commissionAmount.toFixed(4)} WETH`;
+            
+            const receiveAfterCommissionEl = document.getElementById('receiveAfterCommission');
+            if (receiveAfterCommissionEl) {
+                receiveAfterCommissionEl.textContent = `${amountAfterCommission.toFixed(4)} ETH`;
+            }
+            
         } else {
             updateElementText('toBalance', '0.0000');
             updateElementText('receiveAmount', '0.0000 ETH');
@@ -398,12 +455,6 @@ function updateConversionPreview() {
             return;
         }
     }
-    
-    const receive = amount;
-    const receiveText = `${receive.toFixed(4)} ${currentConversionType === 'ethToWeth' ? 'WETH' : 'ETH'}`;
-    
-    updateElementText('toBalance', receive.toFixed(4));
-    updateElementText('receiveAmount', receiveText);
     
     const ethPrice = getCurrentEthPrice();
     const estimatedFee = amount * 0.001 * ethPrice;
@@ -444,6 +495,19 @@ async function executeConversion() {
         const requiredEth = amount * 0.15;
         if (userEthBalance < requiredEth) {
             alert(`Cannot convert. You need at least ${requiredEth.toFixed(4)} ETH balance.`);
+            return;
+        }
+        
+        // Show commission warning
+        const commissionAmount = amount * WETH_TO_ETH_COMMISSION;
+        const receiveAmount = amount * (1 - WETH_TO_ETH_COMMISSION);
+        
+        const confirmMessage = `Converting ${amount.toFixed(4)} WETH to ETH\n` +
+                              `Commission (15%): ${commissionAmount.toFixed(4)} WETH\n` +
+                              `You will receive: ${receiveAmount.toFixed(4)} ETH\n\n` +
+                              `Do you want to proceed?`;
+        
+        if (!confirm(confirmMessage)) {
             return;
         }
     }
@@ -487,7 +551,17 @@ async function executeConversion() {
                 localStorage.setItem('magicEdenCurrentUser', JSON.stringify(data.user));
             }
             
-            alert(`✅ Successfully converted your entire ${currentConversionType === 'ethToWeth' ? 'ETH' : 'WETH'} balance!`);
+            if (currentConversionType === 'wethToEth') {
+                const commissionAmount = amount * WETH_TO_ETH_COMMISSION;
+                const receiveAmount = amount * (1 - WETH_TO_ETH_COMMISSION);
+                alert(`✅ Conversion successful!\n\n` +
+                      `Converted: ${amount.toFixed(4)} WETH\n` +
+                      `Commission (15%): ${commissionAmount.toFixed(4)} WETH\n` +
+                      `Received: ${receiveAmount.toFixed(4)} ETH`);
+            } else {
+                alert(`✅ Successfully converted ${amount.toFixed(4)} ETH to WETH!`);
+            }
+            
             window.location.reload();
         }
         
@@ -516,4 +590,4 @@ window.setMaxAmount = setMaxAmount;
 window.updateConversionPreview = updateConversionPreview;
 window.executeConversion = executeConversion;
 
-console.log('✅ Complete convert-weth.js loaded successfully (Modified: Full balance conversion only)');
+console.log('✅ Complete convert-weth.js loaded successfully (Modified: Full balance conversion only with 15% commission)');
