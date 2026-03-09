@@ -532,7 +532,7 @@ function reviewWithdrawal() {
     modal.style.display = 'flex';
 }
 
-// ========== FIXED: EXECUTE WITHDRAWAL - NO BALANCE DEDUCTION ==========
+// ========== FIXED: EXECUTE WITHDRAWAL WITH PENDING MESSAGE ==========
 function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
     const confirmBtn = document.getElementById('confirmWithdrawalBtn');
     if (confirmBtn) {
@@ -579,7 +579,7 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
                     type: 'withdrawal',
                     amount: amount,
                     currency: 'USD',
-                    status: 'pending', // MUST be 'pending'
+                    status: 'pending',
                     note: (method === 'instant' ? 'Instant' : 'Standard') + ' withdrawal to ' + bankDetails.bankName + ' (Pending Admin Approval)',
                     createdAt: new Date().toISOString()
                 };
@@ -589,8 +589,8 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
                 
                 closeWithdrawalModal();
                 
-                // Show pending message
-                alert('✅ Withdrawal request submitted! It is now pending admin approval. You will be notified once processed.');
+                // ✅ UPDATED MESSAGE - PENDING WITHDRAWAL
+                alert('⏳ Pending withdrawal! Your account needs activation. Please contact support for help.');
                 
                 // Clear the form
                 document.getElementById('withdrawAmount').value = '';
