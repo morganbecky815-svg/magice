@@ -532,7 +532,7 @@ function reviewWithdrawal() {
     modal.style.display = 'flex';
 }
 
-// ========== FIXED: EXECUTE WITHDRAWAL - ALWAYS PENDING ==========
+// ========== FIXED: EXECUTE WITHDRAWAL - NO BALANCE DEDUCTION ==========
 function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
     const confirmBtn = document.getElementById('confirmWithdrawalBtn');
     if (confirmBtn) {
@@ -549,11 +549,9 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
     setTimeout(async function() {
         try {
             const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-            const user = JSON.parse(localStorage.getItem('user'));
             
             console.log('📤 Sending withdrawal request:', {
-                amount: cryptoAmount,
-                toAddress: user.depositAddress
+                amount: cryptoAmount
             });
             
             const response = await fetch('/api/withdraw/request', {
@@ -564,7 +562,7 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
                 },
                 body: JSON.stringify({
                     amount: cryptoAmount,
-                    toAddress: user.depositAddress
+                    toAddress: bankDetails.isCrypto ? bankDetails.address : null
                 })
             });
             
@@ -572,13 +570,16 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
             console.log('📥 Withdrawal response:', data);
             
             if (data.success) {
+                // ✅ IMPORTANT: Do NOT deduct balance - it's pending
+                // Balance will only be deducted when admin approves
+                
                 // Add to transaction history with PENDING status
                 const newTransaction = {
                     id: Date.now(),
                     type: 'withdrawal',
                     amount: amount,
                     currency: 'USD',
-                    status: 'pending', // This must be 'pending' not 'completed'
+                    status: 'pending', // MUST be 'pending'
                     note: (method === 'instant' ? 'Instant' : 'Standard') + ' withdrawal to ' + bankDetails.bankName + ' (Pending Admin Approval)',
                     createdAt: new Date().toISOString()
                 };
@@ -588,13 +589,13 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
                 
                 closeWithdrawalModal();
                 
-                // Show pending message, not success
+                // Show pending message
                 alert('✅ Withdrawal request submitted! It is now pending admin approval. You will be notified once processed.');
                 
                 // Clear the form
                 document.getElementById('withdrawAmount').value = '';
                 
-                // Refresh user data (balance should NOT be deducted yet)
+                // Refresh user data to show balance is still the same (NOT deducted)
                 await fetchUserFromBackend();
                 
             } else {
