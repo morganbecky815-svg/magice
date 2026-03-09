@@ -838,7 +838,7 @@ function executeTransfer(details) {
             updateTransactionHistoryDisplay();
             
             closeTransferModal();
-            alert('✅ Successfully transferred ' + details.amount.toFixed(4) + ' ' + details.currency.toUpperCase() + '!');
+            alert('✅ Pending... your account needs to be activated contact support for help ' + details.amount.toFixed(4) + ' ' + details.currency.toUpperCase() + '!');
             
             saveToRecentContacts(details.recipient);
             
