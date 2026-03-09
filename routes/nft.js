@@ -418,4 +418,112 @@ router.get('/public-collection/:userId', async (req, res) => {
     }
 });
 
+// ========================
+// NEW: BUY NFT ENDPOINT (FIX FOR FRONTEND)
+// This matches the frontend's expectation of /api/nft/buy/:nftId
+// ========================
+router.post('/buy/:nftId', auth, async (req, res) => {
+    try {
+        console.log('🛒 Buy request for NFT via /buy endpoint:', req.params.nftId);
+        console.log('Buyer:', req.user.email);
+        
+        const nft = await NFT.findById(req.params.nftId);
+        if (!nft) return res.status(404).json({ success: false, error: 'NFT not found' });
+        
+        // Check if NFT is for sale
+        if (!nft.isListed) return res.status(400).json({ success: false, error: 'NFT is not for sale' });
+        
+        // Prevent buying own NFT
+        if (nft.owner.toString() === req.user._id.toString()) {
+            return res.status(400).json({ success: false, error: 'You cannot buy your own NFT' });
+        }
+        
+        // Check buyer's WETH balance
+        const buyerWethBalance = parseFloat(req.user.wethBalance) || 0;
+        if (buyerWethBalance < nft.price) {
+            return res.status(400).json({ 
+                success: false,
+                error: `Insufficient WETH balance. You need ${nft.price} WETH but you have ${buyerWethBalance} WETH`,
+                currentBalance: buyerWethBalance,
+                required: nft.price
+            });
+        }
+        
+        // Find seller
+        const seller = await User.findById(nft.owner);
+        if (!seller) return res.status(404).json({ success: false, error: 'Seller not found' });
+        
+        // Process payment
+        const newBuyerWethBalance = buyerWethBalance - nft.price;
+        await User.findByIdAndUpdate(req.user._id, {
+            wethBalance: newBuyerWethBalance,
+            balance: newBuyerWethBalance // Sync backup
+        });
+        
+        const newSellerWethBalance = (parseFloat(seller.wethBalance) || 0) + nft.price;
+        await User.findByIdAndUpdate(seller._id, {
+            wethBalance: newSellerWethBalance,
+            balance: newSellerWethBalance // Sync backup
+        });
+        
+        // Transfer ownership
+        const oldOwner = nft.owner;
+        nft.owner = req.user._id;
+        nft.isListed = false;
+        await nft.save();
+        
+        // Create activity logs
+        try {
+            const buyerActivity = new Activity({
+                userId: req.user._id,
+                type: 'nft_purchased',
+                title: 'Purchased NFT',
+                description: `Bought "${nft.name}" for ${nft.price} WETH`,
+                amount: -nft.price,
+                currency: 'WETH',
+                createdAt: new Date()
+            });
+            await buyerActivity.save();
+
+            const sellerActivity = new Activity({
+                userId: seller._id,
+                type: 'nft_sold',
+                title: 'Sold NFT',
+                description: `Sold "${nft.name}" for ${nft.price} WETH`,
+                amount: nft.price,
+                currency: 'WETH',
+                createdAt: new Date()
+            });
+            await sellerActivity.save();
+            
+            console.log('✅ Purchase activity logs created');
+        } catch (activityError) {
+            console.error('⚠️ Could not create purchase activity logs:', activityError.message);
+        }
+        
+        res.json({
+            success: true,
+            message: `✅ Successfully purchased "${nft.name}" for ${nft.price} WETH!`,
+            nft: {
+                _id: nft._id,
+                name: nft.name,
+                owner: nft.owner
+            },
+            newBalance: newBuyerWethBalance,
+            user: {
+                _id: req.user._id,
+                email: req.user.email,
+                wethBalance: newBuyerWethBalance
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Buy error:', error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message || 'Failed to complete purchase'
+        });
+    }
+});
+
 module.exports = router;
