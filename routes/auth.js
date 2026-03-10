@@ -101,7 +101,7 @@ router.post('/register', async (req, res) => {
     await user.save();
 
     // Log registration activity
-    await ActivityLogger.logRegister(user._id, user.email);
+   // await ActivityLogger.logRegister(user._id, user.email);
 
     // Generate token
     const token = jwt.sign(
