@@ -32,7 +32,7 @@ async function initializeTransferPage() {
     setupEventListeners();
     await fetchUserFromBackend();
     loadSavedBanks();
-    loadTransactionHistory();
+    await loadTransactionHistory(); // Make this async
     loadRecentContacts();
     
     console.log('✅ Transfer page initialized successfully');
@@ -532,7 +532,7 @@ function reviewWithdrawal() {
     modal.style.display = 'flex';
 }
 
-// ========== FIXED: EXECUTE WITHDRAWAL WITH PENDING MESSAGE ==========
+// ========== UPDATED: EXECUTE WITHDRAWAL ==========
 function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
     const confirmBtn = document.getElementById('confirmWithdrawalBtn');
     if (confirmBtn) {
@@ -573,30 +573,19 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
                 // ✅ IMPORTANT: Do NOT deduct balance - it's pending
                 // Balance will only be deducted when admin approves
                 
-                // Add to transaction history with PENDING status
-                const newTransaction = {
-                    id: Date.now(),
-                    type: 'withdrawal',
-                    amount: amount,
-                    currency: 'USD',
-                    status: 'pending',
-                    note: (method === 'instant' ? 'Instant' : 'Standard') + ' withdrawal to ' + bankDetails.bankName + ' (Pending Admin Approval)',
-                    createdAt: new Date().toISOString()
-                };
-                
-                transferData.transactions.unshift(newTransaction);
-                updateTransactionHistoryDisplay();
-                
                 closeWithdrawalModal();
                 
-                // ✅ UPDATED MESSAGE - PENDING WITHDRAWAL
-                alert('⏳ Pending withdrawal! Your account needs activation. Please contact support for help.');
+                // ✅ CHANGED MESSAGE
+                alert('⏳ Withdrawal request submitted! It is now pending admin approval. You will be notified once processed.');
                 
                 // Clear the form
                 document.getElementById('withdrawAmount').value = '';
                 
                 // Refresh user data to show balance is still the same (NOT deducted)
                 await fetchUserFromBackend();
+                
+                // Refresh transaction history from backend
+                await loadTransactionHistory();
                 
             } else {
                 alert('❌ Error: ' + (data.error || 'Failed to submit withdrawal'));
@@ -825,6 +814,7 @@ function executeTransfer(details) {
 
             await fetchUserFromBackend(); 
             
+            // Add to local transactions for immediate display
             transferData.transactions.unshift({
                 id: Date.now(),
                 type: 'transfer',
@@ -835,10 +825,11 @@ function executeTransfer(details) {
                 note: details.note,
                 createdAt: new Date().toISOString()
             });
+            
             updateTransactionHistoryDisplay();
             
             closeTransferModal();
-            alert('✅ Pending... your account needs to be activated contact support for help ' + details.amount.toFixed(4) + ' ' + details.currency.toUpperCase() + '!');
+            alert('✅ Transfer completed successfully! ' + details.amount.toFixed(4) + ' ' + details.currency.toUpperCase() + ' sent!');
             
             saveToRecentContacts(details.recipient);
             
@@ -853,17 +844,58 @@ function executeTransfer(details) {
 }
 
 // ============================================
-// TRANSACTION HISTORY
+// UPDATED: TRANSACTION HISTORY (FETCHES FROM BACKEND)
 // ============================================
 
-function loadTransactionHistory() {
+async function loadTransactionHistory() {
     const historyContainer = document.getElementById('transactionHistory');
     if (!historyContainer) return;
+    
     historyContainer.innerHTML = `<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading transactions...</div>`;
     
-    setTimeout(function() {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        // Fetch withdrawals from backend
+        const response = await fetch('/api/withdraw/history', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.withdrawals) {
+            // Convert backend withdrawals to our transaction format
+            const backendWithdrawals = data.withdrawals.map(w => ({
+                id: w.id,
+                type: 'withdrawal',
+                amount: w.amount,
+                currency: 'ETH',
+                status: w.status,
+                note: w.note || `Withdrawal to ${w.address}`,
+                recipient: w.address,
+                createdAt: w.requestedAt,
+                bankDetails: w.bankDetails
+            }));
+            
+            // Merge with existing transfers (keep both)
+            // Keep only transfers, add backend withdrawals
+            const transfers = transferData.transactions.filter(t => t.type === 'transfer');
+            transferData.transactions = [...transfers, ...backendWithdrawals];
+            
+            // Sort by date (newest first)
+            transferData.transactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        }
+        
         updateTransactionHistoryDisplay();
-    }, 800);
+        
+    } catch (error) {
+        console.error('Error loading transaction history:', error);
+        historyContainer.innerHTML = `<div class="error">Failed to load transactions</div>`;
+    }
 }
 
 function updateTransactionHistoryDisplay() {
@@ -904,7 +936,7 @@ function updateTransactionHistoryDisplay() {
         
         tableHTML += `<tr>
             <td><span class="transaction-type ${tx.type}"><i class="fas fa-${icon}"></i> ${tx.type}</span></td>
-            <td>${tx.amount.toFixed(tx.currency === 'USD' ? 2 : 4)}</td>
+            <td>${typeof tx.amount === 'number' ? tx.amount.toFixed(4) : tx.amount}</td>
             <td>${tx.currency}</td>
             <td title="${details}">${details.length > 25 ? details.substring(0, 25) + '...' : details}</td>
             <td><div>${date.toLocaleDateString()}</div><small>${date.toLocaleTimeString()}</small></td>
