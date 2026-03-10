@@ -39,11 +39,13 @@ const transactionSchema = new mongoose.Schema({
         enum: ['ETH', 'WETH', 'USD', 'USDC'],
         default: 'WETH'
     },
+    // ========== UPDATED: Added processing and queued statuses ==========
     status: {
         type: String,
-        enum: ['pending', 'completed', 'failed', 'cancelled'],
+        enum: ['pending', 'processing', 'queued', 'completed', 'failed', 'cancelled'],
         default: 'pending'
     },
+    // ========== END UPDATED ==========
     transactionHash: String,
     
     recipientAddress: String,
