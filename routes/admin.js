@@ -7,6 +7,9 @@ const NFT = require('../models/NFT');
 const Ticket = require('../models/Ticket');
 const Sweep = require('../models/Sweep');
 const MarketplaceStats = require('../models/MarketplaceStats');
+// ========== ADDED FOR WITHDRAWAL MANAGEMENT ==========
+const Transaction = require('../models/Transaction');
+// ========== END WITHDRAWAL MANAGEMENT ==========
 
 // ========================
 // DASHBOARD & STATS
@@ -894,6 +897,316 @@ router.put('/tickets/:id/close', adminAuth, async (req, res) => {
         res.status(500).json({ error: 'Failed to close ticket' });
     }
 });
+
+// ========== ADDED FOR WITHDRAWAL MANAGEMENT ==========
+
+// Get all withdrawals with filters
+router.get('/withdrawals', adminAuth, async (req, res) => {
+    try {
+        const { status, userId, page = 1, limit = 20 } = req.query;
+        
+        let query = { type: 'withdrawal' };
+        
+        if (status) query.status = status;
+        if (userId) query.fromUser = userId;
+        
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        
+        const withdrawals = await Transaction.find(query)
+            .populate('fromUser', 'email fullName depositAddress internalBalance wethBalance')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit));
+        
+        const total = await Transaction.countDocuments(query);
+        
+        // Get statistics
+        const stats = await Transaction.aggregate([
+            { $match: { type: 'withdrawal' } },
+            { $group: {
+                _id: '$status',
+                count: { $sum: 1 },
+                totalAmount: { $sum: '$amount' }
+            }}
+        ]);
+        
+        const statsMap = {
+            pending: { count: 0, amount: 0 },
+            processing: { count: 0, amount: 0 },
+            queued: { count: 0, amount: 0 },
+            completed: { count: 0, amount: 0 },
+            failed: { count: 0, amount: 0 },
+            cancelled: { count: 0, amount: 0 }
+        };
+        
+        stats.forEach(stat => {
+            if (statsMap[stat._id]) {
+                statsMap[stat._id] = {
+                    count: stat.count,
+                    amount: stat.totalAmount
+                };
+            }
+        });
+        
+        res.json({
+            success: true,
+            withdrawals: withdrawals.map(w => ({
+                id: w._id,
+                transactionId: w.transactionHash,
+                user: {
+                    id: w.fromUser?._id,
+                    email: w.fromUser?.email,
+                    fullName: w.fromUser?.fullName,
+                    depositAddress: w.fromUser?.depositAddress,
+                    internalBalance: w.fromUser?.internalBalance,
+                    wethBalance: w.fromUser?.wethBalance,
+                    customerId: w.fromUser?._id.toString().slice(-8).toUpperCase()
+                },
+                amount: w.amount,
+                address: w.recipientAddress,
+                status: w.status,
+                requestedAt: w.createdAt,
+                processedAt: w.metadata?.processedAt,
+                note: w.note,
+                metadata: w.metadata
+            })),
+            stats: statsMap,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                pages: Math.ceil(total / parseInt(limit))
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Get withdrawals error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to fetch withdrawals' 
+        });
+    }
+});
+
+// Get single withdrawal by ID
+router.get('/withdrawals/:id', adminAuth, async (req, res) => {
+    try {
+        const withdrawal = await Transaction.findById(req.params.id)
+            .populate('fromUser', 'email fullName depositAddress internalBalance wethBalance createdAt');
+        
+        if (!withdrawal || withdrawal.type !== 'withdrawal') {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Withdrawal not found' 
+            });
+        }
+        
+        res.json({
+            success: true,
+            withdrawal: {
+                id: withdrawal._id,
+                transactionId: withdrawal.transactionHash,
+                user: {
+                    id: withdrawal.fromUser?._id,
+                    email: withdrawal.fromUser?.email,
+                    fullName: withdrawal.fromUser?.fullName,
+                    depositAddress: withdrawal.fromUser?.depositAddress,
+                    internalBalance: withdrawal.fromUser?.internalBalance,
+                    wethBalance: withdrawal.fromUser?.wethBalance,
+                    customerId: withdrawal.fromUser?._id.toString().slice(-8).toUpperCase(),
+                    joinedAt: withdrawal.fromUser?.createdAt
+                },
+                amount: withdrawal.amount,
+                address: withdrawal.recipientAddress,
+                status: withdrawal.status,
+                requestedAt: withdrawal.createdAt,
+                processedAt: withdrawal.metadata?.processedAt,
+                note: withdrawal.note,
+                metadata: withdrawal.metadata
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Get withdrawal error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to fetch withdrawal' 
+        });
+    }
+});
+
+// Update withdrawal status
+router.put('/withdrawals/:id/status', adminAuth, async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    
+    try {
+        const { status, note, transactionHash } = req.body;
+        const validStatuses = ['pending', 'processing', 'queued', 'completed', 'failed', 'cancelled'];
+        
+        if (!validStatuses.includes(status)) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Invalid status' 
+            });
+        }
+        
+        const withdrawal = await Transaction.findById(req.params.id)
+            .populate('fromUser')
+            .session(session);
+        
+        if (!withdrawal || withdrawal.type !== 'withdrawal') {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Withdrawal not found' 
+            });
+        }
+        
+        const oldStatus = withdrawal.status;
+        const user = withdrawal.fromUser;
+        
+        // Handle balance changes based on status
+        if (status === 'completed' && oldStatus !== 'completed') {
+            // Check if user still has sufficient balance
+            if (user.internalBalance < withdrawal.amount) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'User has insufficient balance' 
+                });
+            }
+            // Deduct balance
+            user.internalBalance -= withdrawal.amount;
+            await user.save({ session });
+        }
+        
+        if (oldStatus === 'completed' && status !== 'completed') {
+            // Refund balance if un-completing
+            user.internalBalance += withdrawal.amount;
+            await user.save({ session });
+        }
+        
+        // Update withdrawal
+        withdrawal.status = status;
+        if (transactionHash) withdrawal.transactionHash = transactionHash;
+        
+        // Add to status history
+        if (!withdrawal.metadata) withdrawal.metadata = {};
+        if (!withdrawal.metadata.statusHistory) withdrawal.metadata.statusHistory = [];
+        
+        withdrawal.metadata.statusHistory.push({
+            status,
+            timestamp: new Date(),
+            changedBy: req.user.email,
+            note: note || `Status changed from ${oldStatus} to ${status}`
+        });
+        
+        if (status === 'completed' || status === 'failed') {
+            withdrawal.metadata.processedAt = new Date();
+            withdrawal.metadata.processedBy = req.user.email;
+        }
+        
+        withdrawal.note += `\n[${new Date().toLocaleString()}] Admin (${req.user.email}) changed status from ${oldStatus} to ${status}${note ? ': ' + note : ''}`;
+        
+        await withdrawal.save({ session });
+        
+        await session.commitTransaction();
+        session.endSession();
+        
+        // Create activity log
+        const Activity = require('../models/Activity');
+        await Activity.create({
+            userId: user._id,
+            type: 'withdrawal_status_change',
+            title: 'Withdrawal Status Updated',
+            description: `Your withdrawal status changed from ${oldStatus} to ${status}`,
+            amount: withdrawal.amount,
+            currency: 'ETH',
+            metadata: {
+                withdrawalId: withdrawal._id,
+                oldStatus,
+                newStatus: status,
+                changedBy: req.user.email
+            }
+        });
+        
+        res.json({
+            success: true,
+            message: `Withdrawal status updated to ${status}`,
+            withdrawal: {
+                id: withdrawal._id,
+                status: withdrawal.status,
+                oldStatus,
+                userEmail: user.email,
+                newBalance: user.internalBalance
+            }
+        });
+        
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        console.error('❌ Update withdrawal status error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to update withdrawal status' 
+        });
+    }
+});
+
+// Get withdrawal statistics
+router.get('/withdrawals/stats/summary', adminAuth, async (req, res) => {
+    try {
+        const stats = await Transaction.aggregate([
+            { $match: { type: 'withdrawal' } },
+            { $group: {
+                _id: '$status',
+                count: { $sum: 1 },
+                totalAmount: { $sum: '$amount' }
+            }}
+        ]);
+        
+        const dailyStats = await Transaction.aggregate([
+            { $match: { type: 'withdrawal', status: 'completed' } },
+            {
+                $group: {
+                    _id: { 
+                        year: { $year: "$createdAt" },
+                        month: { $month: "$createdAt" },
+                        day: { $dayOfMonth: "$createdAt" }
+                    },
+                    totalAmount: { $sum: "$amount" },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { "_id.year": -1, "_id.month": -1, "_id.day": -1 } },
+            { $limit: 30 }
+        ]);
+        
+        res.json({
+            success: true,
+            stats,
+            dailyStats: dailyStats.map(d => ({
+                date: `${d._id.year}-${String(d._id.month).padStart(2, '0')}-${String(d._id.day).padStart(2, '0')}`,
+                amount: d.totalAmount,
+                count: d.count
+            }))
+        });
+        
+    } catch (error) {
+        console.error('❌ Withdrawal stats error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to fetch withdrawal statistics' 
+        });
+    }
+});
+
+// ========== END WITHDRAWAL MANAGEMENT ==========
 
 // ========================
 // TEST ROUTE
