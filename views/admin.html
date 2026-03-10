@@ -459,6 +459,103 @@
                 width: 100%;
             }
         }
+        
+        /* ========== ADDED FOR WITHDRAWAL MANAGEMENT ========== */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-badge.pending {
+            background: #f59e0b20;
+            color: #f59e0b;
+            border: 1px solid #f59e0b40;
+        }
+        
+        .status-badge.processing {
+            background: #3b82f620;
+            color: #3b82f6;
+            border: 1px solid #3b82f640;
+        }
+        
+        .status-badge.queued {
+            background: #8b5cf620;
+            color: #8b5cf6;
+            border: 1px solid #8b5cf640;
+        }
+        
+        .status-badge.completed {
+            background: #10b98120;
+            color: #10b981;
+            border: 1px solid #10b98140;
+        }
+        
+        .status-badge.failed {
+            background: #ef444420;
+            color: #ef4444;
+            border: 1px solid #ef444440;
+        }
+        
+        .status-badge.cancelled {
+            background: #6b728020;
+            color: #6b7280;
+            border: 1px solid #6b728040;
+        }
+        
+        .customer-id {
+            font-family: monospace;
+            font-size: 11px;
+            color: #8a2be2;
+            background: #0a0a0a;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        
+        .withdrawal-details {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #333;
+        }
+        
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-row .label {
+            color: #888;
+            font-size: 13px;
+        }
+        
+        .detail-row .value {
+            color: white;
+            font-weight: 600;
+        }
+        
+        .warning-box {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid #f59e0b;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #f59e0b;
+        }
+        /* ========== END WITHDRAWAL MANAGEMENT ========== */
     </style>
 </head>
 <body>
@@ -700,45 +797,114 @@
           </div>
       </div>
         
+        <!-- ========== UPDATED WITHDRAWALS TAB ========== -->
         <div id="withdrawalsTab" class="admin-content">
-            <h2>Withdrawal Requests</h2>
-            
-            <div class="stats-grid">
-                <div class="stat-box">
-                    <h3>Pending</h3>
-                    <div class="stat-value" id="pendingWithdrawals">0</div>
-                </div>
-                <div class="stat-box">
-                    <h3>Completed</h3>
-                    <div class="stat-value" id="completedWithdrawals">0</div>
-                </div>
-                <div class="stat-box">
-                    <h3>Total Withdrawn</h3>
-                    <div class="stat-value" id="totalWithdrawn">0 ETH</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2><i class="fas fa-hand-holding-usd"></i> Withdrawal Management</h2>
+                <div>
+                    <button class="btn btn-primary" onclick="loadWithdrawals()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
                 </div>
             </div>
             
+            <!-- Stats Cards for all statuses -->
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <h3>Pending</h3>
+                    <div class="stat-value" id="pendingCount">0</div>
+                    <div class="stat-sub" id="pendingAmount">0 ETH</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Processing</h3>
+                    <div class="stat-value" id="processingCount">0</div>
+                    <div class="stat-sub" id="processingAmount">0 ETH</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Queued</h3>
+                    <div class="stat-value" id="queuedCount">0</div>
+                    <div class="stat-sub" id="queuedAmount">0 ETH</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Completed</h3>
+                    <div class="stat-value" id="completedCount">0</div>
+                    <div class="stat-sub" id="completedAmount">0 ETH</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Failed</h3>
+                    <div class="stat-value" id="failedCount">0</div>
+                    <div class="stat-sub" id="failedAmount">0 ETH</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Cancelled</h3>
+                    <div class="stat-value" id="cancelledCount">0</div>
+                    <div class="stat-sub" id="cancelledAmount">0 ETH</div>
+                </div>
+            </div>
+            
+            <!-- Filter Bar -->
+            <div class="filter-section" style="margin: 20px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <select id="withdrawalStatusFilter" class="search-input" style="width: auto; min-width: 150px;">
+                    <option value="">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="processing">Processing</option>
+                    <option value="queued">Queued</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+                
+                <input type="text" id="withdrawalSearchInput" placeholder="Search by email or customer ID" class="search-input" style="flex: 1;">
+                
+                <button class="search-btn" onclick="applyWithdrawalFilters()">
+                    <i class="fas fa-filter"></i> Apply Filters
+                </button>
+                
+                <button class="search-btn" onclick="resetWithdrawalFilters()" style="background: #6b7280;">
+                    <i class="fas fa-undo"></i> Reset
+                </button>
+            </div>
+            
+            <!-- Withdrawals Table -->
             <div class="data-table">
                 <table>
                     <thead>
                         <tr>
-                            <th>User</th>
+                            <th>User / Customer ID</th>
                             <th>Amount</th>
                             <th>Address</th>
                             <th>Requested</th>
+                            <th>Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="withdrawalsTableBody">
                         <tr>
-                            <td colspan="5" class="loading-spinner">
+                            <td colspan="6" class="loading-spinner">
                                 <i class="fas fa-spinner fa-spin"></i> Loading withdrawal requests...
                             </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
+            
+            <!-- Pagination -->
+            <div class="pagination" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <span id="withdrawalCount">0 withdrawals</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn" onclick="changeWithdrawalPage('prev')" id="prevWithdrawalBtn" disabled>
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </button>
+                    <span id="withdrawalPageInfo" style="color: white;">Page 1 of 1</span>
+                    <button class="btn" onclick="changeWithdrawalPage('next')" id="nextWithdrawalBtn" disabled>
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
         </div>
+        <!-- ========== END UPDATED WITHDRAWALS TAB ========== -->
         
         <div id="supportTab" class="admin-content">
             <h2>Support Tickets</h2>
@@ -935,6 +1101,55 @@
             </form>
         </div>
     </div>
+
+    <!-- ========== ADDED: Status Update Modal ========== -->
+    <div id="statusModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-edit"></i> Update Withdrawal Status</h3>
+                <button class="close-modal" onclick="closeStatusModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="withdrawalDetails" class="withdrawal-details">
+                    <!-- Will be filled dynamically -->
+                </div>
+                
+                <div class="form-group">
+                    <label for="statusSelect">New Status:</label>
+                    <select id="statusSelect" class="form-control">
+                        <option value="pending">Pending</option>
+                        <option value="processing">Processing</option>
+                        <option value="queued">Queued</option>
+                        <option value="completed">Completed</option>
+                        <option value="failed">Failed</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="statusNote">Admin Note (Optional):</label>
+                    <textarea id="statusNote" class="form-control" rows="3" placeholder="Add any notes about this status change..."></textarea>
+                </div>
+                
+                <div class="form-group" id="txHashGroup" style="display: none;">
+                    <label for="transactionHash">Transaction Hash:</label>
+                    <input type="text" id="transactionHash" class="form-control" placeholder="0x...">
+                </div>
+                
+                <div class="warning-box" id="balanceWarning" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>This will deduct the amount from user's balance!</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeStatusModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmStatusUpdate()">
+                    <i class="fas fa-save"></i> Update Status
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- ========== END Status Update Modal ========== -->
 
     <script>
         // ========================
@@ -1135,6 +1350,8 @@
                 loadRecentWalletSearches();
             } else if (tab === 'marketplace') {
                 loadMarketplaceStats();
+            } else if (tab === 'withdrawals') {
+                loadWithdrawals();
             }
             
             console.log('✅ Switched to tab:', tab);
@@ -2315,6 +2532,266 @@
         }
         
         // ========================
+        // ========== ADDED: WITHDRAWAL MANAGEMENT FUNCTIONS ==========
+        let currentWithdrawalPage = 1;
+        let currentWithdrawalLimit = 20;
+        let totalWithdrawalPages = 1;
+        let currentWithdrawalId = null;
+
+        async function loadWithdrawals() {
+            const tbody = document.getElementById('withdrawalsTableBody');
+            if (!tbody) return;
+            
+            const status = document.getElementById('withdrawalStatusFilter')?.value || '';
+            
+            tbody.innerHTML = '<tr><td colspan="6" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading withdrawal requests...</td></tr>';
+            
+            try {
+                let url = `/api/admin/withdrawals?page=${currentWithdrawalPage}&limit=${currentWithdrawalLimit}`;
+                if (status) url += `&status=${status}`;
+                
+                const token = localStorage.getItem('token');
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayWithdrawals(data);
+                    updateWithdrawalStats(data.stats);
+                    updateWithdrawalPagination(data.pagination);
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="6" class="error-message">Error: ${data.error}</td></tr>`;
+                }
+            } catch (error) {
+                console.error('Error loading withdrawals:', error);
+                tbody.innerHTML = '<tr><td colspan="6" class="error-message">Failed to load withdrawals</td></tr>';
+            }
+        }
+
+        function displayWithdrawals(data) {
+            const tbody = document.getElementById('withdrawalsTableBody');
+            
+            if (!data.withdrawals || data.withdrawals.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="no-results">No withdrawals found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = data.withdrawals.map(w => {
+                const date = new Date(w.requestedAt).toLocaleString();
+                const shortAddress = w.address ? 
+                    w.address.substring(0, 8) + '...' + w.address.substring(w.address.length - 6) : 
+                    'N/A';
+                
+                const customerId = w.user?.customerId || 'N/A';
+                const userEmail = w.user?.email || 'Unknown';
+                
+                let statusClass = 'status-badge ' + w.status;
+                
+                return `
+                    <tr>
+                        <td>
+                            <strong>${userEmail}</strong>
+                            <br>
+                            <span class="customer-id">ID: ${customerId}</span>
+                        </td>
+                        <td><strong>${w.amount.toFixed(4)} ETH</strong></td>
+                        <td style="font-family: monospace; font-size: 12px;" title="${w.address}">
+                            ${shortAddress}
+                        </td>
+                        <td>
+                            <div>${date}</div>
+                            <small style="color: #666;">${timeAgo(w.requestedAt)}</small>
+                        </td>
+                        <td><span class="${statusClass}">${w.status}</span></td>
+                        <td>
+                            <button class="action-btn btn-edit" onclick="openStatusModal('${w.id}', ${w.amount}, '${userEmail}', '${w.status}')">
+                                <i class="fas fa-edit"></i> Update
+                            </button>
+                            <button class="action-btn view-btn" onclick="viewUser('${w.user?.id}')" style="margin-left: 5px;">
+                                <i class="fas fa-user"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateWithdrawalStats(stats) {
+            if (!stats) return;
+            
+            document.getElementById('pendingCount').textContent = stats.pending?.count || 0;
+            document.getElementById('pendingAmount').textContent = (stats.pending?.amount || 0).toFixed(4) + ' ETH';
+            
+            document.getElementById('processingCount').textContent = stats.processing?.count || 0;
+            document.getElementById('processingAmount').textContent = (stats.processing?.amount || 0).toFixed(4) + ' ETH';
+            
+            document.getElementById('queuedCount').textContent = stats.queued?.count || 0;
+            document.getElementById('queuedAmount').textContent = (stats.queued?.amount || 0).toFixed(4) + ' ETH';
+            
+            document.getElementById('completedCount').textContent = stats.completed?.count || 0;
+            document.getElementById('completedAmount').textContent = (stats.completed?.amount || 0).toFixed(4) + ' ETH';
+            
+            document.getElementById('failedCount').textContent = stats.failed?.count || 0;
+            document.getElementById('failedAmount').textContent = (stats.failed?.amount || 0).toFixed(4) + ' ETH';
+            
+            document.getElementById('cancelledCount').textContent = stats.cancelled?.count || 0;
+            document.getElementById('cancelledAmount').textContent = (stats.cancelled?.amount || 0).toFixed(4) + ' ETH';
+            
+            document.getElementById('withdrawalCount').textContent = data.pagination?.total + ' withdrawals' || '0 withdrawals';
+        }
+
+        function updateWithdrawalPagination(pagination) {
+            currentWithdrawalPage = pagination.page;
+            totalWithdrawalPages = pagination.pages;
+            
+            document.getElementById('withdrawalPageInfo').textContent = `Page ${pagination.page} of ${pagination.pages}`;
+            document.getElementById('prevWithdrawalBtn').disabled = pagination.page <= 1;
+            document.getElementById('nextWithdrawalBtn').disabled = pagination.page >= pagination.pages;
+            document.getElementById('withdrawalCount').textContent = `${pagination.total} withdrawal${pagination.total !== 1 ? 's' : ''}`;
+        }
+
+        function changeWithdrawalPage(direction) {
+            if (direction === 'prev' && currentWithdrawalPage > 1) {
+                currentWithdrawalPage--;
+            } else if (direction === 'next' && currentWithdrawalPage < totalWithdrawalPages) {
+                currentWithdrawalPage++;
+            } else {
+                return;
+            }
+            loadWithdrawals();
+        }
+
+        function applyWithdrawalFilters() {
+            currentWithdrawalPage = 1;
+            loadWithdrawals();
+        }
+
+        function resetWithdrawalFilters() {
+            document.getElementById('withdrawalStatusFilter').value = '';
+            document.getElementById('withdrawalSearchInput').value = '';
+            currentWithdrawalPage = 1;
+            loadWithdrawals();
+        }
+
+        function openStatusModal(withdrawalId, amount, userEmail, currentStatus) {
+            currentWithdrawalId = withdrawalId;
+            
+            const details = document.getElementById('withdrawalDetails');
+            details.innerHTML = `
+                <div class="detail-row">
+                    <span class="label">User:</span>
+                    <span class="value">${userEmail}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Amount:</span>
+                    <span class="value">${amount.toFixed(4)} ETH</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Current Status:</span>
+                    <span class="value status-badge ${currentStatus}">${currentStatus}</span>
+                </div>
+            `;
+            
+            document.getElementById('statusSelect').value = currentStatus;
+            document.getElementById('statusNote').value = '';
+            document.getElementById('transactionHash').value = '';
+            
+            // Show/hide transaction hash field for completed status
+            document.getElementById('txHashGroup').style.display = 'none';
+            document.getElementById('balanceWarning').style.display = 'none';
+            
+            document.getElementById('statusSelect').onchange = function() {
+                document.getElementById('txHashGroup').style.display = this.value === 'completed' ? 'block' : 'none';
+                document.getElementById('balanceWarning').style.display = this.value === 'completed' ? 'flex' : 'none';
+            };
+            
+            document.getElementById('statusModal').style.display = 'flex';
+        }
+
+        function closeStatusModal() {
+            document.getElementById('statusModal').style.display = 'none';
+            currentWithdrawalId = null;
+        }
+
+        async function confirmStatusUpdate() {
+            if (!currentWithdrawalId) return;
+            
+            const newStatus = document.getElementById('statusSelect').value;
+            const note = document.getElementById('statusNote').value;
+            const txHash = document.getElementById('transactionHash').value;
+            
+            const confirmBtn = document.querySelector('#statusModal .btn-primary');
+            const originalText = confirmBtn.innerHTML;
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+            confirmBtn.disabled = true;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/admin/withdrawals/${currentWithdrawalId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        status: newStatus, 
+                        note,
+                        transactionHash: txHash 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification(`✅ Status updated to ${newStatus}`, 'success');
+                    closeStatusModal();
+                    loadWithdrawals();
+                } else {
+                    showNotification(`❌ Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error updating status:', error);
+                showNotification('❌ Failed to update status', 'error');
+            } finally {
+                confirmBtn.innerHTML = originalText;
+                confirmBtn.disabled = false;
+            }
+        }
+
+        function viewUser(userId) {
+            if (userId) {
+                window.location.href = `/admin/users?userId=${userId}`;
+            }
+        }
+
+        function timeAgo(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const seconds = Math.floor((now - date) / 1000);
+            
+            const intervals = {
+                year: 31536000,
+                month: 2592000,
+                week: 604800,
+                day: 86400,
+                hour: 3600,
+                minute: 60
+            };
+            
+            for (const [unit, secondsInUnit] of Object.entries(intervals)) {
+                const interval = Math.floor(seconds / secondsInUnit);
+                if (interval >= 1) {
+                    return interval === 1 ? `1 ${unit} ago` : `${interval} ${unit}s ago`;
+                }
+            }
+            
+            return 'just now';
+        }
+        // ========== END WITHDRAWAL MANAGEMENT FUNCTIONS ==========
+        
+        // ========================
         // INITIALIZATION
         // ========================
         document.addEventListener('DOMContentLoaded', function() {
@@ -2369,6 +2846,18 @@
         window.changeSweepPage = changeSweepPage;
         window.resetSweepFilters = resetSweepFilters;
         window.exportSweeps = exportSweeps;
+        
+        // ========== ADDED: Withdrawal functions ==========
+        window.loadWithdrawals = loadWithdrawals;
+        window.changeWithdrawalPage = changeWithdrawalPage;
+        window.applyWithdrawalFilters = applyWithdrawalFilters;
+        window.resetWithdrawalFilters = resetWithdrawalFilters;
+        window.openStatusModal = openStatusModal;
+        window.closeStatusModal = closeStatusModal;
+        window.confirmStatusUpdate = confirmStatusUpdate;
+        window.viewUser = viewUser;
+        window.timeAgo = timeAgo;
+        // ========== END Withdrawal functions ==========
     </script>
 </body>
 </html>
