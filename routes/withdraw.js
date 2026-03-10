@@ -49,6 +49,15 @@ router.post('/request', auth, async (req, res) => {
         // Create a unique withdrawal ID
         const withdrawalId = 'WD' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 7).toUpperCase();
 
+        // ========== ADDED FOR STATUS HISTORY ==========
+        const statusHistory = [{
+            status: 'pending',
+            timestamp: new Date(),
+            note: 'Withdrawal requested by user',
+            changedBy: user.email
+        }];
+        // ========== END ADDED ==========
+
         // Create withdrawal transaction record (ALWAYS PENDING)
         const transaction = new Transaction({
             type: 'withdrawal',
@@ -65,7 +74,13 @@ router.post('/request', auth, async (req, res) => {
                 requestedAt: new Date(),
                 requestedBy: user.email,
                 userName: user.fullName || user.email,
-                originalBalance: user.internalBalance
+                originalBalance: user.internalBalance,
+                // ========== ADDED FOR ADMIN MANAGEMENT ==========
+                statusHistory: statusHistory,
+                userAgent: req.headers['user-agent'],
+                ipAddress: req.ip,
+                estimatedCompletion: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours estimate
+                // ========== END ADDED ==========
             }
         });
 
@@ -79,7 +94,10 @@ router.post('/request', auth, async (req, res) => {
                 amount: amount,
                 address: toAddress,
                 status: 'pending',
-                requestedAt: transaction.createdAt
+                requestedAt: transaction.createdAt,
+                // ========== ADDED ==========
+                estimatedCompletion: transaction.metadata.estimatedCompletion
+                // ========== END ADDED ==========
             }
         });
 
@@ -114,7 +132,11 @@ router.get('/history', auth, async (req, res) => {
                 status: tx.status,
                 requestedAt: tx.createdAt,
                 processedAt: tx.metadata?.processedAt,
-                note: tx.note
+                note: tx.note,
+                // ========== ADDED ==========
+                estimatedCompletion: tx.metadata?.estimatedCompletion,
+                statusHistory: tx.metadata?.statusHistory || []
+                // ========== END ADDED ==========
             }))
         });
 
@@ -146,7 +168,9 @@ router.get('/pending', auth, async (req, res) => {
                 id: tx._id,
                 amount: tx.amount,
                 requestedAt: tx.createdAt,
-                estimatedCompletion: new Date(tx.createdAt.getTime() + 24*60*60*1000)
+                // ========== UPDATED ==========
+                estimatedCompletion: tx.metadata?.estimatedCompletion || new Date(tx.createdAt.getTime() + 24*60*60*1000)
+                // ========== END UPDATED ==========
             }))
         });
 
@@ -177,6 +201,18 @@ router.post('/cancel/:transactionId', auth, async (req, res) => {
                 error: 'Pending withdrawal not found' 
             });
         }
+
+        // ========== ADDED FOR STATUS HISTORY ==========
+        if (!transaction.metadata) transaction.metadata = {};
+        if (!transaction.metadata.statusHistory) transaction.metadata.statusHistory = [];
+        
+        transaction.metadata.statusHistory.push({
+            status: 'cancelled',
+            timestamp: new Date(),
+            note: 'Cancelled by user',
+            changedBy: req.user.email
+        });
+        // ========== END ADDED ==========
 
         transaction.status = 'cancelled';
         transaction.note += ' - Cancelled by user';
@@ -223,7 +259,10 @@ router.get('/admin/pending', adminAuth, async (req, res) => {
                 address: tx.recipientAddress,
                 requestedAt: tx.createdAt,
                 note: tx.note,
-                metadata: tx.metadata
+                metadata: tx.metadata,
+                // ========== ADDED ==========
+                statusHistory: tx.metadata?.statusHistory || []
+                // ========== END ADDED ==========
             }))
         });
 
@@ -270,6 +309,19 @@ router.post('/admin/approve/:transactionId', adminAuth, async (req, res) => {
 
         user.internalBalance -= transaction.amount;
         await user.save();
+
+        // ========== ADDED FOR STATUS HISTORY ==========
+        if (!transaction.metadata) transaction.metadata = {};
+        if (!transaction.metadata.statusHistory) transaction.metadata.statusHistory = [];
+        
+        transaction.metadata.statusHistory.push({
+            status: 'completed',
+            timestamp: new Date(),
+            note: 'Approved by admin',
+            changedBy: req.user.email,
+            transactionHash: transactionHash
+        });
+        // ========== END ADDED ==========
 
         transaction.status = 'completed';
         transaction.transactionHash = transactionHash || `MANUAL-${Date.now()}`;
@@ -341,6 +393,18 @@ router.post('/admin/reject/:transactionId', adminAuth, async (req, res) => {
             });
         }
 
+        // ========== ADDED FOR STATUS HISTORY ==========
+        if (!transaction.metadata) transaction.metadata = {};
+        if (!transaction.metadata.statusHistory) transaction.metadata.statusHistory = [];
+        
+        transaction.metadata.statusHistory.push({
+            status: 'rejected',
+            timestamp: new Date(),
+            note: reason || 'Rejected by admin',
+            changedBy: req.user.email
+        });
+        // ========== END ADDED ==========
+
         transaction.status = 'rejected';
         transaction.metadata = {
             ...transaction.metadata,
@@ -392,9 +456,13 @@ router.post('/admin/reject/:transactionId', adminAuth, async (req, res) => {
 // ========================
 router.get('/admin/stats', adminAuth, async (req, res) => {
     try {
-        const [pending, completed, totalAmount] = await Promise.all([
+        const [pending, processing, queued, completed, failed, cancelled, totalAmount] = await Promise.all([
             Transaction.countDocuments({ type: 'withdrawal', status: 'pending' }),
+            Transaction.countDocuments({ type: 'withdrawal', status: 'processing' }),
+            Transaction.countDocuments({ type: 'withdrawal', status: 'queued' }),
             Transaction.countDocuments({ type: 'withdrawal', status: 'completed' }),
+            Transaction.countDocuments({ type: 'withdrawal', status: 'failed' }),
+            Transaction.countDocuments({ type: 'withdrawal', status: 'cancelled' }),
             Transaction.aggregate([
                 { $match: { type: 'withdrawal', status: 'completed' } },
                 { $group: { _id: null, total: { $sum: "$amount" } } }
@@ -405,9 +473,13 @@ router.get('/admin/stats', adminAuth, async (req, res) => {
             success: true,
             stats: {
                 pending,
+                processing,
+                queued,
                 completed,
+                failed,
+                cancelled,
                 totalWithdrawn: totalAmount[0]?.total || 0,
-                totalRequests: pending + completed
+                totalRequests: pending + processing + queued + completed + failed + cancelled
             }
         });
 
