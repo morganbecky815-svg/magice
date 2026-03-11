@@ -32,7 +32,7 @@ async function initializeTransferPage() {
     setupEventListeners();
     await fetchUserFromBackend();
     loadSavedBanks();
-    await loadTransactionHistory(); // Make this async
+    await loadTransactionHistory();
     loadRecentContacts();
     
     console.log('✅ Transfer page initialized successfully');
@@ -470,7 +470,10 @@ function updateWithdrawalSummary() {
     if (els.receive) els.receive.textContent = '$' + receiveAmount.toFixed(2);
 }
 
+// ========== FIXED: REVIEW WITHDRAWAL ==========
 function reviewWithdrawal() {
+    console.log('🔍 reviewWithdrawal called');
+    
     const withdrawAmount = document.getElementById('withdrawAmount');
     if (!withdrawAmount) return;
     const amount = parseFloat(withdrawAmount.value) || 0;
@@ -488,6 +491,7 @@ function reviewWithdrawal() {
     
     if (savedBankSelect && savedBankSelect.value && savedBankSelect.value !== 'new') {
         bankDetails = transferData.savedBanks[savedBankSelect.value];
+        console.log('Using saved bank:', bankDetails);
     } else {
         if (!validateBankForm()) { 
             alert('Please enter valid bank details'); 
@@ -495,6 +499,7 @@ function reviewWithdrawal() {
         }
         bankDetails = saveBankDetails();
         if (!bankDetails) return;
+        console.log('Created new bank:', bankDetails);
     }
     
     const ethPrice = window.ethPriceService ? window.ethPriceService.currentPrice : transferData.ethPrice;
@@ -506,7 +511,13 @@ function reviewWithdrawal() {
     const modalBody = document.getElementById('withdrawalModalBody');
     const confirmBtn = document.getElementById('confirmWithdrawalBtn');
     
-    if (!modal || !modalBody || !confirmBtn) return;
+    if (!modal || !modalBody || !confirmBtn) {
+        console.error('Modal elements not found!');
+        return;
+    }
+    
+    // Clear any existing onclick handlers
+    confirmBtn.onclick = null;
     
     modalBody.innerHTML = `
         <div class="withdrawal-review">
@@ -528,12 +539,20 @@ function reviewWithdrawal() {
         </div>
     `;
     
-    confirmBtn.onclick = function() { executeWithdrawal(amount, method, cryptoAmount, bankDetails); };
+    // IMPORTANT: Set the onclick handler AFTER setting innerHTML
+    confirmBtn.onclick = function() { 
+        console.log('Confirm button clicked, executing withdrawal...');
+        executeWithdrawal(amount, method, cryptoAmount, bankDetails); 
+    };
+    
+    console.log('✅ Withdrawal modal ready, confirm button handler attached');
     modal.style.display = 'flex';
 }
 
-// ========== UPDATED: EXECUTE WITHDRAWAL ==========
+// ========== FIXED: EXECUTE WITHDRAWAL ==========
 function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
+    console.log('💰 executeWithdrawal called with:', { amount, method, cryptoAmount, bankDetails });
+    
     const confirmBtn = document.getElementById('confirmWithdrawalBtn');
     if (confirmBtn) {
         confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
@@ -550,7 +569,13 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
         try {
             const token = localStorage.getItem('token') || localStorage.getItem('authToken');
             
-            console.log('📤 Sending withdrawal request:', {
+            if (!token) {
+                alert('Please login first');
+                window.location.href = '/login';
+                return;
+            }
+            
+            console.log('📤 Sending withdrawal request to /api/withdraw/request:', {
                 amount: cryptoAmount
             });
             
@@ -566,16 +591,23 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
                 })
             });
             
-            const data = await response.json();
-            console.log('📥 Withdrawal response:', data);
+            console.log('📥 Response status:', response.status);
+            
+            let data;
+            try {
+                data = await response.json();
+                console.log('📥 Withdrawal response:', data);
+            } catch (e) {
+                console.error('Failed to parse response:', e);
+                alert('Server returned an invalid response');
+                closeWithdrawalModal();
+                return;
+            }
             
             if (data.success) {
-                // ✅ IMPORTANT: Do NOT deduct balance - it's pending
-                // Balance will only be deducted when admin approves
-                
                 closeWithdrawalModal();
                 
-                // ✅ CHANGED MESSAGE
+                // ✅ This is the message users will see
                 alert('⏳ Withdrawal request submitted! It is now pending admin approval. You will be notified once processed.');
                 
                 // Clear the form
@@ -589,17 +621,16 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
                 
             } else {
                 alert('❌ Error: ' + (data.error || 'Failed to submit withdrawal'));
+                if (confirmBtn) {
+                    confirmBtn.innerHTML = '<i class="fas fa-check-circle"></i> Confirm Withdrawal';
+                    confirmBtn.disabled = false;
+                }
             }
             
         } catch(e) {
             console.error('Withdrawal error:', e);
             alert('Error processing withdrawal. Please try again.');
             closeWithdrawalModal();
-        } finally {
-            if (confirmBtn) {
-                confirmBtn.innerHTML = '<i class="fas fa-check-circle"></i> Confirm Withdrawal';
-                confirmBtn.disabled = false;
-            }
         }
     }, 1500);
 }
