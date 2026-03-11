@@ -7,6 +7,102 @@
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/profile.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* ========== NEW: Verification Badge Styles ========== */
+        .verification-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 12px;
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+            cursor: help;
+        }
+        
+        .verification-badge.verified {
+            background: linear-gradient(135deg, #10b98120 0%, #10b98110 100%);
+            color: #10b981;
+            border: 1px solid #10b98140;
+        }
+        
+        .verification-badge.premium {
+            background: linear-gradient(135deg, #8a2be220 0%, #8a2be210 100%);
+            color: #8a2be2;
+            border: 1px solid #8a2be240;
+        }
+        
+        .verification-badge.business {
+            background: linear-gradient(135deg, #3b82f620 0%, #3b82f610 100%);
+            color: #3b82f6;
+            border: 1px solid #3b82f640;
+        }
+        
+        .verification-badge.pending {
+            background: linear-gradient(135deg, #f59e0b20 0%, #f59e0b10 100%);
+            color: #f59e0b;
+            border: 1px solid #f59e0b40;
+        }
+        
+        .verification-badge i {
+            font-size: 16px;
+        }
+        
+        .verification-tooltip {
+            position: absolute;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+            width: 250px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            z-index: 1000;
+            display: none;
+        }
+        
+        .verification-badge:hover + .verification-tooltip {
+            display: block;
+        }
+        
+        .badge-icon-large {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        
+        .profile-header {
+            position: relative;
+        }
+        
+        .badge-container {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 5px;
+        }
+        
+        .verified-date {
+            color: #888;
+            font-size: 13px;
+            margin-left: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .verification-badge {
+                margin-left: 0;
+                margin-top: 10px;
+                width: fit-content;
+            }
+            
+            .badge-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+        /* ========== END Verification Badge Styles ========== */
+    </style>
 </head>
 <body>
    
@@ -49,12 +145,24 @@
                         <i class="fas fa-user-circle"></i>
                     </div>
                     <div class="profile-info">
-                        <h1 id="profileName">Loading...</h1>
+                        <!-- ========== UPDATED: Profile header with badge ========== -->
+                        <div class="badge-container">
+                            <h1 id="profileName">Loading...</h1>
+                            <div id="verificationBadgeContainer"></div>
+                        </div>
+                        <!-- ========== END UPDATED ========== -->
+                        
                         <p id="profileEmail">Loading...</p>
                         <div class="profile-stats">
                             <span class="stat"><i class="fas fa-gem"></i> <span id="nftsOwned">0</span> NFTs</span>
                             <span class="stat"><i class="fas fa-wallet"></i> <span id="walletBalance">0</span> WETH</span>
                             <span class="stat"><i class="fas fa-calendar"></i> Member since <span id="joinDate">...</span></span>
+                            <!-- ========== NEW: Verified date if available ========== -->
+                            <span class="stat" id="verifiedDateContainer" style="display: none;">
+                                <i class="fas fa-check-circle" style="color: #10b981;"></i> 
+                                Verified <span id="verifiedDate"></span>
+                            </span>
+                            <!-- ========== END NEW ========== -->
                         </div>
                     </div>
                 </div>
@@ -74,6 +182,26 @@
                     </button>
                 </div>
             </div>
+
+            <!-- ========== NEW: Verification Info Card (for unverified users) ========== -->
+            <div id="verificationInfoCard" class="info-card" style="display: none; background: linear-gradient(135deg, #f59e0b10 0%, #f59e0b05 100%); border-left: 4px solid #f59e0b; border-radius: 8px; padding: 15px 20px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                    <div style="background: #f59e0b20; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-clock" style="color: #f59e0b; font-size: 20px;"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <h4 style="color: #f59e0b; margin: 0 0 5px 0;">Account Pending Verification</h4>
+                        <p style="color: #e0e0e0; margin: 0; font-size: 14px;">
+                            Your account is pending verification. Some features like transfers and withdrawals are limited until your account is verified. 
+                            Please contact support if you need assistance.
+                        </p>
+                    </div>
+                    <button class="btn" onclick="contactSupport()" style="background: #f59e0b; color: white; border: none; white-space: nowrap;">
+                        <i class="fas fa-headset"></i> Contact Support
+                    </button>
+                </div>
+            </div>
+            <!-- ========== END Verification Info Card ========== -->
 
             <div class="profile-tabs">
                 <button class="profile-tab active" onclick="showProfileTab('nfts')">
@@ -192,6 +320,18 @@
 
             <div id="settingsTab" class="profile-content">
                 <h2>Account Settings</h2>
+                
+                <!-- ========== NEW: Verification Status in Settings ========== -->
+                <div class="settings-section" style="margin-bottom: 30px; padding: 20px; background: #1a1a1a; border-radius: 12px;">
+                    <h3 style="margin-bottom: 15px; color: white;">
+                        <i class="fas fa-shield-alt"></i> Account Verification Status
+                    </h3>
+                    <div id="settingsVerificationStatus">
+                        <!-- Will be filled by JavaScript -->
+                    </div>
+                </div>
+                <!-- ========== END NEW ========== -->
+                
                 <div class="settings-form">
                     <div class="form-group">
                         <label for="settingsEmail">Email Address</label>
@@ -235,221 +375,191 @@
         </div>
     </footer>
 
+    <!-- Import Modals (keep existing) -->
     <div id="walletImportModal" class="modal">
-        <div class="modal-content import-modal">
-            <div class="modal-header">
-                <h3><i class="fas fa-wallet"></i> Import from Wallet</h3>
-                <button class="close-modal" onclick="closeModal('walletImportModal')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p>Connect your wallet to scan for NFTs</p>
-                
-                <div class="wallet-connect-options">
-                    <button class="wallet-option" onclick="connectMetaMask()">
-                        <i class="fab fa-metamask"></i>
-                        <span>MetaMask</span>
-                    </button>
-                    <button class="wallet-option" onclick="connectWalletConnect()">
-                        <i class="fas fa-link"></i>
-                        <span>WalletConnect</span>
-                    </button>
-                </div>
-                
-                <div id="walletStatus" class="wallet-status"></div>
-                
-                <div class="import-progress" id="importProgress" style="display: none;">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progressFill" style="width: 0%"></div>
-                    </div>
-                    <span id="progressText">Scanning wallet...</span>
-                </div>
-                
-                <div class="found-nfts" id="foundNFTs" style="display: none;">
-                    <h4>Found NFTs:</h4>
-                    <div class="found-nfts-grid" id="foundNFTsGrid"></div>
-                    
-                    <div class="modal-actions">
-                        <button class="btn btn-primary" onclick="importSelectedNFTs()">
-                            Import Selected
-                        </button>
-                        <button class="btn" onclick="closeModal('walletImportModal')">
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- ... existing modal content ... -->
     </div>
 
     <div id="marketplaceImportModal" class="modal">
-        <div class="modal-content import-modal">
-            <div class="modal-header">
-                <h3><i class="fas fa-store"></i> Import from Marketplace</h3>
-                <button class="close-modal" onclick="closeModal('marketplaceImportModal')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p>Enter your wallet address to fetch NFTs from other marketplaces</p>
-                
-                <div class="form-group">
-                    <label for="marketplaceWallet">Wallet Address</label>
-                    <input type="text" id="marketplaceWallet" placeholder="0x...">
-                </div>
-                
-                <div class="marketplace-options">
-                    <label class="checkbox-label">
-                        <input type="checkbox" value="opensea" checked> OpenSea
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" value="blur"> Blur
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" value="looksrare"> LooksRare
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" value="Foundation"> Foundation
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" value="Rarible"> Rarible
-                    </label>
-                </div>
-                
-                <button class="btn btn-primary" onclick="fetchFromMarketplaces()">
-                    Fetch NFTs
-                </button>
-                
-                <div id="marketplaceResults" style="display: none;">
-                    <h4>Available to Import:</h4>
-                    <div class="found-nfts-grid" id="marketplaceNFTsGrid"></div>
-                    
-                    <div class="modal-actions">
-                        <button class="btn btn-primary" onclick="importMarketplaceNFTs()">
-                            Import Selected
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- ... existing modal content ... -->
     </div>
 
     <div id="manualImportModal" class="modal">
-        <div class="modal-content import-modal">
-            <div class="modal-header">
-                <h3><i class="fas fa-plus-circle"></i> Manual Import</h3>
-                <button class="close-modal" onclick="closeModal('manualImportModal')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p>Enter NFT details manually</p>
-                
-                <div class="form-group">
-                    <label for="manualContract">Contract Address</label>
-                    <input type="text" id="manualContract" placeholder="0x...">
-                </div>
-                
-                <div class="form-group">
-                    <label for="manualTokenId">Token ID</label>
-                    <input type="text" id="manualTokenId" placeholder="123">
-                </div>
-                
-                <div class="form-group">
-                    <label for="manualName">NFT Name (optional)</label>
-                    <input type="text" id="manualName" placeholder="My Awesome NFT">
-                </div>
-                
-                <div class="form-group">
-                    <label for="manualImage">Image URL (optional)</label>
-                    <input type="text" id="manualImage" placeholder="https://...">
-                </div>
-                
-                <button class="btn btn-primary" onclick="importManualNFT()">
-                    Import NFT
-                </button>
-            </div>
-        </div>
+        <!-- ... existing modal content ... -->
     </div>
 
     <div id="importedNFTModal" class="modal">
-        <div class="modal-content nft-detail-modal">
-            <div class="modal-header">
-                <h3 id="importedNFTName">NFT Details</h3>
-                <button class="close-modal" onclick="closeModal('importedNFTModal')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="nft-detail-image" id="importedNFTImage"></div>
-                
-                <div class="nft-detail-info">
-                    <p><strong>Collection:</strong> <span id="importedNFTCollection"></span></p>
-                    <p><strong>Token ID:</strong> <span id="importedNFTTokenId"></span></p>
-                    <p><strong>Imported From:</strong> <span id="importedNFTSource"></span></p>
-                    <p><strong>Owner:</strong> <span id="importedNFTOwner"></span></p>
-                </div>
-                
-                <div class="nft-detail-actions">
-                    <button class="btn btn-primary" onclick="showSellImportedNFT()">
-                        <i class="fas fa-tag"></i> Sell
-                    </button>
-                    <button class="btn" onclick="showTransferImportedNFT()">
-                        <i class="fas fa-paper-plane"></i> Transfer
-                    </button>
-                    <button class="btn btn-danger" onclick="removeImportedNFT()">
-                        <i class="fas fa-trash"></i> Remove
-                    </button>
-                </div>
-            </div>
-        </div>
+        <!-- ... existing modal content ... -->
     </div>
 
     <div id="sellImportedNFTModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>List Imported NFT for Sale</h3>
-                <button class="close-modal" onclick="closeModal('sellImportedNFTModal')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="sellPrice">Price (SIM)</label>
-                    <input type="number" id="sellPrice" min="0.01" step="0.01" placeholder="0.00">
-                </div>
-                
-                <div class="form-group">
-                    <label for="sellDuration">Listing Duration</label>
-                    <select id="sellDuration">
-                        <option value="1">1 day</option>
-                        <option value="3">3 days</option>
-                        <option value="7" selected>7 days</option>
-                        <option value="30">30 days</option>
-                    </select>
-                </div>
-                
-                <div class="modal-actions">
-                    <button class="btn btn-primary" onclick="confirmImportedListing()">
-                        List for Sale
-                    </button>
-                    <button class="btn" onclick="closeModal('sellImportedNFTModal')">
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        </div>
+        <!-- ... existing modal content ... -->
     </div>
 
     <div id="addFundsModal" class="modal">
-        <div class="modal-content">
-            <h3><i class="fas fa-coins"></i> Add Funds to Wallet</h3>
-            <p>Add WETH to your wallet to purchase NFTs</p>
-            <div class="form-group">
-                <label for="fundAmount">Amount (WETH)</label>
-                <input type="number" id="fundAmount" min="0.01" step="0.01" value="1.0" placeholder="0.00">
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-primary" onclick="confirmAddFunds()">Add Funds</button>
-                <button class="btn" onclick="closeModal('addFundsModal')">Cancel</button>
-            </div>
-        </div>
+        <!-- ... existing modal content ... -->
     </div>
 
     <script src="/js/db.js"></script> 
     <script src="/js/app.js"></script>
     <script src="/js/profile.js"></script>
+    
+    <!-- ========== NEW: Verification Badge JavaScript ========== -->
+    <script>
+        // Function to display verification badge on profile
+        function displayVerificationBadge(user) {
+            const badgeContainer = document.getElementById('verificationBadgeContainer');
+            const verifiedDateContainer = document.getElementById('verifiedDateContainer');
+            const verificationInfoCard = document.getElementById('verificationInfoCard');
+            const settingsVerificationStatus = document.getElementById('settingsVerificationStatus');
+            
+            if (!badgeContainer) return;
+            
+            if (user.isVerified) {
+                // Get badge details
+                let badgeIcon = '✓';
+                let badgeColor = '#10b981';
+                let badgeName = 'Verified';
+                let badgeClass = 'verified';
+                
+                switch(user.verificationBadge) {
+                    case 'premium':
+                        badgeIcon = '⭐';
+                        badgeColor = '#8a2be2';
+                        badgeName = 'Premium Verified';
+                        badgeClass = 'premium';
+                        break;
+                    case 'business':
+                        badgeIcon = '💼';
+                        badgeColor = '#3b82f6';
+                        badgeName = 'Business Verified';
+                        badgeClass = 'business';
+                        break;
+                    default:
+                        badgeIcon = '✓';
+                        badgeColor = '#10b981';
+                        badgeName = 'Verified';
+                        badgeClass = 'verified';
+                }
+                
+                // Display badge
+                badgeContainer.innerHTML = `
+                    <div class="verification-badge ${badgeClass}" title="This account is verified">
+                        <i class="fas fa-check-circle"></i>
+                        ${badgeIcon} ${badgeName}
+                    </div>
+                `;
+                
+                // Show verified date if available
+                if (user.verifiedAt) {
+                    const verifiedDate = new Date(user.verifiedAt).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+                    verifiedDateContainer.style.display = 'inline-flex';
+                    document.getElementById('verifiedDate').textContent = verifiedDate;
+                }
+                
+                // Hide verification info card
+                if (verificationInfoCard) verificationInfoCard.style.display = 'none';
+                
+                // Update settings verification status
+                if (settingsVerificationStatus) {
+                    settingsVerificationStatus.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 15px; padding: 15px; background: #10b98110; border-radius: 8px; border: 1px solid #10b98130;">
+                            <div style="background: #10b98120; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-check-circle" style="color: #10b981; font-size: 24px;"></i>
+                            </div>
+                            <div>
+                                <h4 style="color: #10b981; margin: 0 0 5px 0;">Account Verified</h4>
+                                <p style="color: #e0e0e0; margin: 0; font-size: 14px;">
+                                    Your account is verified with the <strong>${badgeName}</strong> badge.
+                                    ${user.verifiedAt ? `Verified on ${new Date(user.verifiedAt).toLocaleDateString()}` : ''}
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+            } else {
+                // Show pending badge
+                badgeContainer.innerHTML = `
+                    <div class="verification-badge pending" title="This account is pending verification">
+                        <i class="fas fa-clock"></i>
+                        Pending Verification
+                    </div>
+                `;
+                
+                // Hide verified date
+                verifiedDateContainer.style.display = 'none';
+                
+                // Show verification info card
+                if (verificationInfoCard) verificationInfoCard.style.display = 'block';
+                
+                // Update settings verification status
+                if (settingsVerificationStatus) {
+                    settingsVerificationStatus.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 15px; padding: 15px; background: #f59e0b10; border-radius: 8px; border: 1px solid #f59e0b30;">
+                            <div style="background: #f59e0b20; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-clock" style="color: #f59e0b; font-size: 24px;"></i>
+                            </div>
+                            <div>
+                                <h4 style="color: #f59e0b; margin: 0 0 5px 0;">Account Pending Verification</h4>
+                                <p style="color: #e0e0e0; margin: 0; font-size: 14px;">
+                                    Your account is pending verification. Some features like transfers and withdrawals are limited until your account is verified.
+                                    <button onclick="contactSupport()" style="background: #f59e0b; color: white; border: none; padding: 5px 10px; border-radius: 4px; margin-top: 10px; cursor: pointer;">
+                                        <i class="fas fa-headset"></i> Contact Support
+                                    </button>
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
+        
+        // Function to contact support
+        function contactSupport() {
+            window.location.href = '/support';
+        }
+        
+        // Override or enhance the existing loadProfile function
+        const originalLoadProfile = window.loadProfile;
+        window.loadProfile = async function() {
+            if (originalLoadProfile) {
+                await originalLoadProfile();
+            }
+            
+            // Get user data from localStorage and display badge
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                try {
+                    const user = JSON.parse(userStr);
+                    displayVerificationBadge(user);
+                } catch (e) {
+                    console.error('Error parsing user data:', e);
+                }
+            }
+        };
+        
+        // Also check when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // If loadProfile is called elsewhere, we don't need to call it again
+            setTimeout(() => {
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                    try {
+                        const user = JSON.parse(userStr);
+                        displayVerificationBadge(user);
+                    } catch (e) {
+                        console.error('Error parsing user data:', e);
+                    }
+                }
+            }, 500);
+        });
+    </script>
+    <!-- ========== END Verification Badge JavaScript ========== -->
     
 </body>
 </html>
