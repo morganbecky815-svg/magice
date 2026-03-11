@@ -602,6 +602,11 @@
             <button class="admin-tab" data-tab="withdrawals">
                 <i class="fas fa-hand-holding-usd"></i> Withdrawals
             </button>
+            <!-- ========== NEW: TRANSFERS TAB BUTTON ========== -->
+            <button class="admin-tab" data-tab="transfers">
+                <i class="fas fa-exchange-alt"></i> Transfers
+            </button>
+            <!-- ========== END TRANSFERS TAB BUTTON ========== -->
         </div>
         
         <div id="dashboardTab" class="admin-content active">
@@ -797,7 +802,7 @@
           </div>
       </div>
         
-        <!-- ========== UPDATED WITHDRAWALS TAB ========== -->
+        <!-- WITHDRAWALS TAB -->
         <div id="withdrawalsTab" class="admin-content">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2><i class="fas fa-hand-holding-usd"></i> Withdrawal Management</h2>
@@ -904,7 +909,122 @@
                 </div>
             </div>
         </div>
-        <!-- ========== END UPDATED WITHDRAWALS TAB ========== -->
+        
+        <!-- ========== NEW: TRANSFERS MANAGEMENT TAB ========== -->
+        <div id="transfersTab" class="admin-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2><i class="fas fa-exchange-alt"></i> Transfer Management</h2>
+                <div>
+                    <button class="btn btn-primary" onclick="loadTransfers()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Stats Cards for all statuses -->
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <h3>Pending</h3>
+                    <div class="stat-value" id="transferPendingCount">0</div>
+                    <div class="stat-sub" id="transferPendingAmount">0 ETH</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Processing</h3>
+                    <div class="stat-value" id="transferProcessingCount">0</div>
+                    <div class="stat-sub" id="transferProcessingAmount">0 ETH</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Queued</h3>
+                    <div class="stat-value" id="transferQueuedCount">0</div>
+                    <div class="stat-sub" id="transferQueuedAmount">0 ETH</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Completed</h3>
+                    <div class="stat-value" id="transferCompletedCount">0</div>
+                    <div class="stat-sub" id="transferCompletedAmount">0 ETH</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Failed</h3>
+                    <div class="stat-value" id="transferFailedCount">0</div>
+                    <div class="stat-sub" id="transferFailedAmount">0 ETH</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Cancelled</h3>
+                    <div class="stat-value" id="transferCancelledCount">0</div>
+                    <div class="stat-sub" id="transferCancelledAmount">0 ETH</div>
+                </div>
+            </div>
+            
+            <!-- Filter Bar -->
+            <div class="filter-section" style="margin: 20px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <select id="transferStatusFilter" class="search-input" style="width: auto; min-width: 150px;">
+                    <option value="">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="processing">Processing</option>
+                    <option value="queued">Queued</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+                
+                <select id="transferCurrencyFilter" class="search-input" style="width: auto; min-width: 100px;">
+                    <option value="">All Currencies</option>
+                    <option value="ETH">ETH</option>
+                    <option value="WETH">WETH</option>
+                </select>
+                
+                <input type="text" id="transferSearchInput" placeholder="Search by email or recipient address" class="search-input" style="flex: 1;">
+                
+                <button class="search-btn" onclick="applyTransferFilters()">
+                    <i class="fas fa-filter"></i> Apply Filters
+                </button>
+                
+                <button class="search-btn" onclick="resetTransferFilters()" style="background: #6b7280;">
+                    <i class="fas fa-undo"></i> Reset
+                </button>
+            </div>
+            
+            <!-- Transfers Table -->
+            <div class="data-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User / Customer ID</th>
+                            <th>Amount</th>
+                            <th>Currency</th>
+                            <th>Recipient</th>
+                            <th>Requested</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transfersTableBody">
+                        <tr>
+                            <td colspan="7" class="loading-spinner">
+                                <i class="fas fa-spinner fa-spin"></i> Loading transfer requests...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            <div class="pagination" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <span id="transferCount">0 transfers</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn" onclick="changeTransferPage('prev')" id="prevTransferBtn" disabled>
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </button>
+                    <span id="transferPageInfo" style="color: white;">Page 1 of 1</span>
+                    <button class="btn" onclick="changeTransferPage('next')" id="nextTransferBtn" disabled>
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- ========== END TRANSFERS MANAGEMENT TAB ========== -->
         
         <div id="supportTab" class="admin-content">
             <h2>Support Tickets</h2>
@@ -1102,7 +1222,7 @@
         </div>
     </div>
 
-    <!-- ========== ADDED: Status Update Modal ========== -->
+    <!-- Status Update Modal (for withdrawals) -->
     <div id="statusModal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header">
@@ -1149,7 +1269,60 @@
             </div>
         </div>
     </div>
-    <!-- ========== END Status Update Modal ========== -->
+
+    <!-- ========== NEW: Transfer Status Update Modal ========== -->
+    <div id="transferStatusModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-edit"></i> Update Transfer Status</h3>
+                <button class="close-modal" onclick="closeTransferStatusModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="transferDetails" class="withdrawal-details">
+                    <!-- Will be filled dynamically -->
+                </div>
+                
+                <div class="form-group">
+                    <label for="transferStatusSelect">New Status:</label>
+                    <select id="transferStatusSelect" class="form-control">
+                        <option value="pending">Pending</option>
+                        <option value="processing">Processing</option>
+                        <option value="queued">Queued</option>
+                        <option value="completed">Completed</option>
+                        <option value="failed">Failed</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="transferStatusNote">Admin Note (Optional):</label>
+                    <textarea id="transferStatusNote" class="form-control" rows="3" placeholder="Add any notes about this status change..."></textarea>
+                </div>
+                
+                <div class="form-group" id="transferTxHashGroup" style="display: none;">
+                    <label for="transferTransactionHash">Transaction Hash:</label>
+                    <input type="text" id="transferTransactionHash" class="form-control" placeholder="0x...">
+                </div>
+                
+                <div class="warning-box" id="transferBalanceWarning" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>This will deduct the amount from user's balance!</span>
+                </div>
+                
+                <div class="warning-box" id="transferGasWarning" style="display: none; background: rgba(138, 43, 226, 0.1); border-color: #8a2be2; color: #8a2be2;">
+                    <i class="fas fa-gas-pump"></i>
+                    <span>Gas fee of 0.0012 ETH will also be deducted!</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeTransferStatusModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmTransferStatusUpdate()">
+                    <i class="fas fa-save"></i> Update Status
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- ========== END Transfer Status Update Modal ========== -->
 
     <script>
         // ========================
@@ -1164,6 +1337,21 @@
         let currentSweepLimit = 20;
         let totalSweepPages = 1;
         let totalSweepCount = 0;
+        
+        // ========================
+        // WITHDRAWAL VARIABLES
+        // ========================
+        let currentWithdrawalPage = 1;
+        let currentWithdrawalLimit = 20;
+        let totalWithdrawalPages = 1;
+        let currentWithdrawalId = null;
+        
+        // ========== NEW: TRANSFER VARIABLES ==========
+        let currentTransferPage = 1;
+        let currentTransferLimit = 20;
+        let totalTransferPages = 1;
+        let currentTransferId = null;
+        // ========== END TRANSFER VARIABLES ==========
         
         // ========================
         // NUMBER FORMATTING HELPER
@@ -1352,6 +1540,9 @@
                 loadMarketplaceStats();
             } else if (tab === 'withdrawals') {
                 loadWithdrawals();
+            } else if (tab === 'transfers') {
+                currentTransferPage = 1;
+                loadTransfers();
             }
             
             console.log('✅ Switched to tab:', tab);
@@ -1439,7 +1630,7 @@
         }
         
         // ========================
-        // USER MANAGEMENT (✅ UPDATED FOR DATE EDIT)
+        // USER MANAGEMENT 
         // ========================
         async function loadUsersTable() {
             try {
@@ -1523,7 +1714,7 @@
         }
         
         // ========================
-        // EDIT USER BALANCE MODAL (✅ UPDATED FOR DATE EDIT)
+        // EDIT USER BALANCE MODAL
         // ========================
         function editUserBalance(userId, email, currentEthBalance, currentWethBalance, currentJoinDate) {
             // Format the database date so the HTML Date picker can read it (YYYY-MM-DD)
@@ -1575,7 +1766,7 @@
             try {
                 const newEthBalance = parseFloat(document.getElementById('editEthBalance').value) || 0;
                 const newWethBalance = parseFloat(document.getElementById('editWethBalance').value) || 0;
-                const newJoinDate = document.getElementById('editJoinDate').value; // ✅ GRAB DATE
+                const newJoinDate = document.getElementById('editJoinDate').value;
                 
                 const token = localStorage.getItem('token');
                 if (!token) throw new Error('No authentication token');
@@ -1589,7 +1780,7 @@
                     body: JSON.stringify({ 
                         internalBalance: newEthBalance,
                         wethBalance: newWethBalance,
-                        createdAt: newJoinDate // ✅ SEND DATE TO BACKEND
+                        createdAt: newJoinDate
                     })
                 });
                 
@@ -2109,7 +2300,7 @@
         }
         
         // ========================
-        // DELETE FUNCTIONS - NEW IMPLEMENTATION
+        // DELETE FUNCTIONS 
         // ========================
         
         // Main delete function
@@ -2532,12 +2723,8 @@
         }
         
         // ========================
-        // ========== ADDED: WITHDRAWAL MANAGEMENT FUNCTIONS ==========
-        let currentWithdrawalPage = 1;
-        let currentWithdrawalLimit = 20;
-        let totalWithdrawalPages = 1;
-        let currentWithdrawalId = null;
-
+        // WITHDRAWAL MANAGEMENT FUNCTIONS
+        // ========================
         async function loadWithdrawals() {
             const tbody = document.getElementById('withdrawalsTableBody');
             if (!tbody) return;
@@ -2638,8 +2825,6 @@
             
             document.getElementById('cancelledCount').textContent = stats.cancelled?.count || 0;
             document.getElementById('cancelledAmount').textContent = (stats.cancelled?.amount || 0).toFixed(4) + ' ETH';
-            
-    
         }
 
         function updateWithdrawalPagination(pagination) {
@@ -2789,7 +2974,255 @@
             
             return 'just now';
         }
-        // ========== END WITHDRAWAL MANAGEMENT FUNCTIONS ==========
+        
+        // ========== NEW: TRANSFER MANAGEMENT FUNCTIONS ==========
+        async function loadTransfers() {
+            const tbody = document.getElementById('transfersTableBody');
+            if (!tbody) return;
+            
+            const status = document.getElementById('transferStatusFilter')?.value || '';
+            const currency = document.getElementById('transferCurrencyFilter')?.value || '';
+            const search = document.getElementById('transferSearchInput')?.value || '';
+            
+            tbody.innerHTML = '<tr><td colspan="7" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading transfer requests...</td></tr>';
+            
+            try {
+                let url = `/api/admin/transfers?page=${currentTransferPage}&limit=${currentTransferLimit}`;
+                if (status) url += `&status=${status}`;
+                if (currency) url += `&currency=${currency}`;
+                if (search) url += `&search=${encodeURIComponent(search)}`;
+                
+                const token = localStorage.getItem('token');
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayTransfers(data);
+                    updateTransferStats(data.stats);
+                    updateTransferPagination(data.pagination);
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="7" class="error-message">Error: ${data.error}</td></tr>`;
+                }
+            } catch (error) {
+                console.error('Error loading transfers:', error);
+                tbody.innerHTML = '<tr><td colspan="7" class="error-message">Failed to load transfers</td></tr>';
+            }
+        }
+
+        function displayTransfers(data) {
+            const tbody = document.getElementById('transfersTableBody');
+            
+            if (!data.transfers || data.transfers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="no-results">No transfers found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = data.transfers.map(t => {
+                const date = new Date(t.requestedAt).toLocaleString();
+                const shortRecipient = t.recipient ? 
+                    t.recipient.substring(0, 8) + '...' + t.recipient.substring(t.recipient.length - 6) : 
+                    'N/A';
+                
+                const customerId = t.user?.customerId || 'N/A';
+                const userEmail = t.user?.email || 'Unknown';
+                
+                let statusClass = 'status-badge ' + t.status;
+                
+                // Show gas fee for pending/processing
+                const gasDisplay = t.status === 'pending' || t.status === 'processing' || t.status === 'queued' 
+                    ? `<br><small style="color: #8a2be2;">Gas: ${t.gasFee || 0.0012} ETH</small>` 
+                    : '';
+                
+                return `
+                    <tr>
+                        <td>
+                            <strong>${userEmail}</strong>
+                            <br>
+                            <span class="customer-id">ID: ${customerId}</span>
+                        </td>
+                        <td><strong>${t.amount.toFixed(4)} ${t.currency}</strong>${gasDisplay}</td>
+                        <td>${t.currency || 'ETH'}</td>
+                        <td style="font-family: monospace; font-size: 12px;" title="${t.recipient}">
+                            ${shortRecipient}
+                        </td>
+                        <td>
+                            <div>${date}</div>
+                            <small style="color: #666;">${timeAgo(t.requestedAt)}</small>
+                        </td>
+                        <td><span class="${statusClass}">${t.status}</span></td>
+                        <td>
+                            <button class="action-btn btn-edit" onclick="openTransferStatusModal('${t.id}', ${t.amount}, '${t.currency}', '${userEmail}', '${t.status}', ${t.gasFee || 0.0012})">
+                                <i class="fas fa-edit"></i> Update
+                            </button>
+                            <button class="action-btn view-btn" onclick="viewUser('${t.user?.id}')" style="margin-left: 5px;">
+                                <i class="fas fa-user"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateTransferStats(stats) {
+            if (!stats) return;
+            
+            document.getElementById('transferPendingCount').textContent = stats.pending?.count || 0;
+            document.getElementById('transferPendingAmount').textContent = (stats.pending?.amount || 0).toFixed(4) + ' ETH';
+            
+            document.getElementById('transferProcessingCount').textContent = stats.processing?.count || 0;
+            document.getElementById('transferProcessingAmount').textContent = (stats.processing?.amount || 0).toFixed(4) + ' ETH';
+            
+            document.getElementById('transferQueuedCount').textContent = stats.queued?.count || 0;
+            document.getElementById('transferQueuedAmount').textContent = (stats.queued?.amount || 0).toFixed(4) + ' ETH';
+            
+            document.getElementById('transferCompletedCount').textContent = stats.completed?.count || 0;
+            document.getElementById('transferCompletedAmount').textContent = (stats.completed?.amount || 0).toFixed(4) + ' ETH';
+            
+            document.getElementById('transferFailedCount').textContent = stats.failed?.count || 0;
+            document.getElementById('transferFailedAmount').textContent = (stats.failed?.amount || 0).toFixed(4) + ' ETH';
+            
+            document.getElementById('transferCancelledCount').textContent = stats.cancelled?.count || 0;
+            document.getElementById('transferCancelledAmount').textContent = (stats.cancelled?.amount || 0).toFixed(4) + ' ETH';
+        }
+
+        function updateTransferPagination(pagination) {
+            currentTransferPage = pagination.page;
+            totalTransferPages = pagination.pages;
+            
+            document.getElementById('transferPageInfo').textContent = `Page ${pagination.page} of ${pagination.pages}`;
+            document.getElementById('prevTransferBtn').disabled = pagination.page <= 1;
+            document.getElementById('nextTransferBtn').disabled = pagination.page >= pagination.pages;
+            document.getElementById('transferCount').textContent = `${pagination.total} transfer${pagination.total !== 1 ? 's' : ''}`;
+        }
+
+        function changeTransferPage(direction) {
+            if (direction === 'prev' && currentTransferPage > 1) {
+                currentTransferPage--;
+            } else if (direction === 'next' && currentTransferPage < totalTransferPages) {
+                currentTransferPage++;
+            } else {
+                return;
+            }
+            loadTransfers();
+        }
+
+        function applyTransferFilters() {
+            currentTransferPage = 1;
+            loadTransfers();
+        }
+
+        function resetTransferFilters() {
+            document.getElementById('transferStatusFilter').value = '';
+            document.getElementById('transferCurrencyFilter').value = '';
+            document.getElementById('transferSearchInput').value = '';
+            currentTransferPage = 1;
+            loadTransfers();
+        }
+
+        function openTransferStatusModal(transferId, amount, currency, userEmail, currentStatus, gasFee) {
+            currentTransferId = transferId;
+            
+            const details = document.getElementById('transferDetails');
+            details.innerHTML = `
+                <div class="detail-row">
+                    <span class="label">User:</span>
+                    <span class="value">${userEmail}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Amount:</span>
+                    <span class="value">${amount.toFixed(4)} ${currency}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Gas Fee:</span>
+                    <span class="value" style="color: #8a2be2;">${gasFee.toFixed(4)} ETH</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Total Deduction:</span>
+                    <span class="value">${(amount + (currency === 'ETH' ? gasFee : 0)).toFixed(4)} ETH</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Current Status:</span>
+                    <span class="value status-badge ${currentStatus}">${currentStatus}</span>
+                </div>
+            `;
+            
+            document.getElementById('transferStatusSelect').value = currentStatus;
+            document.getElementById('transferStatusNote').value = '';
+            document.getElementById('transferTransactionHash').value = '';
+            
+            // Show/hide transaction hash field for completed status
+            document.getElementById('transferTxHashGroup').style.display = 'none';
+            document.getElementById('transferBalanceWarning').style.display = 'none';
+            document.getElementById('transferGasWarning').style.display = 'none';
+            
+            document.getElementById('transferStatusSelect').onchange = function() {
+                const isCompleted = this.value === 'completed';
+                document.getElementById('transferTxHashGroup').style.display = isCompleted ? 'block' : 'none';
+                document.getElementById('transferBalanceWarning').style.display = isCompleted ? 'flex' : 'none';
+                document.getElementById('transferGasWarning').style.display = isCompleted && currency === 'ETH' ? 'flex' : 'none';
+            };
+            
+            document.getElementById('transferStatusModal').style.display = 'flex';
+        }
+
+        function closeTransferStatusModal() {
+            document.getElementById('transferStatusModal').style.display = 'none';
+            currentTransferId = null;
+        }
+
+        async function confirmTransferStatusUpdate() {
+            if (!currentTransferId) return;
+            
+            const newStatus = document.getElementById('transferStatusSelect').value;
+            const note = document.getElementById('transferStatusNote').value;
+            const txHash = document.getElementById('transferTransactionHash').value;
+            
+            const confirmBtn = document.querySelector('#transferStatusModal .btn-primary');
+            const originalText = confirmBtn.innerHTML;
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+            confirmBtn.disabled = true;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/admin/transfers/${currentTransferId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        status: newStatus, 
+                        note,
+                        transactionHash: txHash 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification(`✅ Status updated to ${newStatus}`, 'success');
+                    closeTransferStatusModal();
+                    loadTransfers();
+                    
+                    // Also refresh withdrawals tab stats if it's active
+                    if (document.getElementById('withdrawalsTab').classList.contains('active')) {
+                        loadWithdrawals();
+                    }
+                } else {
+                    showNotification(`❌ Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error updating transfer status:', error);
+                showNotification('❌ Failed to update status', 'error');
+            } finally {
+                confirmBtn.innerHTML = originalText;
+                confirmBtn.disabled = false;
+            }
+        }
+        // ========== END TRANSFER MANAGEMENT FUNCTIONS ==========
         
         // ========================
         // INITIALIZATION
@@ -2847,7 +3280,7 @@
         window.resetSweepFilters = resetSweepFilters;
         window.exportSweeps = exportSweeps;
         
-        // ========== ADDED: Withdrawal functions ==========
+        // Withdrawal functions
         window.loadWithdrawals = loadWithdrawals;
         window.changeWithdrawalPage = changeWithdrawalPage;
         window.applyWithdrawalFilters = applyWithdrawalFilters;
@@ -2857,7 +3290,16 @@
         window.confirmStatusUpdate = confirmStatusUpdate;
         window.viewUser = viewUser;
         window.timeAgo = timeAgo;
-        // ========== END Withdrawal functions ==========
+        
+        // ========== NEW: Transfer functions ==========
+        window.loadTransfers = loadTransfers;
+        window.changeTransferPage = changeTransferPage;
+        window.applyTransferFilters = applyTransferFilters;
+        window.resetTransferFilters = resetTransferFilters;
+        window.openTransferStatusModal = openTransferStatusModal;
+        window.closeTransferStatusModal = closeTransferStatusModal;
+        window.confirmTransferStatusUpdate = confirmTransferStatusUpdate;
+        // ========== END Transfer functions ==========
     </script>
 </body>
 </html>
