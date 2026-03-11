@@ -766,10 +766,22 @@ function validateTransferForm() {
     if (!validateAddress()) { alert('Please enter a valid recipient address'); return false; }
     
     let availableBalance = currency === 'eth' ? transferData.balances.eth : transferData.balances.weth;
+    
+    // Check if amount exceeds available balance
     if (amount > availableBalance) {
         alert('Insufficient ' + currency.toUpperCase() + ' balance. Available: ' + availableBalance.toFixed(4));
         return false;
     }
+    
+    // For ETH transfers, also check if we have enough for gas fee
+    if (currency === 'eth') {
+        const totalNeeded = amount + 0.0012;
+        if (totalNeeded > availableBalance) {
+            alert('Insufficient balance for transfer + gas fee. Available: ' + availableBalance.toFixed(4) + ' ETH, Needed: ' + totalNeeded.toFixed(4) + ' ETH');
+            return false;
+        }
+    }
+    
     return true;
 }
 
@@ -791,6 +803,7 @@ function reviewTransfer() {
     
     const usdValue = amount * ethPrice;
     const gasFeeEth = 0.0012;
+    const gasFeeUsd = gasFeeEth * ethPrice;
     
     modalBody.innerHTML = `
         <div class="transfer-review">
@@ -801,7 +814,8 @@ function reviewTransfer() {
                 <div class="detail-row"><span>Value</span><strong>$${usdValue.toFixed(2)} USD</strong></div>
                 <div class="detail-row"><span>Recipient</span><code class="recipient-address">${recipient.substring(0, 10)}...${recipient.substring(recipient.length - 8)}</code></div>
                 <div class="detail-row"><span>Network</span><strong>${network.charAt(0).toUpperCase() + network.slice(1)}</strong></div>
-                <div class="detail-row"><span>Gas Fee</span><strong>${gasFeeEth.toFixed(4)} ETH</strong></div>
+                <div class="detail-row"><span>Gas Fee</span><strong>${gasFeeEth.toFixed(4)} ETH ($${gasFeeUsd.toFixed(2)})</strong></div>
+                <div class="detail-row total"><span>Total Deduction</span><strong>${(amount + (currency === 'eth' ? gasFeeEth : 0)).toFixed(4)} ETH</strong></div>
             </div>
             <div class="warning"><i class="fas fa-exclamation-triangle"></i><span>Transactions cannot be reversed. Please verify all details.</span></div>
         </div>
@@ -832,19 +846,29 @@ function executeTransfer(details) {
                 return;
             }
             
-            // Calculate new balances
+            // Calculate new balances with proper rounding to avoid floating point errors
             let newInternalBalance = transferData.balances.eth;
             let newWethBalance = transferData.balances.weth;
             
             if (details.currency === 'eth') {
-                newInternalBalance = transferData.balances.eth - details.amount - 0.0012;
+                // Calculate total deduction (transfer amount + gas fee)
+                const transferAmount = details.amount;
+                const gasFee = 0.0012;
+                const totalDeduction = transferAmount + gasFee;
+                
+                // Ensure we don't go below 0 and round to 4 decimal places
+                newInternalBalance = Math.max(0, Math.round((transferData.balances.eth - totalDeduction) * 10000) / 10000);
+                
                 // Update local data immediately for UI
                 transferData.balances.eth = newInternalBalance;
             } else {
-                newWethBalance = transferData.balances.weth - details.amount;
-                transferData.balances.eth -= 0.0012; // gas fee
-                newInternalBalance = transferData.balances.eth;
-                // Update local data
+                // WETH transfer - only deduct WETH amount, gas fee from ETH
+                newWethBalance = Math.max(0, Math.round((transferData.balances.weth - details.amount) * 10000) / 10000);
+                
+                // Deduct gas fee from ETH balance
+                const newEthBalance = Math.max(0, Math.round((transferData.balances.eth - 0.0012) * 10000) / 10000);
+                transferData.balances.eth = newEthBalance;
+                newInternalBalance = newEthBalance;
                 transferData.balances.weth = newWethBalance;
             }
             
@@ -853,7 +877,7 @@ function executeTransfer(details) {
                 wethBalance: newWethBalance
             });
             
-            // ✅ Use the correct user endpoint, not admin
+            // ✅ Use the correct user endpoint
             const response = await fetch('/api/user/me/balance', {
                 method: 'PUT',
                 headers: {
@@ -960,8 +984,7 @@ async function loadTransactionHistory() {
                 bankDetails: w.bankDetails
             }));
             
-            // Merge with existing transfers (keep both)
-            // Keep only transfers, add backend withdrawals
+            // Keep existing transfers and add backend withdrawals
             const transfers = transferData.transactions.filter(t => t.type === 'transfer');
             transferData.transactions = [...transfers, ...backendWithdrawals];
             
