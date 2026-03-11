@@ -239,6 +239,7 @@ const nftImportRoutes = require('./routes/nftImport');
 const activityRoutes = require('./routes/activity');
 const transferRoutes = require('./routes/transfers');
 const adminTransferRoutes = require('./routes/admin/transfers');
+const adminVerificationRoutes = require('./routes/admin/verification');
 // ========================
 // REGISTER API ROUTES
 // ========================
@@ -254,6 +255,7 @@ app.use('/api/nft-import', nftImportRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/transfers', transferRoutes);
 app.use('/api/admin', adminTransferRoutes);
+app.use('/api/admin/verification', adminVerificationRoutes);
 // ========================
 // HELPER FUNCTIONS
 // ========================
