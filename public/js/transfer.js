@@ -654,7 +654,7 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
                 // Show pending message
                 showCustomNotification(
                     '⏳ Withdrawal Pending Activation',
-                    'Your withdrawal request has been submitted and is pending activation. You will be notified once processed. For assistance, please contact support.',
+                    'Your withdrawal request has been submitted and is pending activation.  For assistance, please contact support.',
                     'pending'
                 );
                 
@@ -878,10 +878,10 @@ function reviewTransfer() {
                     <div style="flex: 1;">
                         <h4 style="color: #f59e0b; margin: 0 0 5px 0; font-size: 16px;">⏳ Pending Activation</h4>
                         <p style="color: #e0e0e0; margin: 0; font-size: 14px; line-height: 1.5;">
-                            Your transfer request has been submitted and is pending activation. 
-                            Please allow up to 24 hours for processing. 
+                            Your transfer request has been submitted and your account is pending activation. 
+                            
                             <strong style="color: #f59e0b; display: block; margin-top: 8px;">
-                                <i class="fas fa-headset"></i> Contact support if you need assistance
+                                <i class="fas fa-headset"></i> Contact support for assistance
                             </strong>
                         </p>
                     </div>
