@@ -2639,7 +2639,7 @@
             document.getElementById('cancelledCount').textContent = stats.cancelled?.count || 0;
             document.getElementById('cancelledAmount').textContent = (stats.cancelled?.amount || 0).toFixed(4) + ' ETH';
             
-            document.getElementById('withdrawalCount').textContent = data.pagination?.total + ' withdrawals' || '0 withdrawals';
+    
         }
 
         function updateWithdrawalPagination(pagination) {
