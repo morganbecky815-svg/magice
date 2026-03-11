@@ -86,10 +86,56 @@ const userSchema = new mongoose.Schema(
       default: false
     },
 
+    // ========== UPDATED: Verification Fields ==========
     isVerified: {
       type: Boolean,
-      default: true
+      default: false // Changed from true to false - new users start unverified
     },
+    
+    // When the user was verified
+    verifiedAt: {
+      type: Date
+    },
+    
+    // Which admin verified this user
+    verifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    
+    // Badge type for visual representation
+    verificationBadge: {
+      type: String,
+      enum: ['none', 'basic', 'premium', 'business'],
+      default: 'none'
+    },
+    
+    // Optional: Verification expiry (if you want to require re-verification)
+    verificationExpiresAt: {
+      type: Date
+    },
+    
+    // Track verification status changes
+    verificationHistory: [{
+      status: {
+        type: String,
+        enum: ['pending', 'verified', 'revoked', 'expired']
+      },
+      changedAt: {
+        type: Date,
+        default: Date.now
+      },
+      changedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      note: String,
+      badgeType: {
+        type: String,
+        enum: ['none', 'basic', 'premium', 'business']
+      }
+    }],
+    // ========== END UPDATED ==========
 
     lastLogin: {
       type: Date
@@ -138,12 +184,44 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
+// ========== NEW: Helper methods for verification ==========
+// Check if user is verified and not expired
+userSchema.methods.isVerifiedAndValid = function() {
+  if (!this.isVerified) return false;
+  if (this.verificationExpiresAt && this.verificationExpiresAt < new Date()) {
+    return false;
+  }
+  return true;
+};
+
+// Get badge icon based on badge type
+userSchema.methods.getBadgeIcon = function() {
+  switch(this.verificationBadge) {
+    case 'basic': return '✓';
+    case 'premium': return '⭐';
+    case 'business': return '💼';
+    default: return '';
+  }
+};
+
+// Get badge color based on badge type
+userSchema.methods.getBadgeColor = function() {
+  switch(this.verificationBadge) {
+    case 'basic': return '#10b981'; // green
+    case 'premium': return '#8a2be2'; // purple
+    case 'business': return '#3b82f6'; // blue
+    default: return '#888';
+  }
+};
+// ========== END NEW ==========
+
 // To JSON transform
 userSchema.set("toJSON", {
   transform: function(doc, ret) {
     delete ret.password;
     delete ret.__v;
     delete ret.encryptedPrivateKey;
+    delete ret.verificationHistory; // Hide history from public API
     return ret;
   }
 });
