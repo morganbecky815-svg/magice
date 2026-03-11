@@ -470,7 +470,7 @@ function updateWithdrawalSummary() {
     if (els.receive) els.receive.textContent = '$' + receiveAmount.toFixed(2);
 }
 
-// ========== FIXED: REVIEW WITHDRAWAL ==========
+// REVIEW WITHDRAWAL
 function reviewWithdrawal() {
     console.log('🔍 reviewWithdrawal called');
     
@@ -549,7 +549,7 @@ function reviewWithdrawal() {
     modal.style.display = 'flex';
 }
 
-// ========== FIXED: EXECUTE WITHDRAWAL ==========
+// EXECUTE WITHDRAWAL
 function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
     console.log('💰 executeWithdrawal called with:', { amount, method, cryptoAmount, bankDetails });
     
@@ -607,7 +607,7 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
             if (data.success) {
                 closeWithdrawalModal();
                 
-                // ✅ This is the message users will see
+                // This is the message users will see
                 alert('⏳ Withdrawal request submitted! It is now pending admin approval. You will be notified once processed.');
                 
                 // Clear the form
@@ -811,7 +811,10 @@ function reviewTransfer() {
     modal.style.display = 'flex';
 }
 
+// ========== FIXED: EXECUTE TRANSFER ==========
 function executeTransfer(details) {
+    console.log('💰 executeTransfer called with:', details);
+    
     const confirmBtn = document.getElementById('confirmTransferBtn');
     if (confirmBtn) {
         confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
@@ -823,59 +826,104 @@ function executeTransfer(details) {
             const token = localStorage.getItem('token') || localStorage.getItem('authToken');
             const user = JSON.parse(localStorage.getItem('user'));
             
-            if (details.currency === 'eth') {
-                transferData.balances.eth -= details.amount;
-                transferData.balances.eth -= 0.0012;
-            } else {
-                transferData.balances.weth -= details.amount;
-                transferData.balances.eth -= 0.0012;
+            if (!token || !user) {
+                alert('Please login first');
+                window.location.href = '/login';
+                return;
             }
             
-            await fetch(`/api/admin/users/${user._id}/balance`, {
+            // Calculate new balances
+            let newInternalBalance = transferData.balances.eth;
+            let newWethBalance = transferData.balances.weth;
+            
+            if (details.currency === 'eth') {
+                newInternalBalance = transferData.balances.eth - details.amount - 0.0012;
+                // Update local data immediately for UI
+                transferData.balances.eth = newInternalBalance;
+            } else {
+                newWethBalance = transferData.balances.weth - details.amount;
+                transferData.balances.eth -= 0.0012; // gas fee
+                newInternalBalance = transferData.balances.eth;
+                // Update local data
+                transferData.balances.weth = newWethBalance;
+            }
+            
+            console.log('📤 Sending transfer to backend:', {
+                internalBalance: newInternalBalance,
+                wethBalance: newWethBalance
+            });
+            
+            // ✅ Use the correct user endpoint, not admin
+            const response = await fetch('/api/user/me/balance', {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ 
-                    internalBalance: transferData.balances.eth,
-                    wethBalance: transferData.balances.weth
+                    internalBalance: newInternalBalance,
+                    wethBalance: newWethBalance
                 })
             });
-
-            await fetchUserFromBackend(); 
             
-            // Add to local transactions for immediate display
-            transferData.transactions.unshift({
-                id: Date.now(),
-                type: 'transfer',
-                amount: details.amount,
-                currency: details.currency.toUpperCase(),
-                recipient: details.recipient,
-                status: 'completed',
-                note: details.note,
-                createdAt: new Date().toISOString()
-            });
+            const data = await response.json();
+            console.log('📥 Transfer response:', data);
             
-            updateTransactionHistoryDisplay();
-            
-            closeTransferModal();
-            alert('✅ Transfer completed successfully! ' + details.amount.toFixed(4) + ' ' + details.currency.toUpperCase() + ' sent!');
-            
-            saveToRecentContacts(details.recipient);
-            
-            document.getElementById('transferAmount').value = '';
-            document.getElementById('recipientAddress').value = '';
+            if (data.success) {
+                // Update localStorage with new user data
+                const updatedUser = {
+                    ...user,
+                    internalBalance: data.user.internalBalance,
+                    wethBalance: data.user.wethBalance
+                };
+                localStorage.setItem('user', JSON.stringify(updatedUser));
+                
+                // Add to local transactions for immediate display
+                transferData.transactions.unshift({
+                    id: Date.now(),
+                    type: 'transfer',
+                    amount: details.amount,
+                    currency: details.currency.toUpperCase(),
+                    recipient: details.recipient,
+                    status: 'completed',
+                    note: details.note || `Transfer to ${details.recipient.substring(0, 8)}...`,
+                    createdAt: new Date().toISOString()
+                });
+                
+                updateTransactionHistoryDisplay();
+                closeTransferModal();
+                
+                alert('✅ Transfer completed successfully! ' + details.amount.toFixed(4) + ' ' + details.currency.toUpperCase() + ' sent!');
+                
+                // Save to recent contacts
+                saveToRecentContacts(details.recipient);
+                
+                // Clear the form
+                document.getElementById('transferAmount').value = '';
+                document.getElementById('recipientAddress').value = '';
+                
+                // Refresh user data from backend
+                await fetchUserFromBackend();
+                
+            } else {
+                throw new Error(data.error || 'Transfer failed');
+            }
             
         } catch(e) {
-            alert('Error processing transfer. Please try again.');
+            console.error('❌ Transfer error:', e);
+            alert('Error processing transfer: ' + e.message);
             closeTransferModal();
+        } finally {
+            if (confirmBtn) {
+                confirmBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Confirm Transfer';
+                confirmBtn.disabled = false;
+            }
         }
     }, 1500);
 }
 
 // ============================================
-// UPDATED: TRANSACTION HISTORY (FETCHES FROM BACKEND)
+// TRANSACTION HISTORY (FETCHES FROM BACKEND)
 // ============================================
 
 async function loadTransactionHistory() {
