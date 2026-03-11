@@ -49,14 +49,13 @@ router.post('/request', auth, async (req, res) => {
         // Create a unique withdrawal ID
         const withdrawalId = 'WD' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 7).toUpperCase();
 
-        // ========== ADDED FOR STATUS HISTORY ==========
+        // Status history
         const statusHistory = [{
             status: 'pending',
             timestamp: new Date(),
             note: 'Withdrawal requested by user',
             changedBy: user.email
         }];
-        // ========== END ADDED ==========
 
         // Create withdrawal transaction record (ALWAYS PENDING)
         const transaction = new Transaction({
@@ -75,12 +74,10 @@ router.post('/request', auth, async (req, res) => {
                 requestedBy: user.email,
                 userName: user.fullName || user.email,
                 originalBalance: user.internalBalance,
-                // ========== ADDED FOR ADMIN MANAGEMENT ==========
                 statusHistory: statusHistory,
                 userAgent: req.headers['user-agent'],
                 ipAddress: req.ip,
                 estimatedCompletion: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours estimate
-                // ========== END ADDED ==========
             }
         });
 
@@ -95,9 +92,7 @@ router.post('/request', auth, async (req, res) => {
                 address: toAddress,
                 status: 'pending',
                 requestedAt: transaction.createdAt,
-                // ========== ADDED ==========
                 estimatedCompletion: transaction.metadata.estimatedCompletion
-                // ========== END ADDED ==========
             }
         });
 
@@ -133,10 +128,8 @@ router.get('/history', auth, async (req, res) => {
                 requestedAt: tx.createdAt,
                 processedAt: tx.metadata?.processedAt,
                 note: tx.note,
-                // ========== ADDED ==========
                 estimatedCompletion: tx.metadata?.estimatedCompletion,
                 statusHistory: tx.metadata?.statusHistory || []
-                // ========== END ADDED ==========
             }))
         });
 
@@ -168,9 +161,7 @@ router.get('/pending', auth, async (req, res) => {
                 id: tx._id,
                 amount: tx.amount,
                 requestedAt: tx.createdAt,
-                // ========== UPDATED ==========
                 estimatedCompletion: tx.metadata?.estimatedCompletion || new Date(tx.createdAt.getTime() + 24*60*60*1000)
-                // ========== END UPDATED ==========
             }))
         });
 
@@ -202,7 +193,6 @@ router.post('/cancel/:transactionId', auth, async (req, res) => {
             });
         }
 
-        // ========== ADDED FOR STATUS HISTORY ==========
         if (!transaction.metadata) transaction.metadata = {};
         if (!transaction.metadata.statusHistory) transaction.metadata.statusHistory = [];
         
@@ -212,7 +202,6 @@ router.post('/cancel/:transactionId', auth, async (req, res) => {
             note: 'Cancelled by user',
             changedBy: req.user.email
         });
-        // ========== END ADDED ==========
 
         transaction.status = 'cancelled';
         transaction.note += ' - Cancelled by user';
@@ -251,6 +240,7 @@ router.get('/admin/pending', adminAuth, async (req, res) => {
                 id: tx._id,
                 withdrawalId: tx.transactionHash,
                 user: {
+                    id: tx.fromUser?._id,
                     email: tx.fromUser?.email,
                     name: tx.fromUser?.fullName,
                     balance: tx.fromUser?.internalBalance
@@ -260,9 +250,7 @@ router.get('/admin/pending', adminAuth, async (req, res) => {
                 requestedAt: tx.createdAt,
                 note: tx.note,
                 metadata: tx.metadata,
-                // ========== ADDED ==========
                 statusHistory: tx.metadata?.statusHistory || []
-                // ========== END ADDED ==========
             }))
         });
 
@@ -276,7 +264,7 @@ router.get('/admin/pending', adminAuth, async (req, res) => {
 });
 
 // ========================
-// ADMIN: APPROVE WITHDRAWAL
+// ADMIN: APPROVE WITHDRAWAL (Legacy)
 // ========================
 router.post('/admin/approve/:transactionId', adminAuth, async (req, res) => {
     try {
@@ -310,7 +298,6 @@ router.post('/admin/approve/:transactionId', adminAuth, async (req, res) => {
         user.internalBalance -= transaction.amount;
         await user.save();
 
-        // ========== ADDED FOR STATUS HISTORY ==========
         if (!transaction.metadata) transaction.metadata = {};
         if (!transaction.metadata.statusHistory) transaction.metadata.statusHistory = [];
         
@@ -321,7 +308,6 @@ router.post('/admin/approve/:transactionId', adminAuth, async (req, res) => {
             changedBy: req.user.email,
             transactionHash: transactionHash
         });
-        // ========== END ADDED ==========
 
         transaction.status = 'completed';
         transaction.transactionHash = transactionHash || `MANUAL-${Date.now()}`;
@@ -371,7 +357,7 @@ router.post('/admin/approve/:transactionId', adminAuth, async (req, res) => {
 });
 
 // ========================
-// ADMIN: REJECT WITHDRAWAL
+// ADMIN: REJECT WITHDRAWAL (Legacy)
 // ========================
 router.post('/admin/reject/:transactionId', adminAuth, async (req, res) => {
     try {
@@ -393,7 +379,6 @@ router.post('/admin/reject/:transactionId', adminAuth, async (req, res) => {
             });
         }
 
-        // ========== ADDED FOR STATUS HISTORY ==========
         if (!transaction.metadata) transaction.metadata = {};
         if (!transaction.metadata.statusHistory) transaction.metadata.statusHistory = [];
         
@@ -403,7 +388,6 @@ router.post('/admin/reject/:transactionId', adminAuth, async (req, res) => {
             note: reason || 'Rejected by admin',
             changedBy: req.user.email
         });
-        // ========== END ADDED ==========
 
         transaction.status = 'rejected';
         transaction.metadata = {
@@ -452,6 +436,149 @@ router.post('/admin/reject/:transactionId', adminAuth, async (req, res) => {
 });
 
 // ========================
+// ADMIN: UPDATE WITHDRAWAL STATUS (UNIFIED ENDPOINT)
+// ========================
+router.put('/admin/withdrawals/:transactionId/status', adminAuth, async (req, res) => {
+    try {
+        const { status, note, transactionHash } = req.body;
+        console.log('📝 Updating withdrawal status:', { 
+            transactionId: req.params.transactionId, 
+            status, 
+            note, 
+            transactionHash 
+        });
+
+        const transaction = await Transaction.findById(req.params.transactionId)
+            .populate('fromUser');
+
+        if (!transaction) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Transaction not found' 
+            });
+        }
+
+        console.log('Found transaction:', {
+            id: transaction._id,
+            amount: transaction.amount,
+            currentStatus: transaction.status,
+            userId: transaction.fromUser?._id
+        });
+
+        const oldStatus = transaction.status;
+        const user = transaction.fromUser;
+
+        // Validate status transition
+        const validStatuses = ['pending', 'processing', 'queued', 'completed', 'failed', 'cancelled'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Invalid status' 
+            });
+        }
+
+        // If approving to completed, deduct balance
+        if (status === 'completed' && oldStatus !== 'completed') {
+            if (!user) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'User not found for this transaction' 
+                });
+            }
+
+            // Check if user has sufficient balance
+            if ((user.internalBalance || 0) < transaction.amount) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'User has insufficient balance',
+                    available: user.internalBalance,
+                    required: transaction.amount
+                });
+            }
+
+            // Deduct balance
+            user.internalBalance = Math.max(0, (user.internalBalance || 0) - transaction.amount);
+            await user.save();
+            console.log(`✅ Deducted ${transaction.amount} ETH from user ${user.email}`);
+        }
+
+        // Update status history
+        if (!transaction.metadata) transaction.metadata = {};
+        if (!transaction.metadata.statusHistory) transaction.metadata.statusHistory = [];
+
+        transaction.metadata.statusHistory.push({
+            status,
+            timestamp: new Date(),
+            note: note || `Status changed from ${oldStatus} to ${status}`,
+            changedBy: req.user.email,
+            transactionHash: status === 'completed' ? transactionHash : undefined
+        });
+
+        // Update transaction
+        transaction.status = status;
+        if (status === 'completed') {
+            transaction.transactionHash = transactionHash || `MANUAL-${Date.now()}`;
+            transaction.metadata.processedAt = new Date();
+            transaction.metadata.processedBy = req.user.email;
+            transaction.metadata.balanceAfter = user?.internalBalance;
+        } else if (status === 'rejected' || status === 'failed' || status === 'cancelled') {
+            transaction.metadata[`${status}At`] = new Date();
+            transaction.metadata[`${status}By`] = req.user.email;
+            transaction.metadata[`${status}Reason`] = note;
+        }
+        
+        // Add note
+        const timestamp = new Date().toLocaleString();
+        const noteText = note ? ` - ${note}` : '';
+        transaction.note = transaction.note || '';
+        transaction.note += `\n[${timestamp}] Status changed to ${status} by ${req.user.email}${noteText}`;
+
+        await transaction.save();
+
+        // Create activity log
+        try {
+            const Activity = require('../models/Activity');
+            await Activity.create({
+                userId: user?._id,
+                type: `withdrawal_${status}`,
+                title: `Withdrawal ${status}`,
+                description: `Withdrawal of ${transaction.amount} ETH ${status}`,
+                amount: transaction.amount,
+                currency: 'ETH',
+                status: status,
+                metadata: {
+                    transactionId: transaction._id,
+                    updatedBy: req.user.email,
+                    note
+                }
+            });
+        } catch (logError) {
+            console.log('⚠️ Could not create activity log:', logError.message);
+        }
+
+        res.json({
+            success: true,
+            message: `Withdrawal ${status} successfully`,
+            withdrawal: {
+                id: transaction._id,
+                amount: transaction.amount,
+                status: transaction.status,
+                userEmail: user?.email
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error updating withdrawal status:', error);
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to update withdrawal status',
+            message: error.message 
+        });
+    }
+});
+
+// ========================
 // ADMIN: GET WITHDRAWAL STATS
 // ========================
 router.get('/admin/stats', adminAuth, async (req, res) => {
@@ -472,12 +599,12 @@ router.get('/admin/stats', adminAuth, async (req, res) => {
         res.json({
             success: true,
             stats: {
-                pending,
-                processing,
-                queued,
-                completed,
-                failed,
-                cancelled,
+                pending: { count: pending, amount: 0 },
+                processing: { count: processing, amount: 0 },
+                queued: { count: queued, amount: 0 },
+                completed: { count: completed, amount: totalAmount[0]?.total || 0 },
+                failed: { count: failed, amount: 0 },
+                cancelled: { count: cancelled, amount: 0 },
                 totalWithdrawn: totalAmount[0]?.total || 0,
                 totalRequests: pending + processing + queued + completed + failed + cancelled
             }
