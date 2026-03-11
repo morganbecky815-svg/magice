@@ -16,6 +16,92 @@ let transferData = {
     ethPrice: 2500
 };
 
+// ========== NEW: Verification Helper Functions ==========
+function getUserFromStorage() {
+    try {
+        return JSON.parse(localStorage.getItem('user'));
+    } catch (e) {
+        return null;
+    }
+}
+
+function isUserVerified() {
+    const user = getUserFromStorage();
+    return user?.isVerified === true;
+}
+
+function getVerificationBadge() {
+    const user = getUserFromStorage();
+    if (!user?.isVerified) return null;
+    
+    const badge = user.verificationBadge || 'basic';
+    const badges = {
+        basic: { icon: '✓', color: '#10b981', name: 'Verified' },
+        premium: { icon: '⭐', color: '#8a2be2', name: 'Premium' },
+        business: { icon: '💼', color: '#3b82f6', name: 'Business' }
+    };
+    return badges[badge] || badges.basic;
+}
+
+function showVerificationBadgeInUI() {
+    // Add badge to header if it exists
+    const badgeContainer = document.getElementById('verificationBadge');
+    if (!badgeContainer) return;
+    
+    const user = getUserFromStorage();
+    if (user?.isVerified) {
+        const badge = getVerificationBadge();
+        badgeContainer.innerHTML = `
+            <span class="verification-badge" style="
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                background: ${badge.color}20;
+                color: ${badge.color};
+                padding: 4px 12px;
+                border-radius: 20px;
+                font-size: 13px;
+                font-weight: 600;
+                margin-left: 10px;
+            ">
+                <i class="fas fa-check-circle" style="color: ${badge.color};"></i>
+                ${badge.icon} ${badge.name}
+            </span>
+        `;
+    } else {
+        badgeContainer.innerHTML = `
+            <span class="verification-badge pending" style="
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                background: #f59e0b20;
+                color: #f59e0b;
+                padding: 4px 12px;
+                border-radius: 20px;
+                font-size: 13px;
+                font-weight: 600;
+                margin-left: 10px;
+            ">
+                <i class="fas fa-clock"></i>
+                Pending Verification
+            </span>
+        `;
+    }
+}
+
+function checkVerificationAndNotify(action = 'perform this action') {
+    if (!isUserVerified()) {
+        showCustomNotification(
+            '⏳ Account Pending Verification',
+            `Your account is pending verification. Please contact support to verify your account before you can ${action}.`,
+            'pending'
+        );
+        return false;
+    }
+    return true;
+}
+// ========== END NEW ==========
+
 // Main initialization
 async function initializeTransferPage() {
     console.log('🔄 Initializing transfer page...');
@@ -34,6 +120,10 @@ async function initializeTransferPage() {
     loadSavedBanks();
     await loadTransactionHistory();
     loadRecentContacts();
+    
+    // ========== NEW: Show verification badge ==========
+    showVerificationBadgeInUI();
+    // ========== END NEW ==========
     
     console.log('✅ Transfer page initialized successfully');
 }
@@ -77,10 +167,15 @@ async function fetchUserFromBackend() {
         transferData.balances.eth = parseFloat(result.user.internalBalance || 0);
         transferData.balances.weth = parseFloat(result.user.wethBalance || 0);
         
+        // ========== UPDATED: Save user with verification fields ==========
         localStorage.setItem('user', JSON.stringify(result.user));
         
         const ethPrice = window.ethPriceService ? window.ethPriceService.currentPrice : transferData.ethPrice;
         updateBalanceDisplay(ethPrice);
+        
+        // ========== NEW: Update verification badge ==========
+        showVerificationBadgeInUI();
+        // ========== END NEW ==========
         
         return result.user;
         
@@ -470,9 +565,15 @@ function updateWithdrawalSummary() {
     if (els.receive) els.receive.textContent = '$' + receiveAmount.toFixed(2);
 }
 
-// ========== REVIEW WITHDRAWAL ==========
+// ========== UPDATED: REVIEW WITHDRAWAL with verification check ==========
 function reviewWithdrawal() {
     console.log('🔍 reviewWithdrawal called');
+    
+    // ========== NEW: Check verification first ==========
+    if (!checkVerificationAndNotify('make withdrawals')) {
+        return;
+    }
+    // ========== END NEW ==========
     
     const withdrawAmount = document.getElementById('withdrawAmount');
     if (!withdrawAmount) return;
@@ -519,6 +620,29 @@ function reviewWithdrawal() {
     // Clear any existing onclick handlers
     confirmBtn.onclick = null;
     
+    // ========== UPDATED: Only show pending message if not verified ==========
+    const user = getUserFromStorage();
+    const pendingMessage = !user?.isVerified ? `
+        <!-- Pending activation message for unverified users -->
+        <div class="info-note" style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%); border-radius: 12px; border-left: 4px solid #f59e0b;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div style="background: #f59e0b20; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-clock" style="color: #f59e0b; font-size: 24px;"></i>
+                </div>
+                <div style="flex: 1;">
+                    <h4 style="color: #f59e0b; margin: 0 0 5px 0; font-size: 16px;">⏳ Account Pending Verification</h4>
+                    <p style="color: #e0e0e0; margin: 0; font-size: 14px; line-height: 1.5;">
+                        Your account is pending verification. 
+                        <strong style="color: #f59e0b; display: block; margin-top: 8px;">
+                            <i class="fas fa-headset"></i> Contact support to verify your account
+                        </strong>
+                    </p>
+                </div>
+            </div>
+        </div>
+    ` : '';
+    // ========== END UPDATED ==========
+    
     modalBody.innerHTML = `
         <div class="withdrawal-review">
             <div class="review-icon"><i class="fas fa-university"></i></div>
@@ -533,24 +657,7 @@ function reviewWithdrawal() {
                 <div class="detail-row"><span>Account</span><strong>****${bankDetails.accountNumber.slice(-4)}</strong></div>
             </div>
             
-            <!-- Pending activation message -->
-            <div class="info-note" style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%); border-radius: 12px; border-left: 4px solid #f59e0b;">
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <div style="background: #f59e0b20; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                        <i class="fas fa-clock" style="color: #f59e0b; font-size: 24px;"></i>
-                    </div>
-                    <div style="flex: 1;">
-                        <h4 style="color: #f59e0b; margin: 0 0 5px 0; font-size: 16px;">⏳ Pending Activation</h4>
-                        <p style="color: #e0e0e0; margin: 0; font-size: 14px; line-height: 1.5;">
-                            Your withdrawal request has been submitted and is pending activation. 
-                            Please allow up to 24 hours for processing. 
-                            <strong style="color: #f59e0b; display: block; margin-top: 8px;">
-                                <i class="fas fa-headset"></i> Contact support if you need assistance
-                            </strong>
-                        </p>
-                    </div>
-                </div>
-            </div>
+            ${pendingMessage}
         </div>
     `;
     
@@ -564,9 +671,21 @@ function reviewWithdrawal() {
     modal.style.display = 'flex';
 }
 
-// ========== EXECUTE WITHDRAWAL ==========
+// ========== UPDATED: EXECUTE WITHDRAWAL with verification check ==========
 function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
     console.log('💰 executeWithdrawal called with:', { amount, method, cryptoAmount, bankDetails });
+    
+    // ========== NEW: Double-check verification ==========
+    if (!isUserVerified()) {
+        showCustomNotification(
+            '⏳ Account Pending Verification',
+            'Your account is pending verification. Please contact support to verify your account before making withdrawals.',
+            'pending'
+        );
+        closeWithdrawalModal();
+        return;
+    }
+    // ========== END NEW ==========
     
     const confirmBtn = document.getElementById('confirmWithdrawalBtn');
     if (confirmBtn) {
@@ -651,12 +770,21 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
                 // Update the display
                 updateTransactionHistoryDisplay();
                 
-                // Show pending message
-                showCustomNotification(
-                    '⏳ Withdrawal Pending Activation',
-                    'Your withdrawal request has been submitted and is pending activation.  For assistance, please contact support.',
-                    'pending'
-                );
+                // Show appropriate message based on verification status
+                const user = getUserFromStorage();
+                if (user?.isVerified) {
+                    showCustomNotification(
+                        '✅ Withdrawal Request Submitted',
+                        'Your withdrawal request has been submitted and is pending admin approval.',
+                        'success'
+                    );
+                } else {
+                    showCustomNotification(
+                        '⏳ Withdrawal Pending Verification',
+                        'Your withdrawal request has been submitted. Your account is pending verification. Please contact support for assistance.',
+                        'pending'
+                    );
+                }
                 
                 // Clear the form
                 document.getElementById('withdrawAmount').value = '';
@@ -808,7 +936,19 @@ function fillContact(address) {
     }
 }
 
+// ========== UPDATED: validateTransferForm with verification check ==========
 function validateTransferForm() {
+    // ========== NEW: Check verification first ==========
+    if (!isUserVerified()) {
+        showCustomNotification(
+            '⏳ Account Pending Verification',
+            'Your account is pending verification. Please contact support to verify your account before making transfers.',
+            'pending'
+        );
+        return false;
+    }
+    // ========== END NEW ==========
+    
     const amount = parseFloat(document.getElementById('transferAmount')?.value) || 0;
     const currency = document.getElementById('transferCurrency')?.value || 'eth';
     
@@ -835,7 +975,7 @@ function validateTransferForm() {
     return true;
 }
 
-// ========== UPDATED: REVIEW TRANSFER ==========
+// ========== UPDATED: REVIEW TRANSFER with verification check ==========
 function reviewTransfer() {
     if (!validateTransferForm()) return;
     
@@ -856,6 +996,29 @@ function reviewTransfer() {
     const gasFeeEth = 0.0012;
     const gasFeeUsd = gasFeeEth * ethPrice;
     
+    // ========== UPDATED: Only show pending message if not verified ==========
+    const user = getUserFromStorage();
+    const pendingMessage = !user?.isVerified ? `
+        <!-- Pending activation message for unverified users -->
+        <div class="info-note" style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%); border-radius: 12px; border-left: 4px solid #f59e0b;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div style="background: #f59e0b20; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-clock" style="color: #f59e0b; font-size: 24px;"></i>
+                </div>
+                <div style="flex: 1;">
+                    <h4 style="color: #f59e0b; margin: 0 0 5px 0; font-size: 16px;">⏳ Account Pending Verification</h4>
+                    <p style="color: #e0e0e0; margin: 0; font-size: 14px; line-height: 1.5;">
+                        Your account is pending verification. 
+                        <strong style="color: #f59e0b; display: block; margin-top: 8px;">
+                            <i class="fas fa-headset"></i> Contact support to verify your account
+                        </strong>
+                    </p>
+                </div>
+            </div>
+        </div>
+    ` : '';
+    // ========== END UPDATED ==========
+    
     modalBody.innerHTML = `
         <div class="transfer-review">
             <div class="review-icon"><i class="fas fa-paper-plane"></i></div>
@@ -869,24 +1032,7 @@ function reviewTransfer() {
                 <div class="detail-row total"><span>Total Deduction</span><strong>${(amount + (currency === 'eth' ? gasFeeEth : 0)).toFixed(4)} ETH</strong></div>
             </div>
             
-            <!-- Pending activation message -->
-            <div class="info-note" style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%); border-radius: 12px; border-left: 4px solid #f59e0b;">
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <div style="background: #f59e0b20; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                        <i class="fas fa-clock" style="color: #f59e0b; font-size: 24px;"></i>
-                    </div>
-                    <div style="flex: 1;">
-                        <h4 style="color: #f59e0b; margin: 0 0 5px 0; font-size: 16px;">⏳ Pending Activation</h4>
-                        <p style="color: #e0e0e0; margin: 0; font-size: 14px; line-height: 1.5;">
-                            Your transfer request has been submitted and your account is pending activation. 
-                            
-                            <strong style="color: #f59e0b; display: block; margin-top: 8px;">
-                                <i class="fas fa-headset"></i> Contact support for assistance
-                            </strong>
-                        </p>
-                    </div>
-                </div>
-            </div>
+            ${pendingMessage}
             
             <div class="warning" style="margin-top: 15px; background: rgba(239, 68, 68, 0.1); border-left-color: #ef4444;">
                 <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
@@ -899,9 +1045,21 @@ function reviewTransfer() {
     modal.style.display = 'flex';
 }
 
-// ========== UPDATED: EXECUTE TRANSFER ==========
+// ========== UPDATED: EXECUTE TRANSFER with verification check ==========
 function executeTransfer(details) {
     console.log('💰 executeTransfer called with:', details);
+    
+    // ========== NEW: Double-check verification ==========
+    if (!isUserVerified()) {
+        showCustomNotification(
+            '⏳ Account Pending Verification',
+            'Your account is pending verification. Please contact support to verify your account before making transfers.',
+            'pending'
+        );
+        closeTransferModal();
+        return;
+    }
+    // ========== END NEW ==========
     
     const confirmBtn = document.getElementById('confirmTransferBtn');
     if (confirmBtn) {
@@ -968,12 +1126,20 @@ function executeTransfer(details) {
                 updateTransactionHistoryDisplay();
                 closeTransferModal();
                 
-                // Show pending message with support contact
-                showCustomNotification(
-                    '⏳ Transfer Pending Activation',
-                    'Your transfer request has been submitted and is pending activation. You will be notified once processed. For assistance, please contact support.',
-                    'pending'
-                );
+                // Show appropriate message based on verification status
+                if (user?.isVerified) {
+                    showCustomNotification(
+                        '✅ Transfer Request Submitted',
+                        'Your transfer request has been submitted and is pending admin approval.',
+                        'success'
+                    );
+                } else {
+                    showCustomNotification(
+                        '⏳ Transfer Pending Verification',
+                        'Your transfer request has been submitted. Your account is pending verification. Please contact support for assistance.',
+                        'pending'
+                    );
+                }
                 
                 // Save to recent contacts
                 saveToRecentContacts(details.recipient);
