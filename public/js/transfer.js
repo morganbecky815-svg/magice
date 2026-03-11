@@ -775,7 +775,7 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
                 if (user?.isVerified) {
                     showCustomNotification(
                         '✅ Withdrawal Request Submitted',
-                        'Your withdrawal request has been submitted and is pending admin approval.',
+                        'Your withdrawal request has been submitted.',
                         'success'
                     );
                 } else {
@@ -1130,7 +1130,7 @@ function executeTransfer(details) {
                 if (user?.isVerified) {
                     showCustomNotification(
                         '✅ Transfer Request Submitted',
-                        'Your transfer request has been submitted and is pending admin approval.',
+                        'Your transfer request has been submitted.',
                         'success'
                     );
                 } else {
