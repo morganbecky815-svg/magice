@@ -1,4 +1,3 @@
-// routes/user.js
 const jwt = require('jsonwebtoken');
 const express = require('express');
 const router = express.Router();
@@ -86,6 +85,68 @@ router.get('/me/profile', auth, async (req, res) => {
             success: false,
             error: 'Failed to fetch profile data',
             message: error.message 
+        });
+    }
+});
+
+// ========================
+// UPDATE USER BALANCE (for transfers)
+// ========================
+router.put('/me/balance', auth, async (req, res) => {
+    try {
+        const { internalBalance, wethBalance } = req.body;
+        const user = await User.findById(req.user._id);
+        
+        if (!user) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'User not found' 
+            });
+        }
+
+        console.log('💰 Updating balance for user:', user.email);
+        console.log('Current balances - ETH:', user.internalBalance, 'WETH:', user.wethBalance);
+        console.log('New balances - ETH:', internalBalance, 'WETH:', wethBalance);
+
+        // Update balances
+        if (internalBalance !== undefined) {
+            user.internalBalance = parseFloat(internalBalance) || 0;
+        }
+        if (wethBalance !== undefined) {
+            user.wethBalance = parseFloat(wethBalance) || 0;
+        }
+        
+        await user.save();
+        
+        // Log the balance update activity
+        try {
+            const ActivityLogger = require('../utils/activityLogger');
+            await ActivityLogger.logTransaction(
+                user._id, 
+                'balance_update', 
+                `Balance updated - ETH: ${user.internalBalance}, WETH: ${user.wethBalance}`
+            );
+        } catch (logError) {
+            console.log('⚠️ Could not log activity:', logError.message);
+        }
+        
+        console.log('✅ Balance updated successfully');
+        
+        res.json({
+            success: true,
+            message: 'Balance updated successfully',
+            user: {
+                _id: user._id,
+                internalBalance: user.internalBalance,
+                wethBalance: user.wethBalance
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Balance update error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to update balance' 
         });
     }
 });
