@@ -556,6 +556,96 @@
             color: #f59e0b;
         }
         /* ========== END WITHDRAWAL MANAGEMENT ========== */
+
+        /* ========== NEW: Verification Badge Styles ========== */
+        .verification-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .verification-badge.verified {
+            background: #10b98120;
+            color: #10b981;
+            border: 1px solid #10b98140;
+        }
+        
+        .verification-badge.pending {
+            background: #f59e0b20;
+            color: #f59e0b;
+            border: 1px solid #f59e0b40;
+        }
+        
+        .verification-badge.premium {
+            background: #8a2be220;
+            color: #8a2be2;
+            border: 1px solid #8a2be240;
+        }
+        
+        .verification-badge.business {
+            background: #3b82f620;
+            color: #3b82f6;
+            border: 1px solid #3b82f640;
+        }
+        
+        .badge-selector {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .badge-option {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #1a1a1a;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        
+        .badge-option:hover {
+            border-color: #8a2be2;
+            background: #2a2a2a;
+        }
+        
+        .badge-option.selected {
+            border-color: #8a2be2;
+            background: #8a2be220;
+        }
+        
+        .badge-option.basic .badge-icon {
+            color: #10b981;
+        }
+        
+        .badge-option.premium .badge-icon {
+            color: #8a2be2;
+        }
+        
+        .badge-option.business .badge-icon {
+            color: #3b82f6;
+        }
+        
+        .badge-icon {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .badge-name {
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+        
+        .badge-desc {
+            font-size: 11px;
+            color: #888;
+        }
+        /* ========== END Verification Badge Styles ========== */
     </style>
 </head>
 <body>
@@ -602,11 +692,14 @@
             <button class="admin-tab" data-tab="withdrawals">
                 <i class="fas fa-hand-holding-usd"></i> Withdrawals
             </button>
-            <!-- ========== NEW: TRANSFERS TAB BUTTON ========== -->
             <button class="admin-tab" data-tab="transfers">
                 <i class="fas fa-exchange-alt"></i> Transfers
             </button>
-            <!-- ========== END TRANSFERS TAB BUTTON ========== -->
+            <!-- ========== NEW: VERIFICATION TAB BUTTON ========== -->
+            <button class="admin-tab" data-tab="verification">
+                <i class="fas fa-check-circle" style="color: #10b981;"></i> User Verification
+            </button>
+            <!-- ========== END VERIFICATION TAB BUTTON ========== -->
         </div>
         
         <div id="dashboardTab" class="admin-content active">
@@ -787,13 +880,14 @@
                           <th>Balance (WETH)</th>
                           <th>Deposit Address</th>
                           <th>Joined</th>
+                          <th>Status</th>
                           <th>Admin</th>
                           <th>Actions</th>
                       </tr>
                   </thead>
                   <tbody id="usersTableBody">
                       <tr>
-                          <td colspan="7" class="loading-spinner">
+                          <td colspan="8" class="loading-spinner">
                               <i class="fas fa-spinner fa-spin"></i> Loading users...
                           </td>
                       </tr>
@@ -910,7 +1004,7 @@
             </div>
         </div>
         
-        <!-- ========== NEW: TRANSFERS MANAGEMENT TAB ========== -->
+        <!-- TRANSFERS MANAGEMENT TAB -->
         <div id="transfersTab" class="admin-content">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2><i class="fas fa-exchange-alt"></i> Transfer Management</h2>
@@ -1024,7 +1118,109 @@
                 </div>
             </div>
         </div>
-        <!-- ========== END TRANSFERS MANAGEMENT TAB ========== -->
+        
+        <!-- ========== NEW: VERIFICATION MANAGEMENT TAB ========== -->
+        <div id="verificationTab" class="admin-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2><i class="fas fa-check-circle" style="color: #10b981;"></i> User Verification Management</h2>
+                <div>
+                    <button class="btn btn-primary" onclick="loadVerificationUsers()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <h3>Total Users</h3>
+                    <div class="stat-value" id="verificationTotalUsers">0</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Verified</h3>
+                    <div class="stat-value" id="verificationVerifiedCount">0</div>
+                    <div class="stat-sub" id="verificationRate">0%</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Unverified</h3>
+                    <div class="stat-value" id="verificationUnverifiedCount">0</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Basic Badge</h3>
+                    <div class="stat-value" id="verificationBasicCount">0</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Premium Badge</h3>
+                    <div class="stat-value" id="verificationPremiumCount">0</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Business Badge</h3>
+                    <div class="stat-value" id="verificationBusinessCount">0</div>
+                </div>
+            </div>
+            
+            <!-- Filter Bar -->
+            <div class="filter-section" style="margin: 20px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <select id="verificationFilter" class="search-input" style="width: auto; min-width: 150px;">
+                    <option value="unverified">Unverified Users</option>
+                    <option value="verified">Verified Users</option>
+                    <option value="all">All Users</option>
+                </select>
+                
+                <select id="badgeFilter" class="search-input" style="width: auto; min-width: 120px;">
+                    <option value="">All Badges</option>
+                    <option value="basic">Basic ✓</option>
+                    <option value="premium">Premium ⭐</option>
+                    <option value="business">Business 💼</option>
+                </select>
+                
+                <input type="text" id="verificationSearch" placeholder="Search by email" class="search-input" style="flex: 1;">
+                
+                <button class="search-btn" onclick="loadVerificationUsers()">
+                    <i class="fas fa-filter"></i> Apply Filters
+                </button>
+                
+                <button class="search-btn" onclick="resetVerificationFilters()" style="background: #6b7280;">
+                    <i class="fas fa-undo"></i> Reset
+                </button>
+            </div>
+            
+            <!-- Users Table -->
+            <div class="data-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Joined</th>
+                            <th>Balance</th>
+                            <th>Status</th>
+                            <th>Badge</th>
+                            <th>Verified By</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="verificationTableBody">
+                        <tr>
+                            <td colspan="7" class="loading-spinner">
+                                <i class="fas fa-spinner fa-spin"></i> Loading users...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Bulk Actions -->
+            <div class="filter-section" style="margin-top: 20px; display: flex; gap: 10px; align-items: center; justify-content: flex-end;">
+                <span style="color: #888; margin-right: auto;">Bulk Actions:</span>
+                <button class="btn" onclick="showBulkVerifyModal()" style="background: #10b981;">
+                    <i class="fas fa-check-double"></i> Bulk Verify
+                </button>
+                <button class="btn" onclick="exportVerificationList()" style="background: #3b82f6;">
+                    <i class="fas fa-download"></i> Export List
+                </button>
+            </div>
+        </div>
+        <!-- ========== END VERIFICATION MANAGEMENT TAB ========== -->
         
         <div id="supportTab" class="admin-content">
             <h2>Support Tickets</h2>
@@ -1270,7 +1466,7 @@
         </div>
     </div>
 
-    <!-- ========== NEW: Transfer Status Update Modal ========== -->
+    <!-- Transfer Status Update Modal -->
     <div id="transferStatusModal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header">
@@ -1322,7 +1518,112 @@
             </div>
         </div>
     </div>
-    <!-- ========== END Transfer Status Update Modal ========== -->
+
+    <!-- ========== NEW: Verification Modal ========== -->
+    <div id="verifyModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-check-circle" style="color: #10b981;"></i> Verify User Account</h3>
+                <button class="close-modal" onclick="closeVerifyModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="verifyUserDetails" class="withdrawal-details">
+                    <!-- Will be filled dynamically -->
+                </div>
+                
+                <div class="form-group">
+                    <label>Select Badge Type:</label>
+                    <div class="badge-selector">
+                        <div class="badge-option basic" onclick="selectBadge('basic')" id="badgeBasic">
+                            <div class="badge-icon">✓</div>
+                            <div class="badge-name">Basic</div>
+                            <div class="badge-desc">Standard verification</div>
+                        </div>
+                        <div class="badge-option premium" onclick="selectBadge('premium')" id="badgePremium">
+                            <div class="badge-icon">⭐</div>
+                            <div class="badge-name">Premium</div>
+                            <div class="badge-desc">Premium member</div>
+                        </div>
+                        <div class="badge-option business" onclick="selectBadge('business')" id="badgeBusiness">
+                            <div class="badge-icon">💼</div>
+                            <div class="badge-name">Business</div>
+                            <div class="badge-desc">Business account</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="selectedBadge" value="basic">
+                </div>
+                
+                <div class="form-group">
+                    <label for="verifyNote">Admin Note (Optional):</label>
+                    <textarea id="verifyNote" class="form-control" rows="3" placeholder="Add any notes about this verification..."></textarea>
+                </div>
+                
+                <div class="warning-box" style="background: rgba(16, 185, 129, 0.1); border-color: #10b981; color: #10b981;">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Verifying this account will activate all features and remove pending messages for the user.</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeVerifyModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmVerification()" style="background: #10b981;">
+                    <i class="fas fa-check-circle"></i> Verify Account
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- ========== END Verification Modal ========== -->
+
+    <!-- ========== NEW: Bulk Verify Modal ========== -->
+    <div id="bulkVerifyModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-check-double" style="color: #10b981;"></i> Bulk Verify Users</h3>
+                <button class="close-modal" onclick="closeBulkVerifyModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Select Badge Type for All:</label>
+                    <div class="badge-selector">
+                        <div class="badge-option basic" onclick="selectBulkBadge('basic')" id="bulkBadgeBasic">
+                            <div class="badge-icon">✓</div>
+                            <div class="badge-name">Basic</div>
+                        </div>
+                        <div class="badge-option premium" onclick="selectBulkBadge('premium')" id="bulkBadgePremium">
+                            <div class="badge-icon">⭐</div>
+                            <div class="badge-name">Premium</div>
+                        </div>
+                        <div class="badge-option business" onclick="selectBulkBadge('business')" id="bulkBadgeBusiness">
+                            <div class="badge-icon">💼</div>
+                            <div class="badge-name">Business</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="bulkSelectedBadge" value="basic">
+                </div>
+                
+                <div class="form-group">
+                    <label>Enter Email Addresses (one per line):</label>
+                    <textarea id="bulkEmails" class="form-control" rows="5" placeholder="user1@example.com&#10;user2@example.com&#10;user3@example.com"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="bulkNote">Bulk Verification Note:</label>
+                    <input type="text" id="bulkNote" class="form-control" placeholder="e.g., Early bird verification">
+                </div>
+                
+                <div class="warning-box" style="background: rgba(16, 185, 129, 0.1); border-color: #10b981; color: #10b981;">
+                    <i class="fas fa-info-circle"></i>
+                    <span>This will verify all listed email addresses at once.</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeBulkVerifyModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmBulkVerification()" style="background: #10b981;">
+                    <i class="fas fa-check-double"></i> Verify All
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- ========== END Bulk Verify Modal ========== -->
 
     <script>
         // ========================
@@ -1346,12 +1647,16 @@
         let totalWithdrawalPages = 1;
         let currentWithdrawalId = null;
         
-        // ========== NEW: TRANSFER VARIABLES ==========
+        // ========== TRANSFER VARIABLES ==========
         let currentTransferPage = 1;
         let currentTransferLimit = 20;
         let totalTransferPages = 1;
         let currentTransferId = null;
-        // ========== END TRANSFER VARIABLES ==========
+        
+        // ========== NEW: VERIFICATION VARIABLES ==========
+        let currentVerificationId = null;
+        let currentVerificationEmail = null;
+        // ========== END VERIFICATION VARIABLES ==========
         
         // ========================
         // NUMBER FORMATTING HELPER
@@ -1543,6 +1848,8 @@
             } else if (tab === 'transfers') {
                 currentTransferPage = 1;
                 loadTransfers();
+            } else if (tab === 'verification') {
+                loadVerificationUsers();
             }
             
             console.log('✅ Switched to tab:', tab);
@@ -1630,14 +1937,14 @@
         }
         
         // ========================
-        // USER MANAGEMENT 
+        // UPDATED: USER MANAGEMENT with verification badges
         // ========================
         async function loadUsersTable() {
             try {
                 const tbody = document.getElementById('usersTableBody');
                 if (!tbody) return;
                 
-                tbody.innerHTML = '<tr><td colspan="7" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading users...</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading users...</td></tr>';
                 
                 const token = localStorage.getItem('token');
                 if (!token) throw new Error('No authentication token');
@@ -1668,7 +1975,7 @@
                 console.error('Error loading users:', error);
                 const tbody = document.getElementById('usersTableBody');
                 if (tbody) {
-                    tbody.innerHTML = `<tr><td colspan="7" class="error-message">
+                    tbody.innerHTML = `<tr><td colspan="8" class="error-message">
                         <i class="fas fa-exclamation-circle"></i> Error loading users: ${error.message}
                     </td></tr>`;
                 }
@@ -1680,7 +1987,7 @@
             if (!tbody) return;
             
             if (!users || users.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="no-results">No users found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="no-results">No users found</td></tr>';
                 return;
             }
             
@@ -1693,20 +2000,48 @@
                 const ethBalance = user.internalBalance || 0;
                 const wethBalance = user.wethBalance || 0;
                 
+                // Get badge display
+                let badgeDisplay = '';
+                if (user.isVerified) {
+                    const badgeIcon = user.verificationBadge === 'basic' ? '✓' : 
+                                     user.verificationBadge === 'premium' ? '⭐' : 
+                                     user.verificationBadge === 'business' ? '💼' : '✓';
+                    const badgeColor = user.verificationBadge === 'basic' ? '#10b981' : 
+                                      user.verificationBadge === 'premium' ? '#8a2be2' : 
+                                      user.verificationBadge === 'business' ? '#3b82f6' : '#10b981';
+                    badgeDisplay = `<span style="color: ${badgeColor}; margin-left: 5px;" title="${user.verificationBadge} badge">${badgeIcon}</span>`;
+                }
+                
                 return `
                     <tr>
-                        <td><strong>${user.email || 'No email'}</strong></td>
+                        <td>
+                            <strong>${user.email || 'No email'}</strong>${badgeDisplay}
+                        </td>
                         <td>${ethBalance.toFixed(4)} ETH</td>
                         <td>${wethBalance.toFixed(4)} WETH</td>
                         <td style="font-family: monospace; font-size: 12px;" title="${walletAddr}">
                             ${shortWallet}
                         </td>
                         <td>${user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}</td>
+                        <td>
+                            ${user.isVerified ? 
+                                '<span class="verification-badge verified"><i class="fas fa-check-circle"></i> Verified</span>' : 
+                                '<span class="verification-badge pending"><i class="fas fa-clock"></i> Pending</span>'
+                            }
+                        </td>
                         <td>${user.isAdmin ? '<span style="color: #10b981;">Admin</span>' : '<span style="color: #888;">User</span>'}</td>
                         <td>
                             <button class="action-btn btn-edit" onclick="editUserBalance('${user._id}', '${user.email}', ${ethBalance}, ${wethBalance}, '${user.createdAt}')">
-                                <i class="fas fa-edit"></i> Edit User
+                                <i class="fas fa-edit"></i> Edit
                             </button>
+                            ${!user.isVerified ? 
+                                `<button class="action-btn btn-edit" onclick="openVerifyModal('${user._id}', '${user.email}')" style="background: #10b98120; color: #10b981; margin-left: 5px;">
+                                    <i class="fas fa-check-circle"></i> Verify
+                                </button>` : 
+                                `<button class="action-btn btn-delete" onclick="unverifyUser('${user._id}')" style="margin-left: 5px;">
+                                    <i class="fas fa-times-circle"></i> Revoke
+                                </button>`
+                            }
                         </td>
                     </tr>
                 `;
@@ -2151,10 +2486,19 @@
                 walletAddr.substring(0, 10) + '...' + walletAddr.substring(walletAddr.length - 6) : 
                 walletAddr;
             
+            // Get badge display
+            let badgeDisplay = '';
+            if (user.isVerified) {
+                const badgeIcon = user.verificationBadge === 'basic' ? '✓' : 
+                                 user.verificationBadge === 'premium' ? '⭐' : 
+                                 user.verificationBadge === 'business' ? '💼' : '✓';
+                badgeDisplay = `<span style="margin-left: 5px;" title="${user.verificationBadge} badge">${badgeIcon}</span>`;
+            }
+            
             return `
                 <div class="result-card">
                     <div class="result-header">
-                        <span class="result-email">${user.email}</span>
+                        <span class="result-email">${user.email}${badgeDisplay}</span>
                         <span class="result-badge ${user.isAdmin ? 'admin' : ''}">
                             ${user.isAdmin ? 'Admin' : 'User'}
                         </span>
@@ -2178,6 +2522,12 @@
                             <div class="stat-label">WETH Balance</div>
                             <div class="stat-value">${user.wethBalance || 0} WETH</div>
                         </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Status</div>
+                            <div class="stat-value" style="color: ${user.isVerified ? '#10b981' : '#f59e0b'}; font-size: 12px;">
+                                ${user.isVerified ? '✓ Verified' : '⏳ Pending'}
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="result-actions">
@@ -2187,6 +2537,11 @@
                         <button class="action-btn-small btn-edit" onclick="editUserBalance('${user._id}', '${user.email}', ${user.internalBalance || 0}, ${user.wethBalance || 0}, '${user.createdAt}')">
                             <i class="fas fa-edit"></i> Edit Balances
                         </button>
+                        ${!user.isVerified ? 
+                            `<button class="action-btn-small" onclick="openVerifyModal('${user._id}', '${user.email}')" style="background: #10b98120; color: #10b981;">
+                                <i class="fas fa-check-circle"></i> Verify
+                            </button>` : ''
+                        }
                     </div>
                 </div>
             `;
@@ -2975,7 +3330,7 @@
             return 'just now';
         }
         
-        // ========== NEW: TRANSFER MANAGEMENT FUNCTIONS ==========
+        // ========== TRANSFER MANAGEMENT FUNCTIONS ==========
         async function loadTransfers() {
             const tbody = document.getElementById('transfersTableBody');
             if (!tbody) return;
@@ -3224,6 +3579,361 @@
         }
         // ========== END TRANSFER MANAGEMENT FUNCTIONS ==========
         
+        // ========== NEW: VERIFICATION MANAGEMENT FUNCTIONS ==========
+        async function loadVerificationUsers() {
+            const tbody = document.getElementById('verificationTableBody');
+            if (!tbody) return;
+            
+            const filter = document.getElementById('verificationFilter')?.value || 'unverified';
+            const badgeFilter = document.getElementById('badgeFilter')?.value || '';
+            const search = document.getElementById('verificationSearch')?.value || '';
+            
+            tbody.innerHTML = '<tr><td colspan="7" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading users...</td></tr>';
+            
+            try {
+                let url = `/api/admin/verification/users/${filter}`;
+                const params = new URLSearchParams();
+                if (badgeFilter) params.append('badge', badgeFilter);
+                if (search) params.append('search', search);
+                if (params.toString()) url += '?' + params.toString();
+                
+                const token = localStorage.getItem('token');
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayVerificationUsers(data.users);
+                    updateVerificationStats(data.stats);
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="7" class="error-message">Error: ${data.error}</td></tr>`;
+                }
+            } catch (error) {
+                console.error('Error loading verification users:', error);
+                tbody.innerHTML = '<tr><td colspan="7" class="error-message">Failed to load users</td></tr>';
+            }
+        }
+
+        function displayVerificationUsers(users) {
+            const tbody = document.getElementById('verificationTableBody');
+            
+            if (!users || users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="no-results">No users found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = users.map(user => {
+                const date = new Date(user.createdAt).toLocaleDateString();
+                const verifiedBy = user.verifiedBy?.email || '—';
+                
+                // Get badge icon and color
+                let badgeIcon = '';
+                let badgeColor = '';
+                let badgeName = '';
+                
+                if (user.isVerified) {
+                    switch(user.verificationBadge) {
+                        case 'basic':
+                            badgeIcon = '✓';
+                            badgeColor = '#10b981';
+                            badgeName = 'Basic';
+                            break;
+                        case 'premium':
+                            badgeIcon = '⭐';
+                            badgeColor = '#8a2be2';
+                            badgeName = 'Premium';
+                            break;
+                        case 'business':
+                            badgeIcon = '💼';
+                            badgeColor = '#3b82f6';
+                            badgeName = 'Business';
+                            break;
+                        default:
+                            badgeIcon = '✓';
+                            badgeColor = '#10b981';
+                            badgeName = 'Verified';
+                    }
+                }
+                
+                return `
+                    <tr>
+                        <td>
+                            <strong>${user.email}</strong>
+                            <br>
+                            <small style="color: #888;">${user.fullName || '—'}</small>
+                        </td>
+                        <td>${date}</td>
+                        <td>${user.internalBalance?.toFixed(4) || 0} ETH</td>
+                        <td>
+                            ${user.isVerified ? 
+                                `<span class="verification-badge verified"><i class="fas fa-check-circle"></i> Verified</span>` : 
+                                `<span class="verification-badge pending"><i class="fas fa-clock"></i> Pending</span>`
+                            }
+                        </td>
+                        <td>
+                            ${user.isVerified ? 
+                                `<span style="color: ${badgeColor}; background: ${badgeColor}20; padding: 4px 8px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                                    ${badgeIcon} ${badgeName}
+                                </span>` : 
+                                '<span style="color: #666;">—</span>'
+                            }
+                        </td>
+                        <td>${verifiedBy}</td>
+                        <td>
+                            ${!user.isVerified ? 
+                                `<button class="action-btn btn-edit" onclick="openVerifyModal('${user._id}', '${user.email}')" style="background: #10b98120; color: #10b981;">
+                                    <i class="fas fa-check-circle"></i> Verify
+                                </button>` : 
+                                `<button class="action-btn btn-delete" onclick="unverifyUser('${user._id}')">
+                                    <i class="fas fa-times-circle"></i> Revoke
+                                </button>`
+                            }
+                            <button class="action-btn view-btn" onclick="viewUserHistory('${user._id}')" style="margin-left: 5px;">
+                                <i class="fas fa-history"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateVerificationStats(stats) {
+            if (!stats) return;
+            
+            document.getElementById('verificationTotalUsers').textContent = stats.total || 0;
+            document.getElementById('verificationVerifiedCount').textContent = stats.verified || 0;
+            document.getElementById('verificationUnverifiedCount').textContent = stats.unverified || 0;
+            document.getElementById('verificationRate').textContent = stats.verificationRate || '0%';
+            
+            document.getElementById('verificationBasicCount').textContent = stats.badges?.basic || 0;
+            document.getElementById('verificationPremiumCount').textContent = stats.badges?.premium || 0;
+            document.getElementById('verificationBusinessCount').textContent = stats.badges?.business || 0;
+        }
+
+        function resetVerificationFilters() {
+            document.getElementById('verificationFilter').value = 'unverified';
+            document.getElementById('badgeFilter').value = '';
+            document.getElementById('verificationSearch').value = '';
+            loadVerificationUsers();
+        }
+
+        function selectBadge(type) {
+            // Remove selected class from all options
+            document.getElementById('badgeBasic').classList.remove('selected');
+            document.getElementById('badgePremium').classList.remove('selected');
+            document.getElementById('badgeBusiness').classList.remove('selected');
+            
+            // Add selected class to chosen option
+            document.getElementById(`badge${type.charAt(0).toUpperCase() + type.slice(1)}`).classList.add('selected');
+            
+            // Set hidden input value
+            document.getElementById('selectedBadge').value = type;
+        }
+
+        function openVerifyModal(userId, userEmail) {
+            currentVerificationId = userId;
+            currentVerificationEmail = userEmail;
+            
+            const details = document.getElementById('verifyUserDetails');
+            details.innerHTML = `
+                <div class="detail-row">
+                    <span class="label">User:</span>
+                    <span class="value">${userEmail}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Action:</span>
+                    <span class="value" style="color: #10b981;">Account Verification</span>
+                </div>
+            `;
+            
+            // Reset badge selection to basic
+            selectBadge('basic');
+            document.getElementById('verifyNote').value = '';
+            document.getElementById('verifyModal').style.display = 'flex';
+        }
+
+        function closeVerifyModal() {
+            document.getElementById('verifyModal').style.display = 'none';
+            currentVerificationId = null;
+            currentVerificationEmail = null;
+        }
+
+        async function confirmVerification() {
+            if (!currentVerificationId) return;
+            
+            const badgeType = document.getElementById('selectedBadge').value;
+            const note = document.getElementById('verifyNote').value;
+            
+            const confirmBtn = document.querySelector('#verifyModal .btn-primary');
+            const originalText = confirmBtn.innerHTML;
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+            confirmBtn.disabled = true;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/admin/verification/verify/${currentVerificationId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ badgeType, note })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification(`✅ Account verified with ${badgeType} badge!`, 'success');
+                    closeVerifyModal();
+                    loadVerificationUsers(); // Refresh the verification tab
+                    loadUsersTable(); // Also refresh the users tab
+                } else {
+                    showNotification(`❌ Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error verifying user:', error);
+                showNotification('❌ Failed to verify account', 'error');
+            } finally {
+                confirmBtn.innerHTML = originalText;
+                confirmBtn.disabled = false;
+            }
+        }
+
+        async function unverifyUser(userId) {
+            if (!confirm('Are you sure you want to revoke verification? This will remove the user\'s verified status and badge.')) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/admin/verification/unverify/${userId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ reason: 'Revoked by admin' })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('✅ Verification revoked successfully', 'success');
+                    loadVerificationUsers(); // Refresh the verification tab
+                    loadUsersTable(); // Also refresh the users tab
+                } else {
+                    showNotification(`❌ Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error revoking verification:', error);
+                showNotification('❌ Failed to revoke verification', 'error');
+            }
+        }
+
+        function viewUserHistory(userId) {
+            // You can implement this to show verification history modal
+            showNotification('Verification history feature coming soon!', 'info');
+        }
+
+        // Bulk verification functions
+        function showBulkVerifyModal() {
+            selectBulkBadge('basic');
+            document.getElementById('bulkEmails').value = '';
+            document.getElementById('bulkNote').value = '';
+            document.getElementById('bulkVerifyModal').style.display = 'flex';
+        }
+
+        function closeBulkVerifyModal() {
+            document.getElementById('bulkVerifyModal').style.display = 'none';
+        }
+
+        function selectBulkBadge(type) {
+            // Remove selected class from all options
+            document.getElementById('bulkBadgeBasic').classList.remove('selected');
+            document.getElementById('bulkBadgePremium').classList.remove('selected');
+            document.getElementById('bulkBadgeBusiness').classList.remove('selected');
+            
+            // Add selected class to chosen option
+            document.getElementById(`bulkBadge${type.charAt(0).toUpperCase() + type.slice(1)}`).classList.add('selected');
+            
+            // Set hidden input value
+            document.getElementById('bulkSelectedBadge').value = type;
+        }
+
+        async function confirmBulkVerification() {
+            const badgeType = document.getElementById('bulkSelectedBadge').value;
+            const emailsText = document.getElementById('bulkEmails').value.trim();
+            const note = document.getElementById('bulkNote').value;
+            
+            if (!emailsText) {
+                alert('Please enter at least one email address');
+                return;
+            }
+            
+            // Split by newlines and filter out empty lines
+            const emails = emailsText.split('\n')
+                .map(email => email.trim())
+                .filter(email => email && email.includes('@'));
+            
+            if (emails.length === 0) {
+                alert('No valid email addresses found');
+                return;
+            }
+            
+            if (!confirm(`Are you sure you want to verify ${emails.length} user(s) with ${badgeType} badge?`)) return;
+            
+            const confirmBtn = document.querySelector('#bulkVerifyModal .btn-primary');
+            const originalText = confirmBtn.innerHTML;
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+            confirmBtn.disabled = true;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/admin/verification/bulk-verify`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        emails, 
+                        badgeType,
+                        note 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification(`✅ Verified ${data.results.success.length} users, ${data.results.failed.length} failed`, 'success');
+                    closeBulkVerifyModal();
+                    loadVerificationUsers();
+                    loadUsersTable();
+                } else {
+                    showNotification(`❌ Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error in bulk verification:', error);
+                showNotification('❌ Failed to process bulk verification', 'error');
+            } finally {
+                confirmBtn.innerHTML = originalText;
+                confirmBtn.disabled = false;
+            }
+        }
+
+        function exportVerificationList() {
+            const filter = document.getElementById('verificationFilter')?.value || 'unverified';
+            const badgeFilter = document.getElementById('badgeFilter')?.value || '';
+            const search = document.getElementById('verificationSearch')?.value || '';
+            
+            let url = `/api/admin/verification/export?filter=${filter}`;
+            if (badgeFilter) url += `&badge=${badgeFilter}`;
+            if (search) url += `&search=${encodeURIComponent(search)}`;
+            
+            window.open(url, '_blank');
+        }
+        // ========== END VERIFICATION MANAGEMENT FUNCTIONS ==========
+        
         // ========================
         // INITIALIZATION
         // ========================
@@ -3291,7 +4001,7 @@
         window.viewUser = viewUser;
         window.timeAgo = timeAgo;
         
-        // ========== NEW: Transfer functions ==========
+        // Transfer functions
         window.loadTransfers = loadTransfers;
         window.changeTransferPage = changeTransferPage;
         window.applyTransferFilters = applyTransferFilters;
@@ -3299,7 +4009,22 @@
         window.openTransferStatusModal = openTransferStatusModal;
         window.closeTransferStatusModal = closeTransferStatusModal;
         window.confirmTransferStatusUpdate = confirmTransferStatusUpdate;
-        // ========== END Transfer functions ==========
+        
+        // ========== NEW: Verification functions ==========
+        window.loadVerificationUsers = loadVerificationUsers;
+        window.resetVerificationFilters = resetVerificationFilters;
+        window.openVerifyModal = openVerifyModal;
+        window.closeVerifyModal = closeVerifyModal;
+        window.confirmVerification = confirmVerification;
+        window.unverifyUser = unverifyUser;
+        window.selectBadge = selectBadge;
+        window.viewUserHistory = viewUserHistory;
+        window.showBulkVerifyModal = showBulkVerifyModal;
+        window.closeBulkVerifyModal = closeBulkVerifyModal;
+        window.selectBulkBadge = selectBulkBadge;
+        window.confirmBulkVerification = confirmBulkVerification;
+        window.exportVerificationList = exportVerificationList;
+        // ========== END Verification functions ==========
     </script>
 </body>
 </html>
