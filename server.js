@@ -237,7 +237,7 @@ const collectionRoutes = require('./routes/collection');
 const ticketRoutes = require('./routes/ticketRoutes');
 const nftImportRoutes = require('./routes/nftImport');
 const activityRoutes = require('./routes/activity');
-
+const transferRoutes = require('./routes/transfers');
 // ========================
 // REGISTER API ROUTES
 // ========================
@@ -251,7 +251,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/support/tickets', ticketRoutes);
 app.use('/api/nft-import', nftImportRoutes);
 app.use('/api/activity', activityRoutes);
-
+app.use('/api/transfers', transferRoutes);
 // ========================
 // HELPER FUNCTIONS
 // ========================
