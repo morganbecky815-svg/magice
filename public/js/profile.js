@@ -1,4 +1,4 @@
-// ========== PROFILE.JS - COMPLETE WITH FIXED ACTIVITY DISPLAY ==========
+// ========== PROFILE.JS - COMPLETE WITH FIXED ACTIVITY DISPLAY AND VERIFICATION ==========
 
 console.log('👤 Profile page JavaScript loading...');
 
@@ -57,8 +57,45 @@ document.addEventListener('DOMContentLoaded', function() {
     setupTabSwitching();
 });
 
-// ========== AUTH CHECK ==========
+// ========== NEW: Force refresh user data from backend ==========
+async function refreshUserData() {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) return null;
+        
+        console.log('🔄 Refreshing user data from backend...');
+        
+        const response = await fetch('/api/user/me/profile', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error || 'Failed to fetch user');
+        
+        // Update localStorage with fresh data
+        localStorage.setItem('user', JSON.stringify(result.user));
+        
+        console.log('✅ Fresh user data loaded:', {
+            isVerified: result.user.isVerified,
+            badge: result.user.verificationBadge
+        });
+        
+        return result.user;
+        
+    } catch (error) {
+        console.error('❌ Failed to refresh user data:', error);
+        return null;
+    }
+}
+// ========== END NEW ==========
 
+// ========== UPDATED: AUTH CHECK with fresh data ==========
 async function checkAuthAndLoadProfile() {
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
@@ -70,20 +107,31 @@ async function checkAuthAndLoadProfile() {
     }
     
     try {
-        const user = JSON.parse(userStr);
-        console.log('✅ User found:', user.email);
+        // First, try to get fresh data from backend
+        let user = await refreshUserData();
+        
+        // If backend fetch fails, fall back to cached data
+        if (!user) {
+            console.log('⚠️ Using cached user data');
+            user = JSON.parse(userStr);
+        }
+        
+        console.log('✅ User loaded:', { 
+            email: user.email, 
+            isVerified: user.isVerified,
+            badge: user.verificationBadge 
+        });
         
         // Update profile header & data
         updateProfileHeader(user);
         updateProfileData(user);
         
-        // ========== NEW: Display verification badge ==========
+        // Display verification badge
         displayVerificationBadge(user);
-        // ========== END NEW ==========
         
         // Load default tab data
         await loadUserNFTs(user._id || user.id);
-        await loadUserActivities(); // Updated to use new activity function
+        await loadUserActivities();
         loadUserSettings(user);
         
         // Load imported NFTs if tab is active
@@ -98,6 +146,7 @@ async function checkAuthAndLoadProfile() {
         window.location.href = '/login';
     }
 }
+// ========== END UPDATED ==========
 
 // ========== NEW: Verification Badge Display Function ==========
 function displayVerificationBadge(user) {
@@ -357,6 +406,7 @@ function setupTabSwitching() {
     });
 }
 
+// ========== UPDATED: showProfileTab with fresh data for settings ==========
 function showProfileTab(tabName, event) {
     console.log('Switching to tab:', tabName);
     
@@ -398,17 +448,16 @@ function showProfileTab(tabName, event) {
             break;
         case 'settings':
             loadUserSettingsFromLocalStorage();
-            // Refresh verification status when settings tab is shown
-            const userStr = localStorage.getItem('user');
-            if (userStr) {
-                try {
-                    const user = JSON.parse(userStr);
+            // Refresh user data when viewing settings to get latest verification status
+            refreshUserData().then(user => {
+                if (user) {
                     displayVerificationBadge(user);
-                } catch (e) {}
-            }
+                }
+            });
             break;
     }
 }
+// ========== END UPDATED ==========
 
 // ========== NFT FUNCTIONS ==========
 
@@ -1682,7 +1731,7 @@ function displayCollections(container, collections) {
     });
 }
 
-// ========== SETTINGS FUNCTIONS ==========
+// ========== UPDATED: SETTINGS FUNCTIONS with fresh data ==========
 
 function loadUserSettings(user) {
     const settingsEmail = document.getElementById('settingsEmail');
@@ -1701,9 +1750,14 @@ function loadUserSettingsFromLocalStorage() {
             const user = JSON.parse(userStr);
             loadUserSettings(user);
             
-            // ========== NEW: Refresh verification badge when settings tab loads ==========
-            displayVerificationBadge(user);
-            // ========== END NEW ==========
+            // Always refresh verification badge with latest data
+            refreshUserData().then(freshUser => {
+                if (freshUser) {
+                    displayVerificationBadge(freshUser);
+                } else {
+                    displayVerificationBadge(user);
+                }
+            });
             
         } catch (error) {
             console.error('Error parsing user:', error);
@@ -1751,9 +1805,14 @@ async function saveProfile() {
                     updateProfileHeader(user);
                     updateProfileData(user);
                     
-                    // ========== NEW: Refresh verification badge after profile update ==========
-                    displayVerificationBadge(user);
-                    // ========== END NEW ==========
+                    // Refresh verification badge after profile update
+                    refreshUserData().then(freshUser => {
+                        if (freshUser) {
+                            displayVerificationBadge(freshUser);
+                        } else {
+                            displayVerificationBadge(user);
+                        }
+                    });
                 }
             } else {
                 alert('❌ Failed to update profile');
@@ -1766,6 +1825,7 @@ async function saveProfile() {
         alert('❌ Error saving profile');
     }
 }
+// ========== END UPDATED ==========
 
 // ========== BUTTON FUNCTIONS ==========
 
