@@ -45,7 +45,7 @@ const getSafeUser = (user) => {
 // 🟢 /ME ROUTES
 // ============================================
 
-// GET CURRENT USER PROFILE
+// ========== UPDATED: GET CURRENT USER PROFILE with verification fields ==========
 router.get('/me/profile', auth, async (req, res) => {
     try {
         console.log('🔍 /me/profile endpoint called');
@@ -75,7 +75,13 @@ router.get('/me/profile', auth, async (req, res) => {
                 profileImage: user.profileImage,
                 bio: user.bio,
                 twitter: user.twitter,
-                website: user.website
+                website: user.website,
+                // ========== ADDED: Verification Fields ==========
+                isVerified: user.isVerified || false,
+                verificationBadge: user.verificationBadge || 'none',
+                verifiedAt: user.verifiedAt,
+                verifiedBy: user.verifiedBy
+                // ========== END ADDED ==========
             }
         });
         
@@ -412,7 +418,7 @@ router.post('/me/add-eth', auth, async (req, res) => {
 // 🟡 PARAMETER ROUTES
 // ============================================
 
-// GET USER BY ID
+// ========== UPDATED: GET USER BY ID with verification fields ==========
 router.get('/:userId', auth, async (req, res) => {
     try {
         console.log('🔍 GET /:userId called for:', req.params.userId);
@@ -442,7 +448,13 @@ router.get('/:userId', auth, async (req, res) => {
                 profileImage: user.profileImage,
                 bio: user.bio,
                 twitter: user.twitter,
-                website: user.website
+                website: user.website,
+                // ========== ADDED: Verification Fields ==========
+                isVerified: user.isVerified || false,
+                verificationBadge: user.verificationBadge || 'none',
+                verifiedAt: user.verifiedAt,
+                verifiedBy: user.verifiedBy
+                // ========== END ADDED ==========
             }
         });
     } catch (error) {
