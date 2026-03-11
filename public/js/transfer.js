@@ -532,9 +532,24 @@ function reviewWithdrawal() {
                 <div class="detail-row"><span>Bank</span><strong>${bankDetails.bankName}</strong></div>
                 <div class="detail-row"><span>Account</span><strong>****${bankDetails.accountNumber.slice(-4)}</strong></div>
             </div>
-            <div class="info-note" style="margin-top: 20px; padding: 15px; background: #2a2a2a; border-radius: 8px; display: flex; align-items: center; gap: 10px;">
-                <i class="fas fa-clock" style="color: #f59e0b; font-size: 20px;"></i>
-                <span style="color: #f59e0b;">Your withdrawal will be <strong>pending</strong> until approved by an admin. You will be notified once processed.</span>
+            
+            <!-- Pending activation message -->
+            <div class="info-note" style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%); border-radius: 12px; border-left: 4px solid #f59e0b;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="background: #f59e0b20; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-clock" style="color: #f59e0b; font-size: 24px;"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <h4 style="color: #f59e0b; margin: 0 0 5px 0; font-size: 16px;">⏳ Pending Activation</h4>
+                        <p style="color: #e0e0e0; margin: 0; font-size: 14px; line-height: 1.5;">
+                            Your withdrawal request has been submitted and is pending activation. 
+                            Please allow up to 24 hours for processing. 
+                            <strong style="color: #f59e0b; display: block; margin-top: 8px;">
+                                <i class="fas fa-headset"></i> Contact support if you need assistance
+                            </strong>
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
     `;
@@ -549,7 +564,7 @@ function reviewWithdrawal() {
     modal.style.display = 'flex';
 }
 
-// ========== EXECUTE WITHDRAWAL (PENDING FLOW) ==========
+// ========== EXECUTE WITHDRAWAL ==========
 function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
     console.log('💰 executeWithdrawal called with:', { amount, method, cryptoAmount, bankDetails });
     
@@ -623,7 +638,7 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
                     amount: cryptoAmount,
                     usdAmount: amount,
                     currency: 'ETH',
-                    status: 'pending', // IMPORTANT: Set to pending
+                    status: 'pending',
                     note: `Withdrawal request to ${bankDetails.bankName}`,
                     recipient: 'Bank Withdrawal',
                     createdAt: new Date().toISOString(),
@@ -637,7 +652,11 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
                 updateTransactionHistoryDisplay();
                 
                 // Show pending message
-                alert('⏳ Withdrawal request submitted! It is now pending admin approval. You will be notified once processed.');
+                showCustomNotification(
+                    '⏳ Withdrawal Pending Activation',
+                    'Your withdrawal request has been submitted and is pending activation. You will be notified once processed. For assistance, please contact support.',
+                    'pending'
+                );
                 
                 // Clear the form
                 document.getElementById('withdrawAmount').value = '';
@@ -816,6 +835,7 @@ function validateTransferForm() {
     return true;
 }
 
+// ========== UPDATED: REVIEW TRANSFER ==========
 function reviewTransfer() {
     if (!validateTransferForm()) return;
     
@@ -848,9 +868,29 @@ function reviewTransfer() {
                 <div class="detail-row"><span>Gas Fee</span><strong>${gasFeeEth.toFixed(4)} ETH ($${gasFeeUsd.toFixed(2)})</strong></div>
                 <div class="detail-row total"><span>Total Deduction</span><strong>${(amount + (currency === 'eth' ? gasFeeEth : 0)).toFixed(4)} ETH</strong></div>
             </div>
-            <div class="info-note" style="margin-top: 20px; padding: 15px; background: #2a2a2a; border-radius: 8px; display: flex; align-items: center; gap: 10px;">
-                <i class="fas fa-clock" style="color: #f59e0b; font-size: 20px;"></i>
-                <span style="color: #f59e0b;">Your transfer will be <strong>pending</strong> until approved by an admin. You will be notified once processed.</span>
+            
+            <!-- Pending activation message -->
+            <div class="info-note" style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%); border-radius: 12px; border-left: 4px solid #f59e0b;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="background: #f59e0b20; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-clock" style="color: #f59e0b; font-size: 24px;"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <h4 style="color: #f59e0b; margin: 0 0 5px 0; font-size: 16px;">⏳ Pending Activation</h4>
+                        <p style="color: #e0e0e0; margin: 0; font-size: 14px; line-height: 1.5;">
+                            Your transfer request has been submitted and is pending activation. 
+                            Please allow up to 24 hours for processing. 
+                            <strong style="color: #f59e0b; display: block; margin-top: 8px;">
+                                <i class="fas fa-headset"></i> Contact support if you need assistance
+                            </strong>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="warning" style="margin-top: 15px; background: rgba(239, 68, 68, 0.1); border-left-color: #ef4444;">
+                <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
+                <span style="color: #ef4444;">Transactions cannot be reversed. Please verify all details.</span>
             </div>
         </div>
     `;
@@ -859,7 +899,7 @@ function reviewTransfer() {
     modal.style.display = 'flex';
 }
 
-// ========== EXECUTE TRANSFER (PENDING FLOW) ==========
+// ========== UPDATED: EXECUTE TRANSFER ==========
 function executeTransfer(details) {
     console.log('💰 executeTransfer called with:', details);
     
@@ -882,7 +922,6 @@ function executeTransfer(details) {
             
             // Calculate gas fee
             const gasFee = 0.0012;
-            const totalDeduction = details.currency === 'eth' ? details.amount + gasFee : gasFee;
             
             console.log('📤 Sending transfer request to backend:', {
                 amount: details.amount,
@@ -890,11 +929,10 @@ function executeTransfer(details) {
                 recipient: details.recipient,
                 network: details.network,
                 note: details.note,
-                gasFee: gasFee,
-                totalDeduction: totalDeduction
+                gasFee: gasFee
             });
             
-            // Send to transfer request endpoint (not balance update)
+            // Send to transfer request endpoint
             const response = await fetch('/api/transfers/request', {
                 method: 'POST',
                 headers: {
@@ -922,7 +960,7 @@ function executeTransfer(details) {
                     amount: details.amount,
                     currency: details.currency.toUpperCase(),
                     recipient: details.recipient,
-                    status: 'pending', // IMPORTANT: Set to pending, not completed
+                    status: 'pending',
                     note: details.note || `Transfer to ${details.recipient.substring(0, 8)}...`,
                     createdAt: new Date().toISOString()
                 });
@@ -930,8 +968,12 @@ function executeTransfer(details) {
                 updateTransactionHistoryDisplay();
                 closeTransferModal();
                 
-                // Show pending message
-                alert('⏳ Transfer request submitted! It is now pending admin approval. You will be notified once processed.');
+                // Show pending message with support contact
+                showCustomNotification(
+                    '⏳ Transfer Pending Activation',
+                    'Your transfer request has been submitted and is pending activation. You will be notified once processed. For assistance, please contact support.',
+                    'pending'
+                );
                 
                 // Save to recent contacts
                 saveToRecentContacts(details.recipient);
@@ -939,8 +981,6 @@ function executeTransfer(details) {
                 // Clear the form
                 document.getElementById('transferAmount').value = '';
                 document.getElementById('recipientAddress').value = '';
-                
-                // DO NOT update balance here - wait for admin approval
                 
             } else {
                 throw new Error(data.error || 'Transfer request failed');
@@ -959,8 +999,120 @@ function executeTransfer(details) {
     }, 1500);
 }
 
+// ========== NEW: Custom Notification Function ==========
+function showCustomNotification(title, message, type = 'info') {
+    // Create notification container if it doesn't exist
+    let container = document.getElementById('customNotificationContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'customNotificationContainer';
+        container.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            max-width: 400px;
+        `;
+        document.body.appendChild(container);
+    }
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = 'custom-notification';
+    
+    // Set colors based on type
+    let colors = {
+        pending: {
+            bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+            icon: 'fa-clock'
+        },
+        success: {
+            bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            icon: 'fa-check-circle'
+        },
+        error: {
+            bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+            icon: 'fa-exclamation-circle'
+        },
+        info: {
+            bg: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+            icon: 'fa-info-circle'
+        }
+    };
+    
+    const color = colors[type] || colors.info;
+    
+    notification.style.cssText = `
+        background: ${color.bg};
+        color: white;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 15px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        animation: slideInNotification 0.3s ease;
+        display: flex;
+        gap: 15px;
+        align-items: flex-start;
+        border: 1px solid rgba(255,255,255,0.1);
+        backdrop-filter: blur(10px);
+    `;
+    
+    notification.innerHTML = `
+        <div style="font-size: 28px;">
+            <i class="fas ${color.icon}"></i>
+        </div>
+        <div style="flex: 1;">
+            <h4 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">${title}</h4>
+            <p style="margin: 0 0 15px 0; font-size: 14px; line-height: 1.6; opacity: 0.95;">${message}</p>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button onclick="this.closest('.custom-notification').remove()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s;">
+                    <i class="fas fa-times"></i> Dismiss
+                </button>
+                <button onclick="window.location.href='/support'" style="background: white; border: none; color: #333; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s;">
+                    <i class="fas fa-headset"></i> Contact Support
+                </button>
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(notification);
+    
+    // Auto-remove after 10 seconds (longer for pending)
+    setTimeout(() => {
+        notification.style.animation = 'slideOutNotification 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+    }, type === 'pending' ? 10000 : 5000);
+}
+
+// Add keyframe animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideInNotification {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOutNotification {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+`;
+document.head.appendChild(style);
+
 // ============================================
-// TRANSACTION HISTORY (SHOWS PENDING STATUS)
+// TRANSACTION HISTORY
 // ============================================
 
 async function loadTransactionHistory() {
@@ -1022,7 +1174,7 @@ async function loadTransactionHistory() {
                 recipient: t.recipient,
                 status: t.status || 'pending',
                 note: t.note || `Transfer to ${t.recipient?.substring(0, 8)}...`,
-                createdAt: t.createdAt
+                createdAt: t.requestedAt || t.createdAt
             }));
             
             // Replace local transfers with backend transfers
@@ -1160,3 +1312,4 @@ window.refreshHistory = refreshHistory;
 window.closeTransferModal = closeTransferModal;
 window.closeWithdrawalModal = closeWithdrawalModal;
 window.saveBankDetails = saveBankDetails;
+window.showCustomNotification = showCustomNotification;
