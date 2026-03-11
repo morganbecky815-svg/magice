@@ -1,4 +1,4 @@
-// transfer.js - Complete Transfer & Withdrawal with Live Database Integration
+// transfer.js - Complete Transfer & Withdrawal with Admin Approval Flow
 // Magic Eden - Transfer Page
 
 console.log('🚀 Transfer.js loaded successfully');
@@ -470,7 +470,7 @@ function updateWithdrawalSummary() {
     if (els.receive) els.receive.textContent = '$' + receiveAmount.toFixed(2);
 }
 
-// REVIEW WITHDRAWAL
+// ========== REVIEW WITHDRAWAL ==========
 function reviewWithdrawal() {
     console.log('🔍 reviewWithdrawal called');
     
@@ -539,7 +539,7 @@ function reviewWithdrawal() {
         </div>
     `;
     
-    // IMPORTANT: Set the onclick handler AFTER setting innerHTML
+    // Set the onclick handler
     confirmBtn.onclick = function() { 
         console.log('Confirm button clicked, executing withdrawal...');
         executeWithdrawal(amount, method, cryptoAmount, bankDetails); 
@@ -549,14 +549,20 @@ function reviewWithdrawal() {
     modal.style.display = 'flex';
 }
 
-// ========== SIMPLIFIED WITHDRAWAL - FOCUS ON CRYPTO TRANSFER FIRST ==========
+// ========== EXECUTE WITHDRAWAL (PENDING FLOW) ==========
 function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
-    console.log('💰 executeWithdrawal called');
+    console.log('💰 executeWithdrawal called with:', { amount, method, cryptoAmount, bankDetails });
     
     const confirmBtn = document.getElementById('confirmWithdrawalBtn');
     if (confirmBtn) {
         confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
         confirmBtn.disabled = true;
+    }
+    
+    if (cryptoAmount > transferData.balances.eth) {
+        alert('Insufficient ETH balance for withdrawal');
+        closeWithdrawalModal();
+        return;
     }
     
     setTimeout(async function() {
@@ -569,9 +575,83 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
                 return;
             }
             
-            // For now, just show a message that withdrawal will be implemented
-            alert('⏳ Withdrawal feature coming soon! Focus on crypto transfers first.');
-            closeWithdrawalModal();
+            // Format bank details for backend
+            const withdrawalData = {
+                amount: cryptoAmount,
+                usdAmount: amount,
+                bankDetails: {
+                    bankName: bankDetails.bankName,
+                    accountHolderName: bankDetails.accountHolderName,
+                    accountNumber: bankDetails.accountNumber,
+                    accountType: bankDetails.accountType,
+                    routingNumber: bankDetails.routingNumber || '',
+                    swiftCode: bankDetails.swiftCode || ''
+                }
+            };
+            
+            console.log('📤 Sending withdrawal request to /api/withdraw/request:', withdrawalData);
+            
+            const response = await fetch('/api/withdraw/request', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(withdrawalData)
+            });
+            
+            console.log('📥 Response status:', response.status);
+            
+            let data;
+            try {
+                data = await response.json();
+                console.log('📥 Withdrawal response:', data);
+            } catch (e) {
+                console.error('Failed to parse response:', e);
+                alert('Server returned an invalid response');
+                closeWithdrawalModal();
+                return;
+            }
+            
+            if (data.success) {
+                closeWithdrawalModal();
+                
+                // Add to local transactions with PENDING status
+                transferData.transactions.unshift({
+                    id: data.withdrawal?.id || Date.now(),
+                    type: 'withdrawal',
+                    amount: cryptoAmount,
+                    usdAmount: amount,
+                    currency: 'ETH',
+                    status: 'pending', // IMPORTANT: Set to pending
+                    note: `Withdrawal request to ${bankDetails.bankName}`,
+                    recipient: 'Bank Withdrawal',
+                    createdAt: new Date().toISOString(),
+                    bankDetails: {
+                        bankName: bankDetails.bankName,
+                        lastFour: bankDetails.accountNumber.slice(-4)
+                    }
+                });
+                
+                // Update the display
+                updateTransactionHistoryDisplay();
+                
+                // Show pending message
+                alert('⏳ Withdrawal request submitted! It is now pending admin approval. You will be notified once processed.');
+                
+                // Clear the form
+                document.getElementById('withdrawAmount').value = '';
+                
+                // Refresh transaction history from backend
+                await loadTransactionHistory();
+                
+            } else {
+                alert('❌ Error: ' + (data.error || 'Failed to submit withdrawal'));
+                if (confirmBtn) {
+                    confirmBtn.innerHTML = '<i class="fas fa-check-circle"></i> Confirm Withdrawal';
+                    confirmBtn.disabled = false;
+                }
+            }
             
         } catch(e) {
             console.error('Withdrawal error:', e);
@@ -587,7 +667,7 @@ function executeWithdrawal(amount, method, cryptoAmount, bankDetails) {
 }
 
 // ============================================
-// TRANSFER LOGIC (WORKING PERFECTLY)
+// TRANSFER LOGIC
 // ============================================
 
 function updateAvailableBalance() {
@@ -768,7 +848,10 @@ function reviewTransfer() {
                 <div class="detail-row"><span>Gas Fee</span><strong>${gasFeeEth.toFixed(4)} ETH ($${gasFeeUsd.toFixed(2)})</strong></div>
                 <div class="detail-row total"><span>Total Deduction</span><strong>${(amount + (currency === 'eth' ? gasFeeEth : 0)).toFixed(4)} ETH</strong></div>
             </div>
-            <div class="warning"><i class="fas fa-exclamation-triangle"></i><span>Transactions cannot be reversed. Please verify all details.</span></div>
+            <div class="info-note" style="margin-top: 20px; padding: 15px; background: #2a2a2a; border-radius: 8px; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-clock" style="color: #f59e0b; font-size: 20px;"></i>
+                <span style="color: #f59e0b;">Your transfer will be <strong>pending</strong> until approved by an admin. You will be notified once processed.</span>
+            </div>
         </div>
     `;
     
@@ -776,7 +859,7 @@ function reviewTransfer() {
     modal.style.display = 'flex';
 }
 
-// ========== FIXED: EXECUTE TRANSFER (WORKING PERFECTLY) ==========
+// ========== EXECUTE TRANSFER (PENDING FLOW) ==========
 function executeTransfer(details) {
     console.log('💰 executeTransfer called with:', details);
     
@@ -797,47 +880,34 @@ function executeTransfer(details) {
                 return;
             }
             
-            // Calculate new balances with proper rounding to avoid floating point errors
-            let newInternalBalance = transferData.balances.eth;
-            let newWethBalance = transferData.balances.weth;
+            // Calculate gas fee
+            const gasFee = 0.0012;
+            const totalDeduction = details.currency === 'eth' ? details.amount + gasFee : gasFee;
             
-            if (details.currency === 'eth') {
-                // Calculate total deduction (transfer amount + gas fee)
-                const transferAmount = details.amount;
-                const gasFee = 0.0012;
-                const totalDeduction = transferAmount + gasFee;
-                
-                // Ensure we don't go below 0 and round to 4 decimal places
-                newInternalBalance = Math.max(0, Math.round((transferData.balances.eth - totalDeduction) * 10000) / 10000);
-                
-                // Update local data immediately for UI
-                transferData.balances.eth = newInternalBalance;
-            } else {
-                // WETH transfer - only deduct WETH amount, gas fee from ETH
-                newWethBalance = Math.max(0, Math.round((transferData.balances.weth - details.amount) * 10000) / 10000);
-                
-                // Deduct gas fee from ETH balance
-                const newEthBalance = Math.max(0, Math.round((transferData.balances.eth - 0.0012) * 10000) / 10000);
-                transferData.balances.eth = newEthBalance;
-                newInternalBalance = newEthBalance;
-                transferData.balances.weth = newWethBalance;
-            }
-            
-            console.log('📤 Sending transfer to backend:', {
-                internalBalance: newInternalBalance,
-                wethBalance: newWethBalance
+            console.log('📤 Sending transfer request to backend:', {
+                amount: details.amount,
+                currency: details.currency,
+                recipient: details.recipient,
+                network: details.network,
+                note: details.note,
+                gasFee: gasFee,
+                totalDeduction: totalDeduction
             });
             
-            // ✅ Use the correct user endpoint
-            const response = await fetch('/api/user/me/balance', {
-                method: 'PUT',
+            // Send to transfer request endpoint (not balance update)
+            const response = await fetch('/api/transfers/request', {
+                method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ 
-                    internalBalance: newInternalBalance,
-                    wethBalance: newWethBalance
+                body: JSON.stringify({
+                    amount: details.amount,
+                    currency: details.currency,
+                    recipient: details.recipient,
+                    network: details.network,
+                    note: details.note,
+                    gasFee: gasFee
                 })
             });
             
@@ -845,22 +915,14 @@ function executeTransfer(details) {
             console.log('📥 Transfer response:', data);
             
             if (data.success) {
-                // Update localStorage with new user data
-                const updatedUser = {
-                    ...user,
-                    internalBalance: data.user.internalBalance,
-                    wethBalance: data.user.wethBalance
-                };
-                localStorage.setItem('user', JSON.stringify(updatedUser));
-                
-                // Add to local transactions for immediate display
+                // Add to local transactions with PENDING status
                 transferData.transactions.unshift({
-                    id: Date.now(),
+                    id: data.transfer?.id || Date.now(),
                     type: 'transfer',
                     amount: details.amount,
                     currency: details.currency.toUpperCase(),
                     recipient: details.recipient,
-                    status: 'completed',
+                    status: 'pending', // IMPORTANT: Set to pending, not completed
                     note: details.note || `Transfer to ${details.recipient.substring(0, 8)}...`,
                     createdAt: new Date().toISOString()
                 });
@@ -868,7 +930,8 @@ function executeTransfer(details) {
                 updateTransactionHistoryDisplay();
                 closeTransferModal();
                 
-                alert('✅ Transfer completed successfully! ' + details.amount.toFixed(4) + ' ' + details.currency.toUpperCase() + ' sent!');
+                // Show pending message
+                alert('⏳ Transfer request submitted! It is now pending admin approval. You will be notified once processed.');
                 
                 // Save to recent contacts
                 saveToRecentContacts(details.recipient);
@@ -877,11 +940,10 @@ function executeTransfer(details) {
                 document.getElementById('transferAmount').value = '';
                 document.getElementById('recipientAddress').value = '';
                 
-                // Refresh user data from backend
-                await fetchUserFromBackend();
+                // DO NOT update balance here - wait for admin approval
                 
             } else {
-                throw new Error(data.error || 'Transfer failed');
+                throw new Error(data.error || 'Transfer request failed');
             }
             
         } catch(e) {
@@ -898,7 +960,7 @@ function executeTransfer(details) {
 }
 
 // ============================================
-// TRANSACTION HISTORY
+// TRANSACTION HISTORY (SHOWS PENDING STATUS)
 // ============================================
 
 async function loadTransactionHistory() {
@@ -911,12 +973,72 @@ async function loadTransactionHistory() {
         const token = localStorage.getItem('token');
         if (!token) return;
         
-        // For now, just show transfers (withdrawals will be implemented later)
+        // Fetch withdrawals from backend
+        const withdrawResponse = await fetch('/api/withdraw/history', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const withdrawData = await withdrawResponse.json();
+        
+        // Fetch transfers from backend
+        const transferResponse = await fetch('/api/transfers/history', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const transferData_response = await transferResponse.json();
+        
+        // Process withdrawals
+        if (withdrawData.success && withdrawData.withdrawals) {
+            const backendWithdrawals = withdrawData.withdrawals.map(w => ({
+                id: w.id,
+                type: 'withdrawal',
+                amount: w.amount,
+                currency: 'ETH',
+                status: w.status || 'pending',
+                note: w.note || `Withdrawal to ${w.bankDetails?.bankName || 'bank'}`,
+                recipient: 'Bank Withdrawal',
+                createdAt: w.requestedAt || w.createdAt,
+                bankDetails: w.bankDetails
+            }));
+            
+            // Keep existing transfers and add backend withdrawals
+            const transfers = transferData.transactions.filter(t => t.type === 'transfer');
+            transferData.transactions = [...transfers, ...backendWithdrawals];
+        }
+        
+        // Process transfers
+        if (transferData_response.success && transferData_response.transfers) {
+            const backendTransfers = transferData_response.transfers.map(t => ({
+                id: t.id,
+                type: 'transfer',
+                amount: t.amount,
+                currency: t.currency || 'ETH',
+                recipient: t.recipient,
+                status: t.status || 'pending',
+                note: t.note || `Transfer to ${t.recipient?.substring(0, 8)}...`,
+                createdAt: t.createdAt
+            }));
+            
+            // Replace local transfers with backend transfers
+            const withdrawals = transferData.transactions.filter(t => t.type === 'withdrawal');
+            transferData.transactions = [...withdrawals, ...backendTransfers];
+        }
+        
+        // Sort by date (newest first)
+        transferData.transactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
         updateTransactionHistoryDisplay();
         
     } catch (error) {
         console.error('Error loading transaction history:', error);
-        historyContainer.innerHTML = `<div class="error">Failed to load transactions</div>`;
+        // Still show local transactions if backend fails
+        updateTransactionHistoryDisplay();
     }
 }
 
@@ -924,27 +1046,73 @@ function updateTransactionHistoryDisplay() {
     const historyContainer = document.getElementById('transactionHistory');
     if (!historyContainer) return;
     
-    // Filter to only show transfers for now
-    const transfers = transferData.transactions.filter(t => t.type === 'transfer');
+    if (transferData.transactions.length === 0) {
+        historyContainer.innerHTML = `<div class="empty-history"><i class="fas fa-history"></i><p>No transactions yet</p></div>`;
+        return;
+    }
     
-    if (transfers.length === 0) {
-        historyContainer.innerHTML = `<div class="empty-history"><i class="fas fa-history"></i><p>No transfers yet</p></div>`;
+    const typeFilter = document.getElementById('historyTypeFilter')?.value || 'all';
+    const currencyFilter = document.getElementById('historyCurrencyFilter')?.value || 'all';
+    
+    let filteredTransactions = transferData.transactions;
+    if (typeFilter !== 'all') filteredTransactions = filteredTransactions.filter(t => t.type === typeFilter);
+    if (currencyFilter !== 'all') filteredTransactions = filteredTransactions.filter(t => t.currency.toLowerCase() === currencyFilter.toLowerCase());
+    
+    if (filteredTransactions.length === 0) {
+        historyContainer.innerHTML = `<div class="empty-history"><i class="fas fa-filter"></i><p>No transactions match your filters</p></div>`;
         return;
     }
     
     let tableHTML = `<table><thead><tr><th>Type</th><th>Amount</th><th>Currency</th><th>Details</th><th>Date</th><th>Status</th></tr></thead><tbody>`;
     
-    transfers.forEach(tx => {
+    filteredTransactions.forEach(tx => {
         const date = new Date(tx.createdAt);
-        let details = tx.note || `To: ${tx.recipient.substring(0, 8)}...`;
+        let details = tx.note || 'Transaction';
+        
+        // Format details based on transaction type
+        if (tx.type === 'withdrawal') {
+            if (tx.bankDetails) {
+                details = `Withdrawal to ${tx.bankDetails.bankName || 'bank'}`;
+            } else {
+                details = tx.note || 'Bank withdrawal';
+            }
+        } else if (tx.type === 'transfer') {
+            if (tx.recipient) {
+                details = `To: ${tx.recipient.substring(0, 8)}...`;
+            }
+        }
+        
+        let icon = 'exchange-alt';
+        if (tx.type === 'transfer') icon = 'paper-plane';
+        if (tx.type === 'withdrawal') icon = 'university';
+        
+        // Ensure status is properly formatted
+        let status = tx.status || 'pending';
+        status = status.toLowerCase();
+        
+        let statusText = status.charAt(0).toUpperCase() + status.slice(1);
+        
+        // Set status color based on status
+        let statusColor = '';
+        let statusBg = '';
+        if (status === 'pending') {
+            statusColor = '#f59e0b';
+            statusBg = '#f59e0b20';
+        } else if (status === 'completed') {
+            statusColor = '#10b981';
+            statusBg = '#10b98120';
+        } else if (status === 'rejected' || status === 'cancelled') {
+            statusColor = '#ef4444';
+            statusBg = '#ef444420';
+        }
         
         tableHTML += `<tr>
-            <td><span class="transaction-type transfer"><i class="fas fa-paper-plane"></i> transfer</span></td>
-            <td>${tx.amount.toFixed(4)}</td>
+            <td><span class="transaction-type ${tx.type}"><i class="fas fa-${icon}"></i> ${tx.type}</span></td>
+            <td>${typeof tx.amount === 'number' ? tx.amount.toFixed(4) : tx.amount}</td>
             <td>${tx.currency}</td>
             <td title="${details}">${details.length > 25 ? details.substring(0, 25) + '...' : details}</td>
             <td><div>${date.toLocaleDateString()}</div><small>${date.toLocaleTimeString()}</small></td>
-            <td><span class="status-badge completed" style="color: #10b981; background: #10b98120; padding: 4px 8px; border-radius: 4px;">Completed</span></td>
+            <td><span class="status-badge ${status}" style="color: ${statusColor}; background: ${statusBg}; padding: 4px 8px; border-radius: 4px; font-weight: 500;">${statusText}</span></td>
         </tr>`;
     });
     
