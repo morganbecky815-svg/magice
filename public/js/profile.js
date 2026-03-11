@@ -77,6 +77,10 @@ async function checkAuthAndLoadProfile() {
         updateProfileHeader(user);
         updateProfileData(user);
         
+        // ========== NEW: Display verification badge ==========
+        displayVerificationBadge(user);
+        // ========== END NEW ==========
+        
         // Load default tab data
         await loadUserNFTs(user._id || user.id);
         await loadUserActivities(); // Updated to use new activity function
@@ -94,6 +98,203 @@ async function checkAuthAndLoadProfile() {
         window.location.href = '/login';
     }
 }
+
+// ========== NEW: Verification Badge Display Function ==========
+function displayVerificationBadge(user) {
+    // Find where to insert the badge - after the profile name
+    const profileNameElement = document.getElementById('profileName');
+    if (!profileNameElement) return;
+    
+    // Check if badge container already exists
+    let badgeContainer = document.getElementById('verificationBadgeContainer');
+    if (!badgeContainer) {
+        // Create badge container
+        badgeContainer = document.createElement('span');
+        badgeContainer.id = 'verificationBadgeContainer';
+        badgeContainer.style.marginLeft = '10px';
+        badgeContainer.style.display = 'inline-flex';
+        badgeContainer.style.alignItems = 'center';
+        
+        // Insert after profile name
+        profileNameElement.parentNode.insertBefore(badgeContainer, profileNameElement.nextSibling);
+    }
+    
+    // Check verification status from user object
+    if (user.isVerified) {
+        // Get badge details based on verificationBadge type
+        let badgeIcon = '✓';
+        let badgeColor = '#10b981';
+        let badgeText = 'Verified';
+        let badgeClass = 'verified';
+        
+        switch(user.verificationBadge) {
+            case 'premium':
+                badgeIcon = '⭐';
+                badgeColor = '#8a2be2';
+                badgeText = 'Premium Verified';
+                badgeClass = 'premium';
+                break;
+            case 'business':
+                badgeIcon = '💼';
+                badgeColor = '#3b82f6';
+                badgeText = 'Business Verified';
+                badgeClass = 'business';
+                break;
+            default:
+                badgeIcon = '✓';
+                badgeColor = '#10b981';
+                badgeText = 'Verified';
+                badgeClass = 'verified';
+        }
+        
+        // Create verified badge
+        badgeContainer.innerHTML = `
+            <span style="
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 4px 12px;
+                border-radius: 30px;
+                font-size: 13px;
+                font-weight: 600;
+                background: ${badgeColor}15;
+                color: ${badgeColor};
+                border: 1px solid ${badgeColor}30;
+                cursor: help;
+                transition: all 0.2s;
+            " title="This account is verified">
+                <i class="fas fa-check-circle" style="font-size: 14px;"></i>
+                ${badgeIcon} ${badgeText}
+            </span>
+        `;
+        
+        // Also add verified date to stats if available
+        if (user.verifiedAt) {
+            const statsContainer = document.querySelector('.profile-stats');
+            if (statsContainer) {
+                // Check if verified date already exists
+                let verifiedStat = document.getElementById('verifiedStat');
+                if (!verifiedStat) {
+                    verifiedStat = document.createElement('span');
+                    verifiedStat.id = 'verifiedStat';
+                    verifiedStat.className = 'stat';
+                    verifiedStat.style.color = badgeColor;
+                    statsContainer.appendChild(verifiedStat);
+                }
+                
+                const verifiedDate = new Date(user.verifiedAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+                
+                verifiedStat.innerHTML = `
+                    <i class="fas fa-check-circle"></i> 
+                    Verified ${verifiedDate}
+                `;
+            }
+        }
+        
+        // Update settings tab verification status if visible
+        updateSettingsVerificationStatus(user, true, badgeColor, badgeText);
+        
+    } else {
+        // Show pending badge
+        badgeContainer.innerHTML = `
+            <span style="
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 4px 12px;
+                border-radius: 30px;
+                font-size: 13px;
+                font-weight: 600;
+                background: #f59e0b15;
+                color: #f59e0b;
+                border: 1px solid #f59e0b30;
+                cursor: help;
+            " title="This account is pending verification">
+                <i class="fas fa-clock" style="font-size: 14px;"></i>
+                🔒 Pending Verification
+            </span>
+        `;
+        
+        // Update settings tab verification status
+        updateSettingsVerificationStatus(user, false, '#f59e0b', 'Pending Verification');
+    }
+}
+
+// ========== NEW: Update Settings Tab with Verification Status ==========
+function updateSettingsVerificationStatus(user, isVerified, color, statusText) {
+    // Check if settings tab exists and is active
+    const settingsTab = document.getElementById('settingsTab');
+    if (!settingsTab) return;
+    
+    // Check if verification status section already exists
+    let verificationSection = document.getElementById('settingsVerificationStatus');
+    
+    if (!verificationSection) {
+        // Create verification section at the top of settings
+        const settingsForm = document.querySelector('.settings-form');
+        if (settingsForm) {
+            verificationSection = document.createElement('div');
+            verificationSection.id = 'settingsVerificationStatus';
+            verificationSection.style.marginBottom = '30px';
+            verificationSection.style.padding = '20px';
+            verificationSection.style.background = '#1a1a1a';
+            verificationSection.style.borderRadius = '12px';
+            
+            // Insert at the beginning of settings form
+            settingsForm.parentNode.insertBefore(verificationSection, settingsForm);
+        }
+    }
+    
+    if (verificationSection) {
+        if (isVerified) {
+            const badgeIcon = user.verificationBadge === 'premium' ? '⭐' : 
+                              user.verificationBadge === 'business' ? '💼' : '✓';
+            
+            verificationSection.innerHTML = `
+                <h3 style="margin-bottom: 15px; color: white; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-shield-alt" style="color: ${color};"></i> 
+                    Account Verification Status
+                </h3>
+                <div style="display: flex; align-items: center; gap: 15px; padding: 15px; background: ${color}10; border-radius: 8px; border: 1px solid ${color}30;">
+                    <div style="background: ${color}20; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-check-circle" style="color: ${color}; font-size: 24px;"></i>
+                    </div>
+                    <div>
+                        <h4 style="color: ${color}; margin: 0 0 5px 0;">Account Verified</h4>
+                        <p style="color: #e0e0e0; margin: 0; font-size: 14px;">
+                            Your account is verified with the <strong>${statusText}</strong> badge ${badgeIcon}.
+                            ${user.verifiedAt ? `Verified on ${new Date(user.verifiedAt).toLocaleDateString()}` : ''}
+                        </p>
+                    </div>
+                </div>
+            `;
+        } else {
+            verificationSection.innerHTML = `
+                <h3 style="margin-bottom: 15px; color: white; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-shield-alt" style="color: ${color};"></i> 
+                    Account Verification Status
+                </h3>
+                <div style="display: flex; align-items: center; gap: 15px; padding: 15px; background: ${color}10; border-radius: 8px; border: 1px solid ${color}30;">
+                    <div style="background: ${color}20; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-clock" style="color: ${color}; font-size: 24px;"></i>
+                    </div>
+                    <div>
+                        <h4 style="color: ${color}; margin: 0 0 5px 0;">Account Pending Verification</h4>
+                        <p style="color: #e0e0e0; margin: 0; font-size: 14px;">
+                            Your account is pending verification. Some features may be limited until your account is verified.
+                            ${user.verificationBadge ? `Badge type: ${user.verificationBadge}` : ''}
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+    }
+}
+// ========== END NEW ==========
 
 // ========== UPDATE PROFILE HEADER ==========
 
@@ -197,6 +398,14 @@ function showProfileTab(tabName, event) {
             break;
         case 'settings':
             loadUserSettingsFromLocalStorage();
+            // Refresh verification status when settings tab is shown
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                try {
+                    const user = JSON.parse(userStr);
+                    displayVerificationBadge(user);
+                } catch (e) {}
+            }
             break;
     }
 }
@@ -1491,6 +1700,11 @@ function loadUserSettingsFromLocalStorage() {
         try {
             const user = JSON.parse(userStr);
             loadUserSettings(user);
+            
+            // ========== NEW: Refresh verification badge when settings tab loads ==========
+            displayVerificationBadge(user);
+            // ========== END NEW ==========
+            
         } catch (error) {
             console.error('Error parsing user:', error);
         }
@@ -1536,6 +1750,10 @@ async function saveProfile() {
                     localStorage.setItem('user', JSON.stringify(user));
                     updateProfileHeader(user);
                     updateProfileData(user);
+                    
+                    // ========== NEW: Refresh verification badge after profile update ==========
+                    displayVerificationBadge(user);
+                    // ========== END NEW ==========
                 }
             } else {
                 alert('❌ Failed to update profile');
