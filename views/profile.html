@@ -102,6 +102,212 @@
             }
         }
         /* ========== END Verification Badge Styles ========== */
+        
+        /* ========== Modal Styles ========== */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 25px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 1px solid #333;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            color: white;
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .close {
+            color: #888;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: white;
+        }
+
+        .wallet-connect-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .wallet-option {
+            background: #2a2a2a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .wallet-option:hover {
+            background: #333;
+            border-color: #8a2be2;
+        }
+
+        .wallet-option span {
+            color: white;
+            font-weight: 500;
+        }
+
+        .wallet-status {
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .wallet-status.success {
+            background: #10b98120;
+            border: 1px solid #10b98140;
+            color: #10b981;
+        }
+
+        .wallet-status.error {
+            background: #f4433620;
+            border: 1px solid #f4433640;
+            color: #f44336;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #2a2a2a;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #8a2be2, #4a90e2);
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #888;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .nft-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .found-nft-item {
+            background: #2a2a2a;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .found-nft-item:hover {
+            transform: translateY(-2px);
+            border-color: #8a2be2;
+        }
+
+        .found-nft-item.selected {
+            border-color: #8a2be2;
+            background: #8a2be220;
+        }
+
+        .found-nft-image {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+
+        .found-nft-name {
+            font-size: 12px;
+            color: white;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #e0e0e0;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            background: #2a2a2a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #8a2be2;
+        }
+        
+        .marketplace-selector {
+            margin: 15px 0;
+        }
+        
+        .marketplace-selector select {
+            width: 100%;
+            padding: 10px;
+            background: #2a2a2a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: white;
+            margin-top: 5px;
+        }
+        /* ========== END Modal Styles ========== */
     </style>
 </head>
 <body>
@@ -375,29 +581,160 @@
         </div>
     </footer>
 
-    <!-- Import Modals (keep existing) -->
+    <!-- Import Modals with complete content -->
     <div id="walletImportModal" class="modal">
-        <!-- ... existing modal content ... -->
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-wallet"></i> Import from Wallet</h2>
+                <span class="close" onclick="closeModal('walletImportModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="wallet-connect-options">
+                    <button class="wallet-option" onclick="connectMetaMask()">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" alt="MetaMask" style="width: 32px; height: 32px;">
+                        <span>MetaMask</span>
+                    </button>
+                    <button class="wallet-option" onclick="connectWalletConnect()">
+                        <i class="fas fa-link" style="font-size: 32px; color: #3b99fc;"></i>
+                        <span>WalletConnect</span>
+                    </button>
+                </div>
+                
+                <div id="walletStatus" class="wallet-status"></div>
+                
+                <div id="importProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+                    </div>
+                    <p class="progress-text" id="progressText">Scanning wallet...</p>
+                </div>
+                
+                <div id="foundNFTs" style="display: none;">
+                    <h3>Found NFTs</h3>
+                    <div class="nft-grid" id="foundNFTsGrid"></div>
+                    <button class="btn btn-primary" onclick="importSelectedNFTs()" style="width: 100%; margin-top: 20px;">
+                        <i class="fas fa-download"></i> Import Selected
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div id="marketplaceImportModal" class="modal">
-        <!-- ... existing modal content ... -->
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-store"></i> Import from Marketplace</h2>
+                <span class="close" onclick="closeModal('marketplaceImportModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="marketplaceWallet">Wallet Address:</label>
+                    <input type="text" id="marketplaceWallet" placeholder="Enter wallet address (0x...)" class="form-control">
+                </div>
+                
+                <div class="marketplace-selector">
+                    <label>Marketplace:</label>
+                    <select id="marketplaceSelect">
+                        <option value="opensea">OpenSea</option>
+                        <option value="blur">Blur</option>
+                        <option value="looksrare">LooksRare</option>
+                        <option value="rarible">Rarible</option>
+                    </select>
+                </div>
+                
+                <button class="btn btn-primary" onclick="fetchFromMarketplaces()" style="width: 100%; margin: 15px 0;">
+                    <i class="fas fa-search"></i> Fetch NFTs
+                </button>
+                
+                <div id="marketplaceResults" style="display: none;">
+                    <h3>Found NFTs:</h3>
+                    <div id="marketplaceNFTsGrid" class="nft-grid"></div>
+                    <button class="btn btn-primary" onclick="importMarketplaceNFTs()" style="width: 100%; margin-top: 20px;">
+                        <i class="fas fa-download"></i> Import Selected
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div id="manualImportModal" class="modal">
-        <!-- ... existing modal content ... -->
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-plus-circle"></i> Manual Import</h2>
+                <span class="close" onclick="closeModal('manualImportModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="manualContract">Contract Address:</label>
+                    <input type="text" id="manualContract" placeholder="0x..." class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label for="manualTokenId">Token ID:</label>
+                    <input type="text" id="manualTokenId" placeholder="1234" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label for="manualName">Name (Optional):</label>
+                    <input type="text" id="manualName" placeholder="NFT Name" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label for="manualImage">Image URL (Optional):</label>
+                    <input type="text" id="manualImage" placeholder="https://..." class="form-control">
+                </div>
+                
+                <button class="btn btn-primary" onclick="importManualNFT()" style="width: 100%; margin-top: 20px;">
+                    <i class="fas fa-download"></i> Import NFT
+                </button>
+            </div>
+        </div>
     </div>
 
     <div id="importedNFTModal" class="modal">
-        <!-- ... existing modal content ... -->
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalNFTName">NFT Details</h2>
+                <span class="close" onclick="closeModal('importedNFTModal')">&times;</span>
+            </div>
+            <div class="modal-body" id="nftModalContent">
+                <!-- Content will be populated by JavaScript -->
+            </div>
+        </div>
     </div>
 
     <div id="sellImportedNFTModal" class="modal">
-        <!-- ... existing modal content ... -->
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-tag"></i> List NFT for Sale</h2>
+                <span class="close" onclick="closeModal('sellImportedNFTModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Enter price in WETH for <strong id="sellNFTName"></strong></p>
+                <input type="number" id="sellNFTPrice" step="0.001" min="0.001" placeholder="0.5" class="form-control">
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="confirmSell()" style="flex: 1;">List for Sale</button>
+                    <button class="btn" onclick="closeModal('sellImportedNFTModal')" style="flex: 1;">Cancel</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div id="addFundsModal" class="modal">
-        <!-- ... existing modal content ... -->
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-coins"></i> Add Funds</h2>
+                <span class="close" onclick="closeModal('addFundsModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Enter amount to add to your wallet:</p>
+                <input type="number" id="addFundsAmount" step="0.1" min="0.1" placeholder="10" class="form-control">
+                <p style="font-size: 12px; color: #888; margin-top: 5px;">Minimum: 0.1 WETH</p>
+                <button class="btn btn-primary" onclick="processAddFunds()" style="width: 100%; margin-top: 20px;">
+                    <i class="fas fa-arrow-up"></i> Add Funds
+                </button>
+            </div>
+        </div>
     </div>
 
     <script src="/js/db.js"></script> 
@@ -558,6 +895,27 @@
                 }
             }, 500);
         });
+        
+        // Additional function for selling
+        function confirmSell() {
+            const price = document.getElementById('sellNFTPrice').value;
+            if (!price || price <= 0) {
+                alert('Please enter a valid price');
+                return;
+            }
+            // This will be handled by the showSellModal function in profile.js
+            closeModal('sellImportedNFTModal');
+        }
+        
+        // Function for adding funds
+        function processAddFunds() {
+            const amount = document.getElementById('addFundsAmount').value;
+            if (!amount || amount < 0.1) {
+                alert('Please enter a valid amount (minimum 0.1 WETH)');
+                return;
+            }
+            window.location.href = `/add-eth?amount=${amount}`;
+        }
     </script>
     <!-- ========== END Verification Badge JavaScript ========== -->
     
